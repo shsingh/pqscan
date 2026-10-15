@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
+	"github.com/shsingh/pqscan/internal/diag"
 )
 
 // quicFixture spins a local QUIC v1 listener (ALPN h3, self-signed cert,
@@ -137,5 +138,32 @@ func TestIntegrationQuicCloudflareHybrid(t *testing.T) {
 	}
 	if r.Group != 4588 {
 		t.Fatalf("negotiated group = %d, want 4588", r.Group)
+	}
+}
+
+// TestQuicEmitsDiagnostics: the QUIC probe emits the same decision events
+// the TCP ladder does — the debug record covers both planes (PQ-13, the
+// PQ-11 acceptance leftover).
+func TestQuicEmitsDiagnostics(t *testing.T) {
+	sink, _ := diag.NewSink(nil, 0)
+	diag.SetDefault(sink)
+	defer diag.SetDefault(nil)
+
+	addr := quicFixture(t, []tls.CurveID{tls.X25519MLKEM768, tls.X25519})
+	if _, err := ProbeQUIC(addr, "pqscan.fixture", []uint32{4588}, 3*time.Second); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	rep, err := sink.Report()
+	if err != nil {
+		t.Fatalf("report: %v", err)
+	}
+	found := false
+	for _, e := range rep.Events {
+		if e.Domain == diag.DomQuic && e.Fields["negotiated"] == "4588" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no quic diagnostics carrying negotiated=4588; events=%d", rep.Summary.Events)
 	}
 }
