@@ -39,8 +39,10 @@ func (f Format) String() string {
 }
 
 // csvHeader is the fixed CSV column list: the header row precedes the
-// first record's row and is emitted once per stream.
-const csvHeader = "target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,error,ts"
+// first record's row and is emitted once per stream. The cert/pq blocks
+// (PQ-21/PQ-19) mirror the JSONL's block order (handshake, quic, cert,
+// pq, error); a nil block leaves its cells empty.
+const csvHeader = "target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts"
 
 // Encoder writes records in one format to an injected stream. Not safe
 // for concurrent use: the streaming stage feeds it from its own goroutine.
@@ -170,9 +172,13 @@ var jsonSafeByte = func() [utf8.RuneSelf]bool {
 
 // AppendRecordJSON appends the schema-1 record object: the JSONL line
 // body (byte-pinned by the tests/goldens files — -json and -jsonl emit
-// these same bytes) and the exact field set the rc-1 encode surface
-// shipped: schema, mode, target, handshake (every omitempty corner), the
-// quic block, error. The WAL composes this same body into its entries.
+// these same bytes) and the exact field set the encode surface carries:
+// schema, mode, target, handshake (every omitempty corner), the quic
+// block, the cert (PQ-21) and pq (PQ-19) blocks — spec §5.7's block
+// order, both omitempty at the block level (a probe that failed before
+// the step presents no block) with every inner field encoded
+// unconditionally once a block is present — and error. The WAL composes
+// this same body into its entries.
 func AppendRecordJSON(dst []byte, r *Record) []byte {
 	dst = append(dst, `{"schema":`...)
 	dst = strconv.AppendInt(dst, int64(r.Schema), 10)
@@ -237,6 +243,30 @@ func AppendRecordJSON(dst []byte, r *Record) []byte {
 		}
 		dst = append(dst, '}')
 	}
+	if c := r.Cert; c != nil {
+		dst = append(dst, `,"cert":{"sig_alg":`...)
+		dst = AppendJSONString(dst, c.SigAlg)
+		dst = append(dst, `,"sig_pq":`...)
+		dst = strconv.AppendBool(dst, c.SigPQ)
+		dst = append(dst, `,"key_alg":`...)
+		dst = AppendJSONString(dst, c.KeyAlg)
+		dst = append(dst, `,"key_pq":`...)
+		dst = strconv.AppendBool(dst, c.KeyPQ)
+		dst = append(dst, `,"dual":`...)
+		dst = strconv.AppendBool(dst, c.Dual)
+		dst = append(dst, '}')
+	}
+	if p := r.Pq; p != nil {
+		dst = append(dst, `,"pq":{"score":`...)
+		dst = strconv.AppendInt(dst, int64(p.Score), 10)
+		dst = append(dst, `,"label":`...)
+		dst = AppendJSONString(dst, p.Label)
+		dst = append(dst, `,"hndl":`...)
+		dst = strconv.AppendBool(dst, p.HNDL)
+		dst = append(dst, `,"summary":`...)
+		dst = AppendJSONString(dst, p.Summary)
+		dst = append(dst, '}')
+	}
 	dst = append(dst, `,"error":`...)
 	dst = AppendJSONString(dst, r.Error)
 	return append(dst, '}')
@@ -282,7 +312,10 @@ func appendTextLine(dst []byte, r *Record) []byte {
 // port, ptr, sni, negotiated (codepoint; empty when nothing negotiated),
 // group_name, group_class, suite, version, alpn, the quic block (state +
 // group + udp_blocked; the three cells empty when the plane never
-// probed), error, ts — RFC 4180 quoting for any cell that needs it.
+// probed), the cert block (PQ-21: sig alg + flag, key alg + flag, dual;
+// empty when no certificate was analyzed) and the pq verdict block
+// (PQ-19: score, label, hndl, summary; empty when the rubric never ran),
+// error, ts — RFC 4180 quoting for any cell that needs it.
 func appendCSVRecord(dst []byte, r *Record) []byte {
 	dst = appendCSVField(dst, r.Target.Input)
 	dst = append(dst, ',')
@@ -310,6 +343,34 @@ func appendCSVRecord(dst []byte, r *Record) []byte {
 		dst = strconv.AppendBool(dst, q.UDPBlocked)
 	} else {
 		dst = append(dst, ",,"...)
+	}
+	// The cert (5 cells) then pq (4 cells) blocks, mirrored from the
+	// JSONL's block order; nil blocks leave their cells empty.
+	dst = append(dst, ',')
+	if c := r.Cert; c != nil {
+		dst = appendCSVField(dst, c.SigAlg)
+		dst = append(dst, ',')
+		dst = strconv.AppendBool(dst, c.SigPQ)
+		dst = append(dst, ',')
+		dst = appendCSVField(dst, c.KeyAlg)
+		dst = append(dst, ',')
+		dst = strconv.AppendBool(dst, c.KeyPQ)
+		dst = append(dst, ',')
+		dst = strconv.AppendBool(dst, c.Dual)
+	} else {
+		dst = append(dst, ",,,,"...)
+	}
+	dst = append(dst, ',')
+	if p := r.Pq; p != nil {
+		dst = strconv.AppendInt(dst, int64(p.Score), 10)
+		dst = append(dst, ',')
+		dst = appendCSVField(dst, p.Label)
+		dst = append(dst, ',')
+		dst = strconv.AppendBool(dst, p.HNDL)
+		dst = append(dst, ',')
+		dst = appendCSVField(dst, p.Summary)
+	} else {
+		dst = append(dst, ",,,"...)
 	}
 	dst = append(dst, ',')
 	dst = appendCSVField(dst, r.Error)

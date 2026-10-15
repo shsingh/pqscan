@@ -159,11 +159,58 @@ func scanTarget(t grammar.Target, opts Options) *scanRecord {
 		Version:    versionName(res.Version),
 		ALPNNeg:    res.ALPN,
 	}
-	if cls, ok := classify.GroupClass(res.Negotiated); ok {
+	cls, clsOK := classify.GroupClass(res.Negotiated)
+	if clsOK {
 		rec.Handshake.GroupClass = string(cls)
 	}
 	diag.Emit(diag.Info, diag.DomTLS, "scan", t.Host, "TCP handshake negotiated", nil,
 		map[string]string{"negotiated": u32str(res.Negotiated), "suite": res.Suite, "group_class": rec.Handshake.GroupClass})
+
+	// PQ-19/PQ-21 record wire-in: map the observed facts onto the rubric's
+	// ScoreInput and score the record with the REAL rubric (rubric_test's
+	// verdict table is the same DefaultRubric). Derived facts of the fast
+	// mode: OfferedPQ — the browser-grade default offer set (nil groups)
+	// opens with the standards-track PQ hybrids, so PQ was offered;
+	// AcceptsDraft — the negotiated class being a draft class is the
+	// accepted fact; ClassicalPreferred — a classical group was negotiated
+	// while PQ was offered; CertPQ/DualCert — the PQ-21 analysis of the
+	// chain this same handshake delivered. The rubric's scan-error
+	// behavior is the record's error path (a failed probe never reaches
+	// the rubric: score 0 stays the zero value and no verdict block is
+	// invented — the Error field is that record's verdict path).
+	// rubricNegotiatedClass collapses the two facts into the rubric's
+	// compact token. The ScoreInput contract (PQ-19) defines the compact
+	// tokens: "pq", "pq_hybrid", "classic", "draft", "unknown".
+	token := rubricNegotiatedClass(cls, clsOK)
+	// OfferedPQ: the fast mode's browser-grade default offer set (nil
+	// groups) opens with the standards-track PQ hybrids — every probe
+	// negotiated here was offered PQ.
+	offeredPQ := true
+	in := classify.ScoreInput{
+		NegotiatedClass:    token,
+		OfferedPQ:          offeredPQ,
+		AcceptsDraft:       token == "draft",
+		ClassicalPreferred: token == "classic" && offeredPQ,
+		CertPQ:             res.CertificatePQ,
+		DualCert:           res.CertificateInfo != nil && res.CertificateInfo.DualCert,
+	}
+	verdict, serr := classify.DefaultRubric().Score(in)
+	rec.Pq = &out.PqRecord{Score: verdict.Score, Label: verdict.Label, HNDL: verdict.HNDL, Summary: verdict.Summary}
+	if info := res.CertificateInfo; info != nil {
+		// The cert block carries the leaf's classified algorithm names
+		// and flags verbatim; presence = analyzed (a classical leaf is
+		// a classical row, not the absence of a row).
+		rec.Cert = &out.CertRecord{SigAlg: info.SigAlgName, SigPQ: info.SigAlgPQ,
+			KeyAlg: info.KeyAlg, KeyPQ: info.KeyAlgPQ, Dual: info.DualCert}
+	}
+	fields := map[string]string{"score": strconv.Itoa(verdict.Score), "label": verdict.Label}
+	if serr != nil {
+		rec.Error = serr.Error()
+		diag.Emit(diag.Warn, diag.DomEngine, "scan", t.Host, "readiness verdict is a scan-error", serr, fields)
+	} else {
+		fields["hndl"] = strconv.FormatBool(verdict.HNDL)
+		diag.Emit(diag.Info, diag.DomEngine, "scan", t.Host, "readiness verdict", nil, fields)
+	}
 
 	// QUIC plane: hostname targets only (IP targets need SNI-less QUIC, M4).
 	if !opts.QuicOff && t.Class != "ip" {
@@ -182,6 +229,33 @@ func scanTarget(t grammar.Target, opts Options) *scanRecord {
 		rec.Quic = &quicRecord{Attempted: false}
 	}
 	return rec
+}
+
+// rubricNegotiatedClass maps the IANA taxonomy class (classify.Class)
+// onto the rubric's compact negotiated-class token (PQ-19's ScoreInput
+// contract: pq / pq_hybrid / classic / draft / unknown): pq_pure → pq;
+// pq_hybrid and the SM-era hybrids → pq_hybrid (a negotiated PQ hybrid
+// whatever the standard's origin); the pre-standards Kyber hybrids →
+// draft (the HNDL-observable class); the classical families — RSA-kex
+// era included — → classic; an unrecognised codepoint → unknown (itself
+// a valid rubric token: zero PQ signal, so the verdict becomes the
+// scan-error state — never an invented PQ claim for unknown facts).
+func rubricNegotiatedClass(c classify.Class, known bool) string {
+	if !known {
+		return "unknown"
+	}
+	switch c {
+	case classify.ClassPQ:
+		return "pq"
+	case classify.ClassPQHybrid, classify.ClassHybridSM:
+		return "pq_hybrid"
+	case classify.ClassPQHybridD:
+		return "draft"
+	case classify.ClassClassic, classify.ClassObsolete:
+		return "classic"
+	default:
+		return "unknown"
+	}
 }
 
 // composeTargets parses the composed target sources (-u spec, -l file lines,
