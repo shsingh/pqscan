@@ -1,0 +1,43 @@
+# Artifact attestations: SLSA build provenance for every artifact the
+# CI produces (ADR-0003). Intermediate per-push builds are attested so the
+# verification workflow exists before release; M5's goreleaser wires the
+# same action into the release job. Verify locally with:
+#   gh attestation verify <artifact> -R shsingh/pqscan
+name: attest
+on:
+  push:
+    branches: [main]
+    paths: ["**.go", "go.mod"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  attest:
+    name: build + SLSA provenance
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: Build pqscan (intermediate artifact)
+        run: |
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags="-s -w -X main.version=${GITHUB_SHA::7}" \
+            -o pqscan-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/pqscan
+      - name: Attest build provenance (SLSA)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}

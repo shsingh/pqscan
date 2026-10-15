@@ -2,7 +2,7 @@
 
 Design source: [`docs/spec.md#6-chaining-reference-implementations`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations) — runnable verbatim; `pqscan` treats upstream output as input lines and needs no flag unless a format requires disambiguation.
 
-```mermaid
+```{mermaid}
 flowchart LR
   subgraph DISC["Discovery layer - compose, not rebuild"]
     S[subfinder - domains]

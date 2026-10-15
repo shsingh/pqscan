@@ -1,0 +1,64 @@
+# Governance
+
+pqscan ships under the
+[MIT licence](https://github.com/shsingh/pqscan/blob/main/LICENSE).
+This page is the governance map: decision records, signing identity,
+supply-chain posture, and the verification commands.
+
+## Architecture Decision Records
+
+Structured decisions live in the repository:
+[`docs/adr/`](https://github.com/shsingh/pqscan/tree/main/docs/adr) — accepted
+records are immutable, superseded only by newer ones.
+
+| Record | Decision | Status |
+|---|---|---|
+| [ADR-0001](https://github.com/shsingh/pqscan/blob/main/docs/adr/0001-adopt-go-over-rust.md) | Adopt Go (crypto/tls + uTLS + quic-go) over Rust; measured re-validation at the M0 gate | accepted |
+| [ADR-0002](https://github.com/shsingh/pqscan/blob/main/docs/adr/0002-watched-red-merge-gate.md) | Watched RED: test-first as the merge gate; evidence verbatim in PR bodies + issue comments | accepted |
+| [ADR-0003](https://github.com/shsingh/pqscan/blob/main/docs/adr/0003-slsa-provenance-attestations.md) | SLSA provenance for every artifact via GitHub Artifact Attestations; unsigned release binaries are release-blockers | accepted |
+
+## Commit signing
+
+Every commit and tag is GPG-signed;
+[key `9CB1781DC2BB28D37A0155DCAAF8226F3F4C1712`](https://github.com/shsingh.gpg)
+(`shain.singh@owasp.org`, GitHub-verified). The
+[`protect-default` ruleset](https://github.com/shsingh/pqscan/rules/25139149)
+enforces `required_signatures` — unsigned commits block the PR — plus
+PR-only merges with code-owner review and required CI checks
+(`build`, `test`, dependency review, PR title gate, site-check).
+
+## Supply chain: SLSA provenance and attestation
+
+Every artifact the CI produces carries **SLSA build provenance** generated
+keylessly in-job by [GitHub Artifact Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds)
+([ADR-0003](https://github.com/shsingh/pqscan/blob/main/docs/adr/0003-slsa-provenance-attestations.md)):
+Sigstore-signed, bound to this repository's OID issuer, published to the
+public attestation log.
+
+Verify any artifact before running it:
+
+```bash
+gh attestation verify pqscan-linux-amd64 -R shsingh/pqscan
+```
+
+The verification contract: the artifact's digest must match a provenance
+record whose repository and workflow identity resolve to
+`shsingh/pqscan`; anything unsigned or unprovable is not distributed.
+
+## Automated posture
+
+| Control | Status |
+|---|---|
+| Secret scanning + push protection | enabled (repo settings) |
+| Dependabot security updates + alerts | enabled |
+| Dependency Review on every PR | active (`dependency-review.yml`) |
+| OpenSSF Scorecard (SARIF + public results) | weekly (`scorecards.yml`) |
+| Artifact attestations (SLSA provenance) | on every push to `main` touching Go sources (`attest.yml`) |
+| Branch ruleset (signatures, PR-only, checks) | active (`protect-default`) |
+
+## Contributor surfaces
+
+- [`AGENTS.md`](https://github.com/shsingh/pqscan/blob/main/AGENTS.md) — contributors + coding agents (conventions AND the run/execute runbook).
+- [`CONTRIBUTING.md`](https://github.com/shsingh/pqscan/blob/main/CONTRIBUTING.md) — the working agreement (Conventional Commits, one logical change per PR).
+- [`SECURITY.md`](https://github.com/shsingh/pqscan/blob/main/SECURITY.md) — vulnerability reporting policy.
+- [`CODE_OF_CONDUCT.md`](https://github.com/shsingh/pqscan/blob/main/CODE_OF_CONDUCT.md) — community contract.

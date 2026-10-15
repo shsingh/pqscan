@@ -1,0 +1,7 @@
+---
+title: "Security"
+---
+
+# Security
+
+{{< include ../SECURITY.md >}}
