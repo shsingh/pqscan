@@ -37,25 +37,35 @@ subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 
 ```bash
 subfinder -d example.com -silent \
-  | httpx -silent -ports 443,8443 -p 443,8443 -no-color \
-  | pqscan -mode deep -jsonl -o deep.jsonl
+  | httpx -silent -no-color \
+  | pqscan -jsonl -o assets.jsonl
 ```
 
-(httpx text-mode lines parse unflagged; `-from-httpx` exists for httpx `-csv` output whose lines start with url,status.)
+(httpx emits `host:port` lines that parse unflagged; the `-from-httpx`
+adapter for httpx `-csv` output — `url,status` lines — is landing with
+[PQ-35](https://github.com/shsingh/pqscan/issues/80)'s flag wiring.)
 
 ## Port truth first
 
 ```bash
-naabu -l domains.txt -p 443,8443,465,993 -silent \
-  | pqscan -from-naabu -mode fast -jsonl
+naabu -host -p 443,8443,465,993 -silent -iL domains.txt \
+  | pqscan -jsonl
 ```
+
+(naabu's `host:port` lines parse unflagged; `-from-naabu` covers its
+bare-host + ports-block output once the wiring lands.)
 
 ## Internet scale (one shard of a four-box pass)
 
 ```bash
 masscan -p 443 -iL cidrs.txt --rate=100000 --open-only -oX - \
-  | pqscan -shard 1/4 -mode fast -ptr -rate 20000 -jsonl -o shard1.jsonl
+  | pqscan -jsonl -o shard1.jsonl
 ```
+
+(per box: split `cidrs.txt` operator-side today — `-shard 1/4`, `-ptr`
+and `-rate 20000` land with the
+[PQ-24](https://github.com/shsingh/pqscan/pull/90) and congestion lanes;
+the deterministic shard core is already merged.)
 
 ## Estate PQ calendar job (who is not PQ-ready)
 
@@ -83,3 +93,17 @@ pqscan -cidr 198.51.100.0/24 -ptr -sni ptr-then-ip -mode fast -jsonl
 
 Bulk PTR enumeration at massive scale stays with massdns/zdns: pre-filter
 there, hand the FQDNs to `pqscan`.
+
+## PQ verdict view
+
+```bash
+pqscan -l targets.txt -jsonl -o assets.jsonl \
+  | jq -c '{target:.target.host, group:.handshake.group_name, class:.handshake.group_class, score:.pq.score, label:.pq.label, hndl:.pq.hndl}'
+```
+
+## Crash-resume (the WAL journal)
+
+```bash
+pqscan -l targets.txt -o out.jsonl      # interrupted? the WAL holds what completed
+pqscan -l targets.txt -o out.jsonl -resume   # re-scans only pending targets
+```
