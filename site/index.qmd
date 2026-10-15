@@ -25,6 +25,21 @@ is in progress.
 - **pq** — forced-group PQ ladder, PQ signature and certificate classification, estate-wide readiness verdicts with an HNDL risk flag.
 - **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443; HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
 
+## Performance
+
+M0-gate measurements; the SLO suite re-runs on every perf-suite merge and
+this table tracks the current evidence. Measured performance beyond these
+cells — the obsolete-Kyber compat oracle — is tracked in the repository
+[README](https://github.com/shsingh/pqscan#measured-performance). Verbatim
+run transcripts: issue comments on the linked evidence. Latency model and
+budget decomposition: [Design](design.qmd).
+
+| Metric | Target | Measured | Run |
+|---|---|---|---|
+| fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,952 (re-run 3,026) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
+
 ## Quick start
 
 ```bash
