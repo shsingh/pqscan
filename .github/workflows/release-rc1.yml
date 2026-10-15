@@ -83,13 +83,12 @@ jobs:
           path: dist
       - name: Attest build provenance (SLSA)
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        # one glob pattern: the multiline subject-path form is passed to the
+        # action as ONE literal path (newlines unexpanded) and finds nothing
+        # (dispatch 38735245438) — this glob matches all five binaries,
+        # the windows .exe included
         with:
-          subject-path: |
-            dist/pqscan-linux-amd64
-            dist/pqscan-linux-arm64
-            dist/pqscan-darwin-amd64
-            dist/pqscan-darwin-arm64
-            dist/pqscan-windows-amd64.exe
+          subject-path: dist/pqscan-*
 
   publish:
     name: gate pre-flight + GitHub release
