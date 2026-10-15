@@ -8,14 +8,12 @@ cidr
 client-fingerprint
 config
 connect-timeout
-deep
 dns-threads
 fields
 from-httpx
 from-naabu
 http
 legacy
-mode
 p
 probe-group
 probe-sigalgs

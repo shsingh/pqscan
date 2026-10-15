@@ -21,19 +21,17 @@ import (
 )
 
 // startReorderedFixture serves TLS 1.3 with the server preference order
-// [SecP384r1MLKEM1024, x25519]: the profile handshake (the browser-grade
-// default offer, which carries 4588 but not 4589) negotiates classic
-// x25519, while the ladder forces 4589 and the fixture accepts it — the
-// pq-mode handshake block is the LADDER's observation (4589), and the
-// verdict's weak_classical_preferred fires (the profile negotiated
-// classic while the forced PQ offer was accepted).
+// [SecP384r1MLKEM1024, X25519MLKEM768, x25519]: the profile handshake
+// negotiates the server's top preference (4589) while the ladder's first
+// accepted group in IANA order is 4588 — the two differ, which pins the
+// pq-mode handshake block as the LADDER's observation.
 func startReorderedFixture(t *testing.T) string {
 	t.Helper()
 	return fixtures.StartFixtureServer(t, fixtures.ServerConfig{
 		Name:             "t13-pq-reordered",
 		MinVersion:       tls.VersionTLS13,
 		MaxVersion:       tls.VersionTLS13,
-		CurvePreferences: []tls.CurveID{tls.CurveID(4589), tls.X25519},
+		CurvePreferences: []tls.CurveID{tls.CurveID(4589), tls.CurveID(4588), tls.X25519},
 	})
 }
 
@@ -94,14 +92,14 @@ func draftHRRRecord() []byte {
 		0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C,
 	}
 	payload := []byte{}
-	payload = append(payload, 0x03, 0x03)                  // legacy_version
-	payload = append(payload, random[:]...)                // random (the HRR magic)
-	payload = append(payload, 0x00)                        // session_id: empty
-	payload = append(payload, 0x13, 0x01)                  // cipher suite
-	payload = append(payload, 0x00)                        // compression
-	payload = append(payload, 0x00, 0x06)                  // extensions total
-	payload = append(payload, 0x00, 0x33)                  // key_share
-	payload = append(payload, 0x00, 0x02)                  // ext length
+	payload = append(payload, 0x03, 0x03)                       // legacy_version
+	payload = append(payload, random[:]...)                     // random (the HRR magic)
+	payload = append(payload, 0x00)                             // session_id: empty
+	payload = append(payload, 0x13, 0x01)                       // cipher suite
+	payload = append(payload, 0x00)                             // compression
+	payload = append(payload, 0x00, 0x06)                       // extensions total
+	payload = append(payload, 0x00, 0x33)                       // key_share
+	payload = append(payload, 0x00, 0x02)                       // ext length
 	payload = append(payload, byte(25497>>8), byte(25497&0xFF)) // selected group
 
 	hs := []byte{0x02}
@@ -191,9 +189,17 @@ func TestDeepModeStandardExecutesPlan(t *testing.T) {
 	// Verdicts per row class: the hybrid fixture speaks TLS 1.3 with prefs
 	// [4588, 29] — every non-negotiated version/group probe is REJECTED
 	// (the server's alerts are results); x25519 is accepted on the real
-	// share; the sigalg and resumption rows are the honest refusals.
-	if rec.Deep.OK != 2 || rec.Deep.Rejected != 12 {
-		t.Fatalf("deep counts ok=%d rejected=%d, want 2 (group/29, hrr) / 12 (3 versions + 9 groups)", rec.Deep.OK, rec.Deep.Rejected)
+	// share; the group shares the stack cannot construct (brainpools
+	// 26–28), the sigalgs and the resumption rows are the honest
+	// refusals (13); nothing errors.
+	if rec.Deep.OK != 2 || rec.Deep.Rejected != 9 {
+		t.Fatalf("deep counts ok=%d rejected=%d, want 2 (group/29, hrr) / 9 (3 versions + groups {4585,4586,4587,4589,4590,25})", rec.Deep.OK, rec.Deep.Rejected)
+	}
+	for _, id := range []string{"group/26", "group/27", "group/28"} {
+		got := findingsBy(rec, id)
+		if got == nil || got.Result != "refused" || !strings.HasPrefix(got.Detail, "not-offerable locally: tls: no supported key exchange methods") {
+			t.Fatalf("%s: %+v, want the honest local-stack refusal (the scanner cannot construct the brainpool share)", id, got)
+		}
 	}
 	v10 := findingsBy(rec, "version/1.0")
 	if v10 == nil || v10.Result != "rejected" || v10.Detail == "" {
@@ -205,8 +211,8 @@ func TestDeepModeStandardExecutesPlan(t *testing.T) {
 	if got := findingsBy(rec, "group/4587"); got == nil || got.Result != "rejected" {
 		t.Fatalf("group/4587: %+v, want rejected (the fixture does not offer it)", got)
 	}
-	if got := findingsBy(rec, "group/25497"); got == nil || got.Result != "rejected" {
-		t.Fatalf("group/25497: %+v, want rejected (the standards-only fixture)", got)
+	if got := findingsBy(rec, "group/25497"); got != nil {
+		t.Fatalf("group/25497 ran in the deep plan — the draft oracle is the pq-ladder's surface (-mode pq), not the deep group ladder: %+v", got)
 	}
 	for _, id := range []string{"sigalg/rsa_pss_rsae_sha256", "sigalg/mldsa44", "sigalg/mldsa65", "sigalg/mldsa87"} {
 		got := findingsBy(rec, id)
@@ -317,9 +323,9 @@ func TestPQModeLadderWireIn(t *testing.T) {
 			score: 40, label: "pq-partial", hndl: false,
 		},
 		{
-			name: "reordered fixture: the block is the ladder's accepted 4589, not the profile's x25519",
-			addr: reorderedAddr, group: 4589, gname: "SecP384r1MLKEM1024", gcls: "pq_hybrid",
-			score: 35, label: "pq-missing", hndl: false,
+			name: "reordered fixture: the block is the ladder's first accepted (4588), not the profile's 4589",
+			addr: reorderedAddr, group: 4588, gname: "X25519MLKEM768", gcls: "pq_hybrid",
+			score: 40, label: "pq-partial", hndl: false,
 		},
 		{
 			name: "classic fixture: no PQ group accepted, the block falls back to the profile facts",

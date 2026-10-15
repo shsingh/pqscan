@@ -267,6 +267,35 @@ func AppendRecordJSON(dst []byte, r *Record) []byte {
 		dst = AppendJSONString(dst, p.Summary)
 		dst = append(dst, '}')
 	}
+	if d := r.Deep; d != nil {
+		// The PQ-20 deep-mode block: counts first, then the findings
+		// vector in plan order — every inner field unconditional (false
+		// flags and empty details are facts too), the findings list
+		// unconditional (nil = an empty vector, "findings":[]).
+		dst = append(dst, `,"deep":{"mode":`...)
+		dst = AppendJSONString(dst, d.Mode)
+		dst = append(dst, `,"attempted":`...)
+		dst = strconv.AppendInt(dst, int64(d.Attempted), 10)
+		dst = append(dst, `,"ok":`...)
+		dst = strconv.AppendInt(dst, int64(d.OK), 10)
+		dst = append(dst, `,"rejected":`...)
+		dst = strconv.AppendInt(dst, int64(d.Rejected), 10)
+		dst = append(dst, `,"findings":[`...)
+		for i, f := range d.Findings {
+			if i > 0 {
+				dst = append(dst, ',')
+			}
+			dst = append(dst, `{"probe":`...)
+			dst = AppendJSONString(dst, f.Probe)
+			dst = append(dst, `,"result":`...)
+			dst = AppendJSONString(dst, f.Result)
+			dst = append(dst, `,"detail":`...)
+			dst = AppendJSONString(dst, f.Detail)
+			dst = append(dst, '}')
+		}
+		dst = append(dst, ']')
+		dst = append(dst, '}')
+	}
 	dst = append(dst, `,"error":`...)
 	dst = AppendJSONString(dst, r.Error)
 	return append(dst, '}')

@@ -49,23 +49,68 @@ type SuiteObservation struct {
 //
 // The forced version is min=max (a single-version handshake: acceptance
 // at one version implies nothing at another). TLS 1.3 caveat (spec §7.4's
-// matrix note): crypto/tls does not restrict the 1.3 suite set — every 1.3
-// offer carries the fixed set, so a 1.3 suite's per-suite accept/reject is
-// NOT observable from the stdlib client; the caller records the 1.3 suite
-// rows from the profile handshake's negotiated suite instead and never
-// fakes offer-one there.
+// matrix note): crypto/tls does not restrict the 1.3 suite list — every
+// 1.3 offer carries the fixed set, so a 1.3 suite's per-suite
+// accept/reject is NOT observable from the stdlib client; the probe
+// therefore records the 1.3 suite rows as refused with the fixed-set
+// caveat (the negotiated 1.3 suite is the profile handshake's fact, not
+// this probe's), never a fake offer-one verdict.
 //
 // Rejections are results (the observation carries the server's alert);
 // the returned error is reserved for caller-level misuse (never for a
 // server answer).
 func SuiteOfferProbe(addr, host, suiteName string, version uint16, timeout time.Duration) (*SuiteObservation, error) {
-	obs := &SuiteObservation{Offered: suiteName, WantVersion: version, Error: errSuiteOfferStub.Error()}
+	obs := &SuiteObservation{Offered: suiteName, WantVersion: version}
+	var suiteID uint16
+	if suiteName != "" {
+		for _, cs := range append(tls.CipherSuites(), tls.InsecureCipherSuites()...) {
+			if cs.Name == suiteName {
+				suiteID = cs.ID
+				break
+			}
+		}
+		if suiteID == 0 {
+			obs.State = SuiteError
+			obs.Error = "unknown cipher suite " + suiteName + ": not in the stdlib suite vocabulary"
+			return obs, nil // the construction refusal is an observation, verbatim
+		}
+		obs.Offered = suiteName
+		// The 1.3 fixed-set caveat: this suite only speaks 1.3, and 1.3
+		// suites are not client-restrictable — the honest refusal.
+		if isSuite13(suiteID) {
+			obs.State = SuiteRefused
+			obs.Error = "not-offerable on tls-1.3: crypto/tls offers the fixed 1.3 suite set (offer-one is not client-restrictable)"
+			return obs, nil
+		}
+	}
+	cfg := &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: true, // the offer is the assertion; analytics is a separate probe
+		NextProtos:         defaultProtos,
+		MinVersion:         version, // one forced version: min = max
+		MaxVersion:         version,
+	}
+	if suiteName != "" {
+		cfg.CipherSuites = []uint16{suiteID}
+	}
+	dialer := &net.Dialer{Timeout: timeout}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, cfg)
+	if err != nil {
+		obs.State = offerClassify(err) // the server's answer is a result state
+		obs.Error = err.Error()
+		return obs, nil // rejection/refusal/error are results, not ladder failures
+	}
+	defer conn.Close() //nolint:errcheck
+	cs := conn.ConnectionState()
+	obs.State = SuiteAccepted
+	obs.NegotiatedSuite = tls.CipherSuiteName(cs.CipherSuite)
+	obs.NegotiatedVersion = cs.Version
 	return obs, nil
 }
 
-// errSuiteOfferStub is the PQ-20 watched-RED stub marker (implementation
-// lands in the GREEN commit).
-var errSuiteOfferStub = errors.New("tlsx: SuiteOfferProbe not implemented (PQ-20 RED stub)")
+// isSuite13 reports whether the suite ID is a TLS 1.3-only suite (the
+// 0x13xx block the stdlib can build but cannot restrict the offer of).
+func isSuite13(id uint16) bool { return id&0x1300 == 0x1300 }
 
 // offerClassify maps one failed offer handshake onto the findings
 // vocabulary (the stdlib's error taxonomy: remote alert → rejected; dial

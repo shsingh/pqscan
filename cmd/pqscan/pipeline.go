@@ -226,7 +226,7 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 				// nothing in flight, no window signal (it is not a
 				// success nor a congestion event; the record's error is
 				// the skipped-with-reason proof).
-				rec := breakerOpenRecord(t)
+				rec := breakerOpenRecord(t, opts.Mode)
 				recs[next] = rec
 				if opts.Record != nil {
 					opts.Record(rec)
@@ -286,12 +286,13 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
 	switch opts.Mode {
 	case modeDeep:
-		return scanTargetDeep(t, opts)
+		rec, failing, timedOut = scanTargetDeep(t, opts)
 	case modePQ:
-		return scanTargetPQ(t, opts)
+		rec, failing, timedOut = scanTargetPQ(t, opts)
 	default:
-		return scanTargetFast(t, opts)
+		rec, _, failing, timedOut = scanTargetFast(t, opts)
 	}
+	return rec, failing, timedOut
 }
 
 // scanTargetFast is the per-target fast-mode probe path (rc1 scanSingle,
@@ -302,8 +303,10 @@ func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timed
 // timedOut = the failure is a deadline expiry (aimd.OnTimeout, the §7.3
 // throttle signal; plain refusals are rejections, not congestion). A
 // scan-error record from the rubric is NOT a probe failure: the handshake
-// itself succeeded.
-func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
+// itself succeeded. res is the raw profile handshake (PQ-20's deep/pq
+// executors consume its facts: the Observed prune input and the cert
+// analytics); nil only when the probe died before any observation.
+func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.ProbeResult, failing, timedOut bool) {
 	timeout := opts.ProbeTimeout
 	if timeout <= 0 {
 		timeout = defaultProbeTimeout
@@ -321,11 +324,11 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, failing, t
 	// TCP plane: browser-grade defaults (stdlib CurvePreferences = MLKEM
 	// hybrid preferred) — the negotiation is the real-world posture.
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
-	res, err := tlsx.ProbeNegotiated(addr, t.Host, nil, timeout)
-	if err != nil && (res == nil || res.Error == "") {
-		rec.Error = err.Error()
-		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", err, nil)
-		return rec, true, isTimeoutError(rec.Error)
+	res, perr := tlsx.ProbeNegotiated(addr, t.Host, nil, timeout)
+	if perr != nil && (res == nil || res.Error == "") {
+		rec.Error = perr.Error()
+		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", perr, nil)
+		return rec, res, true, isTimeoutError(rec.Error)
 	}
 	if res != nil && res.Error != "" {
 		// Refusals are records, not run failures (rejections are results):
@@ -337,7 +340,7 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, failing, t
 		// A refusal still fails the probe for the breaker's consecutive-
 		// failure count; only the deadline-expiry class signals the AIMD
 		// window (a refusal carries no congestion information).
-		return rec, true, isTimeoutError(rec.Error)
+		return rec, res, true, isTimeoutError(rec.Error)
 	}
 	rec.Handshake = handshakeRecord{
 		Negotiated: res.Negotiated,
@@ -415,17 +418,17 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, failing, t
 	} else {
 		rec.Quic = &quicRecord{Attempted: false}
 	}
-	return rec, false, false
+	return rec, res, false, false
 }
 
 // breakerOpenRecord builds the breaker-skipped target's record: the
 // schema-1 error shape (like any failed probe — zero handshake, no
 // verdict blocks invented), its Error carrying the skip reason "breaker
 // open" instead of the dial's outcome. Skipped-with-reason, never silent.
-func breakerOpenRecord(t grammar.Target) *scanRecord {
+func breakerOpenRecord(t grammar.Target, mode string) *scanRecord {
 	rec := &scanRecord{
 		Schema: out.SchemaVersion,
-		Mode:   "fast",
+		Mode:   mode,
 		Target: out.TargetRecord{Input: t.Input, Host: t.Host, Port: uint16(t.Port)},
 	}
 	rec.Ts = time.Now().UTC().Format(time.RFC3339Nano)
