@@ -66,11 +66,14 @@ const (
 	fixtureHandshakeDelay  = 100 * time.Millisecond
 )
 
-// pessimalSeed is the RED switch: the deliberately-pessimal journal seed
-// (mangled completion keys → the resumed pass re-scans everything) vs the
-// true resume contract (the killed run's real journal replays). The GREEN
-// commit flips this to false.
-const pessimalSeed = true
+// pessimalSeed is the watched-RED switch: the deliberately-pessimal
+// journal seed (mangled completion keys → the resumed pass re-scans
+// everything) vs the true resume contract (the killed run's real journal
+// replays). The RED state (true) is the pair's first commit with its
+// failing run in the commit body; the GREEN commit seeds the true
+// contract, so the value stays false — flipping it back to true IS the
+// SLO drill (the SLO assertion must fail: it caught the class before).
+const pessimalSeed = false
 
 // TestResumeSLO: the SIGKILL-resume cycle re-scans only the pending
 // targets and the resumed pass stays inside the wall budget (spec §7.8,
@@ -199,6 +202,9 @@ func TestResumeSLO(t *testing.T) {
 	// Fresh appends are contract-visible only beyond the pre-resume
 	// watermark (the sequence continues from the replayed one).
 	for _, e := range postEntries {
+		if preRunIDs[e.RunID] {
+			continue // the replayed entries legitimately carry the old watermark
+		}
 		if e.Seq <= preMaxSeq {
 			t.Fatalf("journal sequence not monotone across resume: seq %d <= pre-resume watermark %d", e.Seq, preMaxSeq)
 		}
@@ -402,8 +408,8 @@ func waitJournalEntries(t *testing.T, walPath string, n int, deadline time.Durat
 			return count
 		}
 		if time.Now().After(deadlineTS) {
-			t.Fatalf("journal %s never reached %d entries within %s (last read: %d valid + %d malformed; run 1 stderr:\n%s)",
-				walPath, n, deadline, count, malformed, "")
+			t.Fatalf("journal %s never reached %d entries within %s (last read: %d valid + %d malformed)",
+				walPath, n, deadline, count, malformed)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
