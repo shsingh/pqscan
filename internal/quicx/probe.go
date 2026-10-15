@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/shsingh/pqscan/internal/classify"
+	"github.com/shsingh/pqscan/internal/diag"
 )
 
 // convert maps the ladder's codepoints to CurveIDs.
@@ -47,6 +49,13 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 	res.DialMs = float64(time.Since(start).Microseconds()) / 1000
 	if err != nil {
 		res.State, res.UDPBlocked = classifyUDP(err.Error())
+		level := diag.Warn
+		if res.State == "error" {
+			level = diag.Error
+		}
+		diag.Emit(level, diag.DomQuic, "quic-handshake", addr, "QUIC handshake answered", nil,
+			map[string]string{"offered": groupsJoined(groups), "state": res.State,
+				"udp_blocked": strconv.FormatBool(res.UDPBlocked), "dial_ms": msF(res.DialMs)})
 		return res, nil // rejections are results
 	}
 	defer sess.CloseWithError(0, "") //nolint:errcheck
@@ -59,8 +68,25 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 	if cls, ok := classify.GroupClass(res.Group); ok {
 		res.GroupClass = string(cls)
 	}
+	diag.Emit(diag.Info, diag.DomQuic, "quic-handshake", addr, "QUIC v1 handshake", nil,
+		map[string]string{"offered": groupsJoined(groups), "negotiated": strconvI(uint64(res.Group)),
+			"group_class": res.GroupClass, "alpn": res.ALPN,
+			"dial_ms": msF(res.DialMs), "handshake_ms": msF(res.HandshakeMs)})
 	return res, nil
 }
+
+// groupsJoined packs the offered codepoints for the event fields.
+func groupsJoined(groups []uint32) string {
+	parts := make([]string, 0, len(groups))
+	for _, g := range groups {
+		parts = append(parts, strconvI(uint64(g)))
+	}
+	return strings.Join(parts, ",")
+}
+
+func strconvI(u uint64) string { return strconv.FormatUint(u, 10) }
+
+func msF(v float64) string { return strconv.FormatFloat(v, 'f', 3, 64) }
 
 // classifyUDP maps a dial/handshake failure to its result class.
 func classifyUDP(errText string) (state string, blocked bool) {
