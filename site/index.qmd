@@ -15,8 +15,10 @@ speaks the Project Discovery dialect (stdin → stdout, streaming JSONL).
 
 **Status:** pre-alpha. The canonical specification lives at
 [`docs/spec.md`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md);
-the M0 measurement gate ([PQ-01 register](https://github.com/shsingh/pqscan/issues/4))
-is in progress.
+the M0 measurement gate is closed
+([report](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md));
+the M1–M5 leaves are open on the
+[register](https://github.com/shsingh/pqscan/issues/4).
 
 ## What it does
 
@@ -40,6 +42,20 @@ budget decomposition: [Design](design.qmd).
 | external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
 | QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
 
+## Install
+
+The [release page](https://github.com/shsingh/pqscan/releases) carries
+attested static binaries for linux (amd64/arm64) and darwin/arm64.
+Short form; the full matrix — source installs, checksum and SLSA
+verification steps, Windows — lives in
+[`INSTALL.md`](https://github.com/shsingh/pqscan/blob/main/INSTALL.md).
+
+```bash
+brew tap shsingh/tap && brew install pqscan        # macOS
+go install github.com/shsingh/pqscan/cmd/pqscan@v0.0.2-alpha   # any platform with Go
+gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
+```
+
 ## Quick start
 
 ```bash
@@ -50,7 +66,7 @@ subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
 ```
 
-## Alternative and comparable tools
+## Alternative tools
 
 | Tool | Capability in common with pqscan | Divergence from pqscan's scope |
 |---|---|---|

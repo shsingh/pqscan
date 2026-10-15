@@ -12,9 +12,10 @@ Project Discovery dialect (stdin → stdout, streaming JSONL, chainable with
 `subfinder` → `httpx` → `naabu` → `nuclei`).
 
 **Status:** pre-alpha. The product specification
-([`docs/spec.md`](docs/spec.md)) is under review on
-[issue #1](https://github.com/shsingh/pqscan/issues/1); the M0 measurement
-gate (engine spike + Go/Rust re-scoring) has not started.
+([`docs/spec.md`](docs/spec.md)) is in force; the M0 measurement gate is
+closed ([report](docs/m0-report.md): the SLO met at 2,952–3,026 h/s against
+the ≥ 2,500/s/core target, both planes live; the M1–M5 milestone leaves are
+open on the [register](https://github.com/shsingh/pqscan/issues/4)).
 
 ## What it does
 
