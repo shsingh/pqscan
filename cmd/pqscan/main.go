@@ -1,12 +1,13 @@
 // Command pqscan — a small, fast, chainable TLS/QUIC cipher-configuration
 // and post-quantum readiness scanner.
 //
-// This file is the M0 substrate stub (PQ-04): it wires flag plumbing and
-// prints the version. Probe engines land with PQ-05 (tlsx) and PQ-06
-// (quicx); the CLI surface is specified in docs/spec.md#8-cli-surface.
+// CLI surface is specified in docs/spec.md#8-cli-surface; the engines land
+// via the PQ-01 register lanes.
 package main
 
 import (
+	"flag"
+	"fmt"
 	"io"
 	"os"
 )
@@ -18,9 +19,21 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-// run executes the CLI and returns the process exit code. PQ-10 watched
-// RED: the tests land first; this stub always fails them until the
-// extraction commit.
+// run executes the CLI and returns the process exit code. The flag set is
+// rebuilt per call so tests exercise the same path the process does
+// (PQ-10; extraction of the -version / usage paths).
 func run(args []string, stdout, stderr io.Writer) int {
-	return -1
+	fs := flag.NewFlagSet("pqscan", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	showVersion := fs.Bool("version", false, "print pqscan version and exit")
+	if err := fs.Parse(args); err != nil {
+		return 64
+	}
+	if *showVersion {
+		fmt.Fprintf(stdout, "pqscan %s (pre-alpha; specification: docs/spec.md)\n", version)
+		return 0
+	}
+	// engines land with the PQ-01 lanes; run() returns usage until then
+	fmt.Fprintln(stderr, "pqscan: probe engines not implemented (M0 spike in progress; see the PQ-01 register)")
+	return 64 // EX_USAGE
 }
