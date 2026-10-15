@@ -97,10 +97,17 @@ OPTIONS
     -verify / -ca-bundle f  Certificate verification posture.
 
     PERFORMANCE
-    -threads n        Engine worker count.
+    -threads n        AIMD window ceiling: max target probes in flight;
+                      default 1 = the sequential engine (the pre-PQ-23
+                      dispatch). The shared window grows one per
+                      successful target and halves per probe timeout
+                      (spec §7.3).
     -c n              Global in-flight budget (TCP 40k / QUIC 10k ceilings
                       per spec §7.3).
-    -rate r           Global rate cap, handshakes/s (default 20k).
+    -rate rps         Probe launches per second through the token-bucket
+                      limiter (burst 1; 0 = uncapped, the default: the
+                      pre-congestion engine pace. Spec §7.3's 20k/s
+                      global cap arrives with the perf suite).
     -dns-threads n    DNS resolver pool size.
     -stats            Live progress + rate/error view.
 
