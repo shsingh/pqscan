@@ -60,15 +60,21 @@ jobs:
           GORELEASER_CURRENT_TAG: ${{ inputs.version }}
           GITHUB_TOKEN: ${{ github.token }}
           CGO_ENABLED: '0'
+      - name: Stage flat (the bare-asset contract — a multiline upload path lets
+          the action nest per-target dirs into the artifact, which no downstream
+          glob then matches)
+        run: |
+          mkdir -p stage
+          cp dist/pqscan_linux_*/pqscan-linux-* stage/
+          cp dist/pqscan_darwin_*/pqscan-darwin-* stage/
+          cp dist/pqscan_windows_*/pqscan-windows-* stage/
+          cp dist/CHECKSUMS-sha256.txt stage/
+          ls -la stage/
       - name: Upload binaries + checksums (run artifacts for the attest + publish jobs)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pqscan-dist
-          path: |
-            dist/pqscan_linux_*/pqscan-linux-*
-            dist/pqscan_darwin_*/pqscan-darwin-*
-            dist/pqscan_windows_*/pqscan-windows-*
-            dist/CHECKSUMS-sha256.txt
+          path: stage
           retention-days: 7
 
   attest:
