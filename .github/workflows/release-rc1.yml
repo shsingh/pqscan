@@ -56,7 +56,7 @@ jobs:
       # attested subjects must ALSO be uploaded as run artifacts: gh
       # attestation verify resolves against the run's artifact list (PQ-13)
       - name: Upload binary
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
           path: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -86,7 +86,7 @@ jobs:
           sha256sum pqscan-* > CHECKSUMS-sha256.txt
           cat CHECKSUMS-sha256.txt
       - name: Upload checksums
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: CHECKSUMS-sha256.txt
           path: dist/CHECKSUMS-sha256.txt
