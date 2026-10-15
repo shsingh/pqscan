@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: quarto-dev/quarto-actions/setup@v2
+      - uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2
       - name: Render (fail on broken refs)
         run: quarto render site
       - name: HTML present
