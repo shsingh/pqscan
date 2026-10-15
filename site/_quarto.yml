@@ -25,19 +25,19 @@ website:
         text: Intro
       - href: design.qmd
         text: Design
+      - href: governance.qmd
+        text: Governance
       - href: usage.qmd
         text: Usage
       - href: recipes.qmd
         text: Recipes
     right:
-      - href: agents.qmd
-        text: Agents
+      - href: contributing.qmd
+        text: Contributing
       - href: security.qmd
         text: Security
-      - href: roadmap.qmd
-        text: Roadmap
-      - href: governance.qmd
-        text: Governance
+      - href: agents.qmd
+        text: Agents
       - icon: github
         href: https://github.com/shsingh/pqscan
         aria-label: "pqscan repository"
