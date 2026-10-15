@@ -63,3 +63,11 @@ jobs:
           b=$(stat -c %s pqscan)
           echo "linux/amd64 release build: ${b} bytes"
           awk -v b="$b" 'BEGIN { if (b < 8000000) { print "size OK: " b " < 8000000"; } else { print "::error::linux/amd64 release build " b " bytes >= 8000000 SLO"; exit 1 } }'
+
+  docs-drift:
+    name: usage-drift gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: USAGEmd <-> source flag check
+        run: ./scripts/check_usage_drift.sh .
