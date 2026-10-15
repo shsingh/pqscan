@@ -44,6 +44,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	asJSONL := fs.Bool("jsonl", false, "emit one schema-1 JSON record per line")
 	outFile := fs.String("o", "", "write results to file (default stdout)")
 	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
+	resume := fs.Bool("resume", false, "resume an interrupted run from the WAL (<output basename>.wal next to -o)")
 	if err := fs.Parse(args); err != nil {
 		return 64
 	}
@@ -51,6 +52,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if *showVersion {
 		fmt.Fprintf(stdout, "pqscan %s (pre-alpha; specification: docs/spec.md)\n", version)
 		return 0
+	}
+
+	// -resume (PQ-16): the WAL replay is the RED half of the watched pair —
+	// the flag exists, the replay logic lands GREEN.
+	if *resume {
+		diag.Emit(diag.Warn, diag.DomOutput, "run", "", "resume requested", nil, nil)
+		fmt.Fprintln(stderr, "pqscan: -resume: WAL replay lands with the PQ-16 GREEN commit")
+		return 64
 	}
 
 	// arm diagnostics under -debug; everything below emits
