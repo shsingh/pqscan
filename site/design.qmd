@@ -42,7 +42,7 @@ pervasive (Ctrl-C drains, WAL stays consistent).
 | Global in-flight connections | 50,000 | `T ≈ W/L`; ~2 GB RAM with 20–40 KB/conn |
 | TCP in-flight | 40k | QUIC conns are ~5× heavier |
 | QUIC in-flight | 10k | per-conn goroutines + timer wheel |
-| Deep-mode probes per target | 6–8 concurrent | politeness; server-side rate kicks |
+| Deep-mode probes per target | 6–8 concurrent | rate-limit avoidance: servers reject bursts |
 | Per-subnet (/24) concurrent | 64 | NAT/policy devices fail closed |
 | Global rate cap | 20k handshakes/s | etiquette default |
 | DNS in-flight | 256 | PTR storms must not starve handshakes |
