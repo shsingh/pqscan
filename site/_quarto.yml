@@ -10,6 +10,15 @@ website:
   repo-subdir: site
   repo-actions: [edit, issue]
   page-navigation: true
+  page-footer:
+    left: "© 2026 Shain Singh · [shain.singh@owasp.org](mailto:shain.singh@owasp.org) · PGP [9CB1781DC2BB28D37A0155DCAAF8226F3F4C1712](https://github.com/shsingh.gpg)"
+    right:
+      - text: PGP key
+        href: https://github.com/shsingh.gpg
+      - text: Security advisory
+        href: https://github.com/shsingh/pqscan/security/advisories/new
+      - text: Governance
+        href: governance.qmd
   navbar:
     left:
       - href: index.qmd
@@ -21,6 +30,14 @@ website:
       - href: recipes.qmd
         text: Recipes
     right:
+      - href: agents.qmd
+        text: Agents
+      - href: security.qmd
+        text: Security
+      - href: roadmap.qmd
+        text: Roadmap
+      - href: governance.qmd
+        text: Governance
       - icon: github
         href: https://github.com/shsingh/pqscan
         aria-label: "pqscan repository"

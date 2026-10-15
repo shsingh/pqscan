@@ -29,6 +29,54 @@ subfinder → httpx → naabu → nuclei. Two handshake planes: TCP
 The delivery unit is a leaf-sized slice: one milestone acceptance row or
 issue task, tests in the same change, merge via pull request.
 
+## Running pqscan (operator and agent runbook)
+
+This section is for humans AND agents that need to execute the tool — read it,
+run it, verify it, no other context required.
+
+- **Build locally** (toolchain floor Go 1.25):
+
+```bash
+go build -o pqscan ./cmd/pqscan && ./pqscan -version
+```
+
+- **Execute a scan** (engines land per the [register](https://github.com/shsingh/pqscan/issues/4);
+  `run()` refuses with exit 64 until a plane is live):
+
+```bash
+./pqscan -u example.com                          # fast mode, text out
+subfinder -d example.com -silent | ./pqscan -mode fast -jsonl -o assets.jsonl
+naabu -l domains.txt -p 443,8443,993 -silent | ./pqscan -from-naabu -mode fast -jsonl
+./pqscan -l estate.txt -mode pq -jsonl           # PQ ladder + readiness verdicts
+./pqscan -cidr 198.51.100.0/24 -ptr -sni ptr-then-ip -mode fast -jsonl
+```
+
+- **Read the output**: streaming JSONL, one record per target —
+  `.target` (host/ip/ptr/sni_used), `.handshake` (version, group +
+  `group_class`, suite, sig scheme, ALPN), `.cert` (key/sig alg classes,
+  PQ flag), `.pq` (`score`, `verdict` A+…D, `flags` incl. `hndl_risk`,
+  `reasons[]`), `.error`. Non-negotiated states (`hrr`, `alert`,
+  `skipped`, `error`) are recorded facts with reasons. The full schema
+  example is in [`docs/spec.md` §5.7](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set);
+  recipes live on the [site](https://shsingh.github.io/pqscan/) and in
+  [`docs/spec.md#6-chaining-reference-implementations`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations).
+- **Verify before trusting a binary**: every artifact from CI carries SLSA
+  provenance ([ADR-0003](docs/adr/0003-slsa-provenance-attestations.md)) —
+  `gh attestation verify <artifact> -R shsingh/pqscan` (unsigned or
+  unprovable → do not run).
+- **Prove the tool itself**:
+
+```bash
+go test ./...                            # offline: fixture matrix + unit pairs
+PQSCAN_INTEGRATION=1 go test ./internal/tlsx/ -run Integration -v
+                                         # live-network truth, never in CI
+```
+
+- **Etiquette invariants** (security-relevant, ADR-relevant): only scan
+  systems you own or are authorised to test; the rate caps, per-subnet
+  ceilings and breaker thresholds are published defaults — never bypass
+  them in scripts.
+
 ## Repository structure
 
 | Path | Purpose |

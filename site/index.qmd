@@ -45,3 +45,12 @@ naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -js
 Only scan systems you own or are authorised to test — see
 [Security](https://github.com/shsingh/pqscan/security/advisories/new) and
 [`SECURITY.md`](https://github.com/shsingh/pqscan/blob/main/SECURITY.md).
+
+## Contact
+
+| | |
+|---|---|
+| Author | **Shain Singh** — [shain.singh@owasp.org](mailto:shain.singh@owasp.org) |
+| PGP | `9CB1781DC2BB28D37A0155DCAAF8226F3F4C1712` — public key: [github.com/shsingh.gpg](https://github.com/shsingh.gpg) |
+| Security reports | [Private vulnerability reporting](https://github.com/shsingh/pqscan/security/advisories/new) / email encrypted to the key above — never a public issue |
+| Governance | [Governance page](governance.qmd) · [commit-signing verification](governance.qmd#commit-signing) |
