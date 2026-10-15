@@ -115,9 +115,440 @@ accepts; pqscan adds the negotiated group, suite, ALPN, QUIC and
 certificate blocks per host. Estate splitting across boxes is
 operator-side input split today; the deterministic shard core (FNV-1a
 over the target key, partition property proven in CI) is merged and
-`-shard i/n` lands with the congestion wiring — each box then bounds
-its own handshake budget with `-rate`/`-threads` independently, and
-re-runs replays the WAL rather than re-dialing what survived.
+`-shard i/n` lands with the wiring wave — each box then bounds its own
+handshake budget with `-rate`/`-threads` independently, and re-runs
+replay the WAL rather than re-dialing what survived.
+
+### Target grammar and its refusals
+
+**Problem.** The input contract must be exact: what pqscan accepts, and
+precisely what it refuses — a scanner must fail closed on malformed
+target specs, not mis-scan.
+
+**Solution.**
+
+```bash
+pqscan -u example.com:8443 -jsonl      # host:port
+pqscan -u 2001:db8::1 -jsonl           # v6 literal
+echo http://example.org:8443 | pqscan -jsonl -
+```
+
+**Observation.** A scheme-prefixed target refuses with the reason on
+stderr and a non-zero exit:
+
+```text
+pqscan: https://example.com: scheme prefixes are not accepted — pqscan speaks host/port targets
+```
+
+**Discussion.** The grammar takes bare hosts (443 default), `host:port`
+forms, IPv4/IPv6 literals (bracketed v6 with port), `i/n` shard specs
+and the `--` stdin marker. Unreachable endpoints are NOT refusals —
+they are records with `error` set, which the failure-taxonomy recipe
+below classifies. `-cidr` accepts ranges when the resolver plane is in
+play (the reverse-DNS recipe); the scheme prefixes stay refused by
+design — the tool speaks host:port, the PD ecosystem agrees.
+
+## Modes: fast, deep, pq
+
+### Deep standard — the bounded 24-probe profile
+
+**Problem.** Beyond the one fast handshake: which protocol versions,
+named groups and legacy suites does this server accept — without
+paying the full matrix's cost on every asset.
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode deep -jsonl
+```
+
+**Observation.** The record gains a `deep` block; the run's header
+line reads:
+
+```text
+deep: mode=standard attempted=24 ok=6 rejected=5 refused=13
+```
+
+with finding rows like:
+
+```text
+version/1.0   accepted   negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.0
+version/1.1   accepted   negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.1
+version/1.2   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls-1.2
+group/4585    rejected   alert 40
+group/4586    rejected   alert 40
+group/4587    rejected   remote error: tls: handshake failure
+group/4589    rejected   remote error: tls: handshake failure
+group/4590    rejected   alert 40
+group/25      accepted   negotiated 25, suite TLS_AES_128_GCM_SHA256, tls-1.3
+group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
+hrr/x25519-shareless  accepted   hrr: the server requested group x25519 (29)
+```
+
+**Discussion.** The profile handshake runs first and its facts PRUNE
+the plan: the negotiated pair/group/version/certificate never re-probe
+(24 probes attempted, not 76). Per-kind dispatch: a version probe
+offers one version at a time (min=max forced); a group probe offers
+ONE named group — a real share where the toolchain has one,
+a share-less raw offer where it does not (the obsolete-Kyber oracle).
+`refused` rows are locally not-offerable probes: the raw ClientHello
+path pins its signature_algorithms list and the resumption plane is
+not instrumented yet — the finding's detail says exactly that, so a
+`refused` row is a capability boundary, not a server answer. The HRR
+probe extracts the group the server DEMANDED when the client
+withheld a share.
+
+### Deep full — the ~74-probe offer-one matrix
+
+**Problem.** Exhaustive coverage: every suite × version pair (the
+secure default list AND the legacy/insecure suites), every registry
+group, the signature-algorithm surface, resumption vectors and the HRR
+hop — the complete offer-one matrix, each row one handshake.
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode deep -deep full -jsonl
+```
+
+**Observation.** (live)
+
+```text
+deep: mode=full attempted=74 ok=35 rejected=23 refused=16
+```
+
+Sample suite findings (the legacy hunt lives here):
+
+```text
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   rejected
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted
+suite/TLS_CHACHA20_POLY1305_SHA256@1.3           refused   (the 1.3 set cannot be restricted)
+```
+
+**Discussion.** 76 planned probes: 4 versions, 11 registry groups
+(4585–4590 plus the classical and the Kyber drafts), 49 suite×version
+pairs (the list auto-tracks `crypto/tls`, so a Go upgrade that gains a
+suite grows the matrix), 7 signature algorithms (incl. the ML-DSA
+codepoints), 1 certificate, 3 resumption vectors, 1 HRR — with the
+fast-mode facts still pruning what the profile handshake already
+proved. Standard never exceeds its 24-probe budget; `full` trades the
+budget for coverage and is the run you point at ONE asset you care
+about, not an estate.
+
+### -mode pq — the forced PQ ladder
+
+**Problem.** Which post-quantum groups will this server accept when
+forced rung by rung — independent of the client's default preference
+order — and does it still negotiate an obsolete draft.
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode pq -jsonl
+```
+
+**Observation.** (live) The record's handshake block carries the
+ladder's first ACCEPTED hybrid; the finding rows carry each rung's
+answer, and the draft rung drives the verdict:
+
+```text
+group/4588   accepted    negotiated 4588, suite TLS_AES_128_GCM_SHA256, tls-1.3
+group/25497  ...         obsolete-Kyber draft rung — the HNDL oracle's answer
+```
+
+**Discussion.** `-mode pq` runs the forced ladder 4585–4590 plus the
+Kyber drafts. The verdict rides the record's `pq` block: a draft-HRR
+acceptance trips `pq.hndl` — the harvest-now-decrypt-later flag —
+because material intercepted against a draft-group handshake decrypts
+when the draft is broken, regardless of how modern the rest of the
+suite looks. The obsolete-Kyber oracle (the share-less offer of 25497,
+answered by the HRR demanding the draft) is the finding that seeds the
+compat-ladder decisions. This mode is the one to schedule FIRST on any
+asset whose `pq.label` reads below `pq-ready-hybrid`.
+
+## The cipher questions
+
+### Which ciphers does the server accept?
+
+**Problem.** For a given host: does it support — or refuse — a
+specific cipher suite. Is ChaCha20-Poly1305 in its modern set? Is the
+legacy CBC family still open on TLS 1.0–1.2? Answer from the wire,
+one handshake per question.
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode deep -deep full -jsonl \
+  | jq -r '.deep.findings[] | select(.probe | startswith("suite/")) | "\(.probe)\t\(.result)\t\(.detail)"'
+```
+
+**Observation.** (live, excerpt)
+
+```text
+suite/TLS_AES_128_GCM_SHA256@1.3            refused   (1.3 = one fixed set; the offer plane cannot restrict it)
+suite/TLS_CHACHA20_POLY1305_SHA256@1.3      refused   (same)
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   rejected
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted
+```
+
+**Discussion.** Each suite probe is its OWN handshake offering ONE
+suite (offer-one / observe-accept — never a shared negotiation, so an
+`accepted` row is unambiguous). TLS 1.0–1.2 suites are individually
+forceable; TLS 1.3's ciphers ride one fixed set that
+`crypto/tls` cannot restrict, so those rows read `refused` with the
+reason in the detail — and the 1.3 SET acceptance is still visible in
+the record's `handshake.suite`, set by the profile handshake. To ask
+about a suite NOT in the registry list, the `-probe-suite` override
+(planned) offers arbitrary suites; until it lands the matrix covers
+the stdlib lists auto-tracked per Go release.
+
+### Which TLS versions does the server still accept?
+
+**Problem.** The legacy-version floor is the classic audit question:
+is TLS 1.0/1.1 still on? Which legacy stacks still serve?
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode deep -jsonl \
+  | jq -r '.deep.findings[] | select(.probe | startswith("version/")) | "\(.probe)\t\(.result): \(.detail)"'
+```
+
+**Observation.** (live — the finding many operators miss)
+
+```text
+version/1.0    accepted    negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.0
+version/1.1    accepted    negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.1
+version/1.2    accepted    negotiated TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls-1.2
+```
+
+**Discussion.** The prunes keep this to four rows on a facts-known
+target. Pair it with the suite rows: the 1.0/1.1 answers above
+negotiated an RSA-keyed CBC suite — a legacy-only answer the fast
+plane would never surface, because the browser-grade handshake always
+lands 1.3. THIS is why the deep modes exist: the fast record says
+"modern and hybrid", the deep findings say "and still answering on a
+decade-old CBC stack".
+
+### Which PQ groups does the server accept when probed?
+
+**Problem.** Not negotiation-by-default — forced acceptability: which
+of the ML-KEM hybrids (4585–4590) and legacy drafts does this server
+take, and with what alert when it refuses.
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode deep -jsonl \
+  | jq -r '.deep.findings[] | select(.probe | startswith("group/")) | "\(.probe)\t\(.result)\t\(.detail)"'
+```
+
+**Observation.** (live)
+
+```text
+group/4585    rejected   alert 40
+group/4586    rejected   alert 40
+group/4587    rejected   remote error: tls: handshake failure
+group/4589    rejected   remote error: tls: handshake failure
+group/4590    rejected   alert 40
+group/25      accepted   negotiated 25, suite TLS_AES_128_GCM_SHA256, tls-1.3
+group/26      refused    not-offerable locally: tls: no supported key exchange methods (CurveIDs)
+group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
+```
+
+**Discussion.** `rejected` rows carry the server's own alert: alert 40
+is the group refused at the ClientHello; the `tls: handshake failure`
+form is the server's stricter mid-handshake shaping — either way the
+answer is "the server answered and said no", a RESULT, not a failure.
+`refused` rows are the honest capability boundary (no stdlib share
+exists for that codepoint yet). The HRR finding closes the set: when
+the client withholds everything, what the server DEMANDS in its
+HelloRetryRequest is the last acceptability datum.
+
+### Which signature algorithms are offered / possible?
+
+**Problem.** PQ certificate signatures (ML-DSA/SLH-DSA) on the wire:
+what can be proven today, and where the boundary is.
+
+**Solution.**
+
+```bash
+pqscan -u cloudflare.com -mode deep -jsonl \
+  | jq -r '.deep.findings[] | select(.probe | startswith("sigalg/")) | "\(.probe)\t\(.result)\t\(.detail)"'
+```
+
+**Observation.** (live; every sigalg row refuses with its reason)
+
+```text
+sigalg/mldsa65   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
+```
+
+**Discussion.** What IS provable today: the certificate analytics in
+the record's `cert` block — the leaf chain's signature algorithm
+(`ecdsa-with-SHA256`), key algorithm, PQ-ness, and the dual-cert rule
+(`cert.dual` = true when a classical-signed and a PQ-signed member
+coexist in the offered chain). Custom signature_algorithms offers in
+the raw ClientHello are the planned surface; until then the sigalg
+probe rows state the boundary per finding rather than vanishing. The
+`-probe-sigalgs` override (planned) will offer arbitrary lists.
+
+## Debugging and fault logging
+
+### Logging a fault: -debug and the live stream
+
+**Problem.** When a run misbehaves — or reports a scan — the operator
+needs the full decision trail, human-readable, live.
+
+**Solution.**
+
+```bash
+pqscan -u 127.0.0.1:64444 -debug
+```
+
+**Observation.** (live, stderr)
+
+```text
+  21:56:46.981 [info][config] run : diagnostics armed  positional_args= version=0.0.1
+  21:56:46.981 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
+  21:56:46.981 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
+  21:56:46.981 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
+127.0.0.1:64444 group=- class=- suite=- version=- error=dial tcp 127.0.0.1:64444: connect: connection refused
+  21:56:46.981 [info][output] emit 127.0.0.1: record emitted  format=text
+── pqscan diagnostics ── schema 1 ── 0.0.1 (go1.27.2, darwin/arm64)
+run: 2026-10-15T21:56:46.981+11:00 → 2026-10-15T21:56:46.981+11:00
+flags: debug=true u=127.0.0.1:64444
+events (5): …
+```
+
+**Discussion.** Every decision point emits: ladder steps, QUIC
+handshakes, refusal classifications, timeouts, rate/breaker decisions,
+WAL writes, emissions. The `[level][domain]` prefix is the taxonomy —
+`[error][tls]` vs `[warn][quic]` vs `[info][engine]` — and the trailer
+block restates the run's shape (flags, window, totals) so a pasted
+stderr is self-describing.
+
+### Attaching the machine-readable fault: -debug-out
+
+**Problem.** A ticket needs the structured event log, not a paste; the
+downstream tooling wants to query by domain, level and target.
+
+**Solution.**
+
+```bash
+pqscan -u hostile.internal -quic-off -debug -debug-out diag.json
+jq -c '.summary' diag.json
+jq -r '.events[] | "\(.level)[\(.domain)] \(.op) \(.target // "-")"' diag.json
+```
+
+**Observation.** (live)
+
+```json
+{"events":6,"errors":0,"warnings":0}
+```
+
+```text
+info[config] run -
+info[engine] pipeline -
+info[tls] scan cloudflare.com
+info[engine] scan cloudflare.com
+info[engine] pipeline cloudflare.com
+info[output] emit cloudflare.com
+```
+
+**Discussion.** `-debug-out` writes the full event log as JSONL beside
+the run (independent of `-debug`'s stderr stream — arm either or
+both). The event objects carry level, domain, op, target, error and
+timing — the same stream the live view renders. BUG REPORTS AND
+SCAN-TOUCHING FEATURE REQUESTS attach `-debug -debug-out diag.json`
+output: the issue templates demand it, because the event log is the
+only reproduction that shows the tool's decisions.
+
+### The failure taxonomy: reading scan results correctly
+
+**Problem.** A red error line is not always a failure — a refused
+OFFER is a finding, a timeout is an estate problem, a breaker is the
+tool protecting itself. Triage needs the classes.
+
+**Solution.**
+
+```bash
+pqscan -l estate.txt -jsonl \
+  | jq -r 'select(.error != "") | "\(.target.host): \(.error)"' | sort | uniq -c | sort -rn
+```
+
+**Observation.** The classes and their meanings:
+
+| class | reads as | meaning |
+|---|---|---|
+| refused (dial) | `connect: connection refused`, `no route to host` | nothing listening; the target is wrong or down |
+| timeout / deadline | `i/o timeout`, `context deadline exceeded` | the deadline ladder (connect 2 s / handshake 4 s / probe 8 s, ±20 % jitter) fired — throttled or silently dropping |
+| rejected (server) | `alert 40`, `tls: handshake failure`, `tls: bad certificate` | the server ANSWERED and said no — a finding, not a fault |
+| refused (local) | `not-offerable locally: …` | pqscan cannot construct the offer — a tool capability boundary, stated in the record |
+| breaker open | `breaker open` | the host's own failure budget tripped; no dial attempted for subsequent targets |
+
+**Discussion.** Only the first two classes mean "the estate is
+unreachable"; `rejected` rows are ANSWERS (they feed the deep modes'
+findings and the rubric); the local `refused` class should be zero for
+every supported codepoint and is regression-tested per release. The
+breaker row is the congestion plane doing its job — see the hostile-
+hosts recipe. The exit code stays zero for completed scans regardless
+of per-target error records; a non-zero exit means the RUN itself
+failed (binary fault, WAL unwritable, flag misuse).
+
+### Hostile or flaky targets: rate, window, breakers
+
+**Problem.** An estate with dead subnets must not drag the run, nor
+pound a struggling host into further misery.
+
+**Solution.**
+
+```bash
+pqscan -l estate.txt -rate 2000 -threads 64 -jsonl
+```
+
+**Observation.** (live, `-rate 5` on 3 targets)
+
+```text
+wall 0.468s  (the 5 rps bucket's floor: 3 launches ≥ 0.4s)
+```
+
+**Discussion.** `-rate` meters launches through a token bucket;
+`-threads` sets the in-flight cap and AIMD owns the window: grow on
+successes, halve on probe timeouts, floor at one. A host failing
+consecutively trips ITS breaker: later targets on that host emit
+`breaker open` error records WITHOUT a dial (the taxonomy table's
+row). After the cooldown the breaker half-opens on a single probe and
+closes on success. The defaults are unbounded-sequential; the flags
+make the run estate-shaped.
+
+### Crash-resume and the WAL journal
+
+**Problem.** A long estate run dies at 80 %. Do not pay for 80 % of
+the handshakes twice, and do not lose the completed set.
+
+**Solution.**
+
+```bash
+pqscan -l estate.txt -o out.jsonl          # interrupted mid-run
+pqscan -l estate.txt -o out.jsonl -resume  # scans only the remainder
+```
+
+**Observation.** (live)
+
+```text
+pqscan: resume: WAL out.wal: 1 of 3 targets already complete; scanning 2
+pqscan: progress: 2/2 targets scanned
+```
+
+**Discussion.** The WAL is an append-only journal beside the output
+file: every completed target lands fsync-batched under a monotone
+sequence and a run id. A SIGKILL loses nothing but the socket in
+flight — the output may be short, the journal is not. A resume
+replays completed targets into the output (records ride through
+unchanged) and probes only the difference; a run restarted with a
+different target list composes: the journal's keys are `host:port`,
+deduped in input order. The SLO: CI measures a 50-target farm at ≤ 6 s
+wall for the half.
 
 ## Records, output and triage
 
@@ -162,7 +593,7 @@ pqscan -l estate.txt -jsonl -o assets.jsonl \
   | jq -c '{target:.target.host, group:.handshake.group_name, class:.handshake.group_class, score:.pq.score, label:.pq.label, hndl:.pq.hndl}'
 ```
 
-**Observation.** One compact object per target:
+**Observation.** One compact object per target (live):
 
 ```json
 {"target":"cloudflare.com","group":"X25519MLKEM768","class":"pq_hybrid","score":40,"label":"pq-partial","hndl":false}
@@ -176,92 +607,32 @@ accepted the handshake, because material intercepted against such
 handshakes decrypts when the draft breaks. Escalate on `hndl`;
 treat the sub-60 bands as the worklist. The rubric feeds on the
 negotiated-plane facts today; the certificate signature analytics ride
-the `cert` block, and `pq.score` rises through the same field as
-cert-lanes wire in.
+the `cert` block, and `pq.score` rises through the same field as the
+deep findings wire in.
 
-## Operations
+## Downstream
 
-### Crash-resume
+### Feed nuclei
 
-**Problem.** A long estate run dies at 80 %, and the operator should
-not pay for 80 % of the handshakes twice, nor re-derive which hosts
-already answered.
-
-**Solution.**
-
-```bash
-pqscan -l estate.txt -o out.jsonl          # interrupted mid-run
-pqscan -l estate.txt -o out.jsonl -resume  # re-scans only pending targets
-```
-
-**Observation.** The resume line reports the journal's coverage:
-
-```text
-pqscan: resume: WAL out.wal: 1 of 3 targets already complete; scanning 2
-pqscan: progress: 2/2 targets scanned
-```
-
-**Discussion.** The WAL is an append-only journal beside the output
-file: every completed target lands fsync-batched under a monotone
-sequence and a run id. A SIGKILL loses nothing but the socket in
-flight — the output may be short, the journal is not. A resume replays
-completed targets into the output (records ride through unchanged) and
-probes only the difference; a run restarted with a different target
-list composes: the journal's keys are `host:port`, deduped in input
-order.
-
-### Rate, concurrency and hostile hosts
-
-**Problem.** An estate with unreachable or hostile subnets must not drag
-the whole run: rate discipline, a shrinking window on timeouts, and
-per-host refusal isolation come with the pipeline, not as a wrapper
-script.
+**Problem.** Hand payload-scanning to the scanner that does payloads;
+keep the handshake facts where they belong.
 
 **Solution.**
 
 ```bash
-pqscan -l estate.txt -rate 2000 -threads 64 -jsonl
+pqscan -l assets.txt -urls | nuclei -silent -tags tls
 ```
 
-**Observation.** With `-rate` set, probe launches meter against the
-token bucket; targets that keep timing out halve the in-flight window
-(additive-increase/multiplicative-decrease), and a host failing
-consecutively trips its own breaker — subsequent targets on that host
-emit `breaker open` error records without a dial attempt.
+**Observation.** `-urls` emits `scheme://host:port` per target — the
+URL list any URL-taking scanner wants; the handshake/certificate/PQ
+facts stay in pqscan's record stream (the `-o` file in the same run).
 
-**Discussion.** The controls are the merged congestion cores consumed
-by the pipeline: a token limiter (`-rate`), one shared AIMD window over
-the in-flight cap (`-threads`), and per-host breakers with closed →
-open → half-open state. Wiring is landing; until it merges the default
-behavior is unbounded sequential, exactly the pre-`-rate` semantics.
-Rejections stay results: a breaker-tripped host yields schema-1 error
-records, so the output remains chain-ready even mid-outage.
+**Discussion.** The pipeline's stages compose by contract, not intent:
+records stream in input order, WAL alongside, both consumed
+independently. The reverse also holds: masscan/naabu's output feeds
+IN, nuclei's output feeds OUT — pqscan never inspects payloads.
 
-### Reverse-DNS workflow — IP ranges in, domains out
-
-**Problem.** IP sweeps lose the SNI a domain run has; certificate
-analytics without hostname context loses meaning on shared
-infrastructure.
-
-**Solution.**
-
-```bash
-pqscan -cidr 198.51.100.0/24 -jsonl
-```
-
-**Observation.** The resolver pool resolves PTR with a bounded worker
-pool and an LRU-backed cache; the record's `ptr` and `sni_used` fields
-carry what resolved and what was offered.
-
-**Discussion.** The strategy matrix (`ptr-then-ip`, `ip-only`, `auto`)
-selects the SNI candidate per target: the PTR hostname when it is
-RFC 1123-shaped, the bare IP otherwise — `auto` is the default and
-records which rule won. Bulk PTR enumeration at massive scale stays
-with massdns or zdns: pre-filter there, hand the FQDNs forward.
-
-## Estate operations
-
-### The PQ calendar job
+### The estate PQ calendar
 
 **Problem.** Readiness is a trajectory, not a snapshot: leadership
 wants the delta week over week, not a wall of JSON.
@@ -284,12 +655,47 @@ still fires. A CI job on the same contract gates merges in the
 estate's own repos: a PR that demotes a band shows up as a failing
 parity check.
 
-## Where the flags are, deliberately
+### Reverse-DNS workflow — IP ranges in, domains out
 
-`-mode deep` / `-mode pq`, `-probe-*`, `-sni`, `-ptr`, `-shard`,
-`-rate`, `-threads`, `-from-httpx`, `-from-naabu`: the recipes above
-show the commands that run on merged surface TODAY; each planned flag's
-recipe line names its lane issue. The USAGE manual (`USAGE.md`) carries
-every implemented flag with the real captured output; the usage-drift
-gate in CI keeps the two honest — a flag without a man-page row, or a
-row without an implementation, fails the PR.
+**Problem.** IP sweeps lose the SNI a domain run has; certificate
+analytics without hostname context loses meaning on shared
+infrastructure.
+
+**Solution.**
+
+```bash
+pqscan -cidr 198.51.100.0/24 -jsonl
+```
+
+**Observation.** The resolver pool resolves PTR with a bounded worker
+pool and an LRU-backed cache; the record's `ptr` and `sni_used` fields
+carry what resolved and what was offered.
+
+**Discussion.** The strategy matrix (`ptr-then-ip`, `ip-only`, `auto`)
+selects the SNI candidate per target: the PTR hostname when it is
+RFC 1123-shaped, the bare IP otherwise — `auto` is the default and
+records which rule won. Bulk PTR enumeration at massive scale stays
+with massdns or zdns: pre-filter there, hand the FQDNs forward. The
+`-ptr`/`-sni`/`-certs-dir` flags land with the wiring wave; the pool
+and strategies are merged.
+
+## The flag map (live, landing, planned)
+
+| Recipe topic | Flags / mode | State |
+|---|---|---|
+| one handshake, both planes | `-u`, `-l`, `--`, `-jsonl`, `-csv`, `-urls`, `-o`, `-resume`, `-quic-off`, `-debug`, `-debug-out` | **live** |
+| deep modes | `-mode deep`, `-deep standard\|full` | **live** |
+| forced PQ ladder | `-mode pq` | **live** |
+| rate/window/breakers | `-rate`, `-threads` | **live** |
+| PD adapters | `-from-httpx`, `-from-naabu` | **landing** (the wiring wave) |
+| sharding | `-shard i/n` | **landing** (the wiring wave) |
+| identity hooks | `-ptr`, `-sni`, `-certs-dir` | **landing** (the wiring wave) |
+| profile config | `-config`, PQSCAN_* env | planned |
+| legacy module | `-legacy heartbleed,ccs,robot` | planned |
+| probe overrides | `-probe-suite`, `-probe-group`, `-probe-sigalgs`, `-probe-version` | planned |
+| sort/fields/silent/stats | `-sorted`, `-fields`, `-silent`, `-stats` | planned |
+
+The usage-drift gate in CI keeps USAGE.md and this map honest: a flag
+without a man-page row, or a row outside the implemented+planned set,
+fails the PR. Every `-probe-*` and `-legacy` recipe above notes its
+lane; the flag map is where a new operator starts.
