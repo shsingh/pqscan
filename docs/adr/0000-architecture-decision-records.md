@@ -9,8 +9,9 @@ decided, why, and what it supersedes.
 | Number | Title | Status |
 | --- | --- | --- |
 | [0000](0000-architecture-decision-records.md) | Architecture decision records (this process) | accepted |
-| [0001](0001-adopt-go-over-rust.md) | Adopt Go over Rust for the pqscan engines | accepted |
+| [0001](0001-adopt-go-over-rust.md) | Adopt Go over Rust for the pqscan engines | accepted — re-affirmed at the M0 gate (see [m0-report](../m0-report.md)) |
 | [0002](0002-watched-red-merge-gate.md) | Watched RED: test-first as the merge gate | accepted |
+| [0003](0003-slsa-provenance-attestations.md) | SLSA provenance via GitHub Artifact Attestations | accepted |
 
 ## When an ADR is required
 

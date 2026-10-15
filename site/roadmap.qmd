@@ -9,7 +9,7 @@ Live work runs on the [pqscan Roadmap board](https://github.com/users/shsingh/pr
 
 | Milestone | Scope | State |
 |---|---|---|
-| **M0** — measurement and decision gate | Engine spikes measured (TCP matrix, QUIC plane, microbench), language verdict re-scored (re-affirm ADR-0001 or fire the kill-switch) | in progress — see the [register](https://github.com/shsingh/pqscan/issues/4) for leaf states |
+| **M0** — measurement and decision gate | Engine spikes measured (TCP matrix, QUIC plane, microbench), language verdict re-scored (re-affirm ADR-0001 or fire the kill-switch) | gate closing — report: [m0-report](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md) |
 | **M1** — fast mode + output dialect | Target grammar, fast handshakes, JSONL/CSV/text/URLs out, exit codes, `-stats`, docs drift check | pending |
 | **M2** — PQC classification + deep mode | IANA regen pipeline, scoring rubric + verdicts, deep plan executor, differential vs gnutls-cli-debug | pending |
 | **M3** — scale hardening | Budgets/AIMD/breakers, WAL resume, SLO suite in CI, shard mode | pending |
