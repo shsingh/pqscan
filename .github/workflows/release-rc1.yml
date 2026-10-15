@@ -1,0 +1,129 @@
+# Release tooling for 2026.01-rc1 (PQ-29, issue #52).
+#
+# Two run modes on workflow_dispatch:
+#   - test dispatch (publish=false, default): builds the matrix, uploads
+#     binaries + CHECKSUMS-sha256.txt as run artifacts and attests each
+#     binary — NOTHING is published. This is the exercised path.
+#   - release cut (publish=true, from a tag ref): the publish job also
+#     creates the GitHub release with binaries + checksums + the notes
+#     file (docs/release-notes-<version>.md).
+# Design source: [ADR-0003](docs/adr/0003-slsa-provenance-attestations.md).
+# Verify an artifact before running it:
+#   gh attestation verify <artifact> -R shsingh/pqscan
+name: release-rc1
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version stamped into the binaries (release tag on publish runs)'
+        required: false
+        default: '2026.01-rc1'
+      publish:
+        description: 'Create the GitHub release — set true only on release cuts (tag refs), never for test dispatches'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: build + attest (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: Build pqscan
+        # NOTE: main.version is currently declared const in cmd/pqscan/main.go,
+        # so the linker -X stamp is inert until it becomes a var (follow-up).
+        run: |
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X main.version=${{ inputs.version }}" \
+            -o pqscan-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/pqscan
+      # attested subjects must ALSO be uploaded as run artifacts: gh
+      # attestation verify resolves against the run's artifact list (PQ-13)
+      - name: Upload binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
+          retention-days: 7
+      - name: Attest build provenance (SLSA)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  # Aggregation job: v4+ run artifacts are immutable per name, so the
+  # three matrix legs cannot each write a shared CHECKSUMS file — the
+  # combined checksums are generated here from the uploaded binaries.
+  checksums:
+    name: combined checksums
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Download binaries from the matrix
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: pqscan-*
+          merge-multiple: true
+          path: dist
+      - name: Generate CHECKSUMS-sha256.txt
+        run: |
+          cd dist
+          sha256sum pqscan-* > CHECKSUMS-sha256.txt
+          cat CHECKSUMS-sha256.txt
+      - name: Upload checksums
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: CHECKSUMS-sha256.txt
+          path: dist/CHECKSUMS-sha256.txt
+          retention-days: 7
+
+  # Release cut only (publish input; future tag-ref runs). Gated so the
+  # dispatch/test path NEVER publishes. Requires the notes file for the
+  # version to exist: docs/release-notes-<version>.md.
+  publish:
+    name: publish GitHub release
+    runs-on: ubuntu-latest
+    needs: [release, checksums]
+    if: github.event.inputs.publish == 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download binaries + checksums
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          merge-multiple: true
+          path: dist
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ inputs.version }}"
+          notes="docs/release-notes-${version}.md"
+          if [ ! -f "$notes" ]; then
+            echo "::error::release notes missing for ${version}: create ${notes}"
+            exit 1
+          fi
+          test -f dist/CHECKSUMS-sha256.txt || { echo "::error::checksums artifact missing"; exit 1; }
+          gh release create "$version" \
+            -R "$GITHUB_REPOSITORY" \
+            --title "pqscan ${version}" \
+            --notes-file "$notes" \
+            dist/pqscan-* dist/CHECKSUMS-sha256.txt
