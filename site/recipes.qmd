@@ -65,9 +65,9 @@ stdlib default group preference order (MLKEM hybrid first), offers ALPN
 `h2,http/1.1`, and records what the server SELECTED — negotiation is
 the assertion, no configuration parsing. Each upstream tool stays in
 its lane; nothing in the chain re-implements another's job. When httpx
-runs with `-csv`, its lines begin `url,status` and need the
-`-from-httpx` adapter (landing now, PQ-35); the text chain above
-requires nothing but the tools.
+runs with `-csv`, its lines begin `url,status` and use the
+`-from-httpx` flag (PQ-35); the text chain above requires nothing but
+the tools.
 
 ### Port truth first
 
@@ -88,9 +88,55 @@ specs — one probe handshake, one record, per surviving socket.
 **Discussion.** naabu is the port-discovery plane: it answers with the
 sockets that accept, which is exactly the input pqscan wants.
 Certificates-directory collection and resumption analysis later reuse
-the same records rather than re-dialing. `-from-naabu` (its wiring is
-landing) additionally covers naabu's bare-host-and-ports-block
-rendering; the `host:port` form above is already first-class.
+the same records rather than re-dialing. `-from-naabu` additionally
+covers naabu's bare-host-and-ports-block rendering; the `host:port`
+form above is already first-class — and a saved render scans through
+the flag form (the next recipe).
+
+### PD dialect renders as files — -from-httpx / -from-naabu (PQ-35)
+
+**Problem.** httpx and naabu render in their own dialects — httpx speaks
+scheme-URI lines (`https://host:port`, an optional URL path suffix),
+naabu speaks `host:port` (or a host line followed by its bare-port
+block). When the render is already on disk the operator must not have
+to clean it just to scan: the adapters accept the render the way any
+target file is accepted.
+
+**Solution.**
+
+```bash
+httpx -silent -no-color -l domains.txt -o discovered.httpx   # the render
+pqscan -from-httpx discovered.httpx -jsonl
+
+naabu -host example.com -p 443,8443 -o naabu.naabu -silent   # the render
+pqscan -from-naabu naabu.naabu -jsonl
+```
+
+**Observation.** Both chains executed with the real tools; the renders
+upstream were verbatim, the records from the pqscan legs — the httpx
+render's scheme/URI lines strip to host:port specs:
+
+```json
+{"schema":1,"mode":"fast","target":{"input":"example.com","host":"example.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+```
+
+and the naabu render's doubled `host:port` lines (`example.com:8443`,
+`example.com:443` twice over — naabu renders per resolved address)
+dedupe to one record per socket:
+
+```json
+{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+```
+
+**Discussion.** The adapters feed the SAME composition -u/-l/-- use
+(internal/target strips the dialect decoration; every line goes through
+the one grammar), so one dedupe — host:port, first occurrence wins —
+serves every input source in flag order; a bad line refuses the run
+named by its flag (exit 64) rather than scanning a truncated list.
+httpx's `-csv` (url,status) rows are a planned adapter; the block
+rendering of a naabu multi-port run (a host line followed by
+bare-decimal port lines) parses through `-from-naabu` exactly as the
+host:port lines do (the adapter's unit fixtures pin it).
 
 ### Internet scale — one box of a four-box pass
 

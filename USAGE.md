@@ -56,8 +56,21 @@ OPTIONS
                          per-address expansion ships.
     -cidr range          CIDR expansion (e.g. 192.0.2.0/24).
     -p port[,port...]    Ports; default 443. Ranges allowed (8000-8100).
-    -from-httpx          httpx-format input lines.
-    -from-naabu          naabu host:port input lines.
+    -from-httpx file     httpx text lines: each line is
+                         scheme://host:port with an optional URL path
+                         suffix — both strip to the host[:port] spec,
+                         so bare host:port/host lines parse too
+                         (https/443 default). Composes with -u/-l/--
+                         under the one dedupe; # comments skip.
+                         (httpx's -csv url,status rows are a planned
+                         adapter.)
+    -from-naabu file     naabu lines: host:port per line, or the
+                         ports block — a host line followed by
+                         bare-decimal port lines — or the bare host
+                         (no ports block: https/443 default).
+                         Composes with -u/-l/-- under the one dedupe;
+                         # comments skip. A read or parse failure
+                         refuses the run named by its flag (exit 64).
     -shard i/n           Split the input into n shards and process only
                          shard i (zgrab2-style, for multi-box passes).
     -resume              Resume an interrupted run from the WAL

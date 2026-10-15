@@ -10,8 +10,6 @@ config
 connect-timeout
 dns-threads
 fields
-from-httpx
-from-naabu
 http
 legacy
 p

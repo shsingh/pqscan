@@ -24,6 +24,7 @@ import (
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
 	"github.com/shsingh/pqscan/internal/quicx"
+	"github.com/shsingh/pqscan/internal/target"
 	"github.com/shsingh/pqscan/internal/tlsx"
 )
 
@@ -479,9 +480,18 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 	}
 }
 
-// composeTargets parses the composed target sources (-u spec, -l file lines,
-// and the bare "--" stdin marker) into a deduplicated []grammar.Target, in
-// first-occurrence order (dedupe key: host:port).
+// composeTargets parses the composed target sources into a deduplicated
+// []grammar.Target, in first-occurrence order (dedupe key: host:port).
+//
+// The spec sources stay -u / -l / the bare "--" marker; the PD-dialect
+// adapter files (PQ-35, issue #80) join them through internal/target:
+// -from-httpx (httpx lines: scheme://host:port with an optional URL path
+// suffix) and -from-naabu (the naabu render: host:port lines, a host line
+// followed by its bare-decimal ports block, or the bare host) strip the
+// dialect decoration and hand every line to grammar.Parse exactly as -u
+// does — ONE grammar and ONE dedupe layer serve every input source.
+// Source order is the flag order: -u, then -l, then the stdin marker,
+// then the adapter files (-from-httpx before -from-naabu).
 //
 // The "--" marker is detected in the RAW argument list: Go's flag package
 // consumes the terminator and it never lands in fs.Args() (surfaced by the
@@ -491,11 +501,12 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // treated as a file name). stdin expands exactly once.
 //
 // Refusals (exit 64, usage class): a source that fails to read, a spec the
-// grammar rejects, and CIDR-class targets — a cidr spec prints the PQ-16
-// deferral and refuses before anything is scanned (per-address expansion is
-// PQ-16; the grammar yields one Target per network, so the loop rejects the
-// class directly).
-func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
+// grammar rejects (the adapter dialects annotate the failing line's
+// number), and CIDR-class targets — a cidr spec prints the PQ-16 deferral
+// and refuses before anything is scanned (per-address expansion is PQ-16;
+// the grammar yields one Target per network, so the loop rejects the class
+// directly). No partial list ever scans.
+func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
 	var specs []string
 	if listFile == "--" {
 		listFile = "" // the marker composes via the spec loop below
@@ -519,12 +530,79 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 		}
 	}
 
+	// The adapter files (PQ-35): read in source order, parsed by
+	// internal/target into the same []grammar.Target shape the spec loop
+	// produces; the shared admission below treats them identically.
+	var adapterBatches [][]grammar.Target
+	readAdapter := func(flag, path string) ([]grammar.Target, int) {
+		f, err := os.Open(path)
+		if err != nil {
+			diag.Emit(diag.Error, diag.DomTarget, "compose", "", flag+" read failed", err, map[string]string{"file": path})
+			fmt.Fprintf(stderr, "pqscan: %s %s: %v\n", flag, path, err)
+			return nil, 64
+		}
+		defer f.Close() //nolint:errcheck
+		var ts []grammar.Target
+		switch flag {
+		case "-from-httpx":
+			ts, err = target.FromHTTPX(f)
+		case "-from-naabu":
+			ts, err = target.FromNaabu(f)
+		}
+		if err != nil {
+			diag.Emit(diag.Error, diag.DomTarget, "compose", "", flag+" parse failed", err, map[string]string{"file": path})
+			fmt.Fprintf(stderr, "pqscan: %s %s: %v\n", flag, path, err)
+			return nil, 64
+		}
+		return ts, 0
+	}
+	for _, src := range []struct{ flag, path string }{
+		{"-from-httpx", httpxFile},
+		{"-from-naabu", naabuFile},
+	} {
+		if src.path == "" {
+			continue
+		}
+		ts, code := readAdapter(src.flag, src.path)
+		if code != 0 {
+			return nil, code
+		}
+		adapterBatches = append(adapterBatches, ts)
+	}
+
 	targets := make([]grammar.Target, 0, len(specs))
 	seen := make(map[string]bool, len(specs))
 	stdinDrained := false
-	// parseSpecs fans one batch of specs into targets (in order), expanding
-	// the stdin marker exactly once.
+
 	var parseSpecs func([]string) error
+
+	// admit is the shared admission every source walks: the stdin marker
+	// expands exactly once, cidr refuses with the PQ-16 deferral, and
+	// everything else dedupes by host:port (first occurrence wins).
+	var admit func(t grammar.Target) error
+	admit = func(t grammar.Target) error {
+		switch t.Class {
+		case "stdin":
+			if stdinDrained {
+				return nil
+			}
+			stdinDrained = true
+			return parseSpecs(readSpecs(stdin))
+		case "cidr":
+			diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is PQ-16)", nil, nil)
+			fmt.Fprintf(stderr, "pqscan: -cidr target %q: %v\n", t.Input, errCidrTargets)
+			return errCidrTargets
+		default:
+			key := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
+			if seen[key] {
+				return nil // dedupe by host:port, first occurrence wins
+			}
+			seen[key] = true
+			targets = append(targets, t)
+			return nil
+		}
+	}
+
 	parseSpecs = func(batch []string) error {
 		for _, spec := range batch {
 			parsed, err := grammar.Parse(spec)
@@ -532,26 +610,8 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 				return err
 			}
 			for _, t := range parsed {
-				switch t.Class {
-				case "stdin":
-					if stdinDrained {
-						continue
-					}
-					stdinDrained = true
-					if err := parseSpecs(readSpecs(stdin)); err != nil {
-						return err
-					}
-				case "cidr":
-					diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is PQ-16)", nil, nil)
-					fmt.Fprintf(stderr, "pqscan: -cidr target %q: %v\n", t.Input, errCidrTargets)
-					return errCidrTargets
-				default:
-					key := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
-					if seen[key] {
-						continue // dedupe by host:port, first occurrence wins
-					}
-					seen[key] = true
-					targets = append(targets, t)
+				if err := admit(t); err != nil {
+					return err
 				}
 			}
 		}
@@ -563,6 +623,17 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 			fmt.Fprintln(stderr, "pqscan:", err)
 		}
 		return nil, 64
+	}
+	for _, batch := range adapterBatches {
+		for _, t := range batch {
+			if err := admit(t); err != nil {
+				if !errors.Is(err, errCidrTargets) {
+					// the adapter refusal already annotated its line
+					fmt.Fprintln(stderr, "pqscan:", err)
+				}
+				return nil, 64
+			}
+		}
 	}
 	return targets, 0
 }

@@ -34,9 +34,12 @@ func main() {
 
 // run executes the CLI and returns the process exit code. The flag set is
 // rebuilt per call so tests exercise the same path the process does
-// (PQ-10). -debug arms the diagnostics sink (PQ-011). -u / -l / --
-// compose into one []grammar.Target list scanned by the multi-target
-// pipeline (PQ-15). The output selectors (-json/-jsonl/-csv/-urls/-text)
+// (PQ-10). -debug arms the diagnostics sink (PQ-011). -u / -l / -- compose
+// into one []grammar.Target list scanned by the multi-target pipeline
+// (PQ-15): the PD-dialect adapter files -from-httpx/-from-naabu (PQ-35)
+// join the same composition through internal/target — one grammar, one
+// host:port dedupe, one record order. The output selectors
+// (-json/-jsonl/-csv/-urls/-text)
 // choose the encoder (PQ-16); -resume replays the run journal beside -o
 // and scans only the pending targets.
 func run(args []string, stdout, stderr io.Writer) int {
@@ -47,6 +50,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	debugOut := fs.String("debug-out", "", "write the machine-parsable diagnostics report (schema 1) to this JSON file")
 	target := fs.String("u", "", "single target: host, host:port, or ip:port (composes with -l and --)")
 	listFile := fs.String("l", "", "read newline-separated target specs from this file (composes with -u and --; deduped by host:port)")
+	// PD-dialect input adapters (PQ-35/issue #80): the files' lines are
+	// httpx/naabu output; internal/target strips the dialect decoration
+	// and feeds the same grammar, so ONE composition — one dedupe —
+	// serves every input source.
+	httpxFile := fs.String("from-httpx", "", "read httpx-format input lines from this file (scheme://host:port with an optional URL path; composes with -u/-l/--; deduped by host:port)")
+	naabuFile := fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines, or a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)")
 	// Output format selectors (spec §5.7): the LAST selector on the
 	// command line wins and text is the absent-flag default —
 	// chooseFormat resolves it. The five spellings register as real flags
@@ -109,7 +118,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 64
 	}
 
-	targets, code := composeTargets(*target, *listFile, args, stderr)
+	targets, code := composeTargets(*target, *listFile, *httpxFile, *naabuFile, args, stderr)
 	if code != 0 {
 		return code
 	}
