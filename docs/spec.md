@@ -444,6 +444,8 @@ Sequencing rule: M0 is the measurement and decision gate; each subsequent milest
 
 ## 10. Test and verification strategy
 
+**Test-first is the merge gate ([ADR-0002](../blob/main/docs/adr/0002-watched-red-merge-gate.md)):** every behavioural change lands as a watched RED→GREEN pair — the failing test exists and runs before the implementation, the RED output is recorded verbatim in the PR body, and CI re-proves the green suite. Rejections and observations of hostile input are results; their tests are fixtures first.
+
 ### 10.1 Correctness fixtures
 
 - **badssl.com subdomain matrix** (expired, untrusted, suite-hostile, version-hostile, mismatch, RC4/3DES hosts) — expected results checked per probe; regressions fail CI.

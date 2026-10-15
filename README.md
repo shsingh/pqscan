@@ -72,13 +72,13 @@ Roadmap milestones (no time claims — acceptance-criteria driven):
 
 ## Contributing
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the working agreement
-  (Conventional Commits, signed commits, one logical change per PR).
-- [`AGENTS.md`](AGENTS.md) — the single source of truth for contributors and
-  coding agents.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the working agreement (Conventional Commits, signed commits, one logical change per PR).
+- [`AGENTS.md`](AGENTS.md) — the single source of truth for contributors and coding agents.
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting
   ([private advisory](https://github.com/shsingh/pqscan/security/advisories/new)).
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
+**Engineering standard — watched RED ([ADR-0002](docs/adr/0002-watched-red-merge-gate.md)):** every behavioural change lands as a RED→GREEN pair; the failing test exists and runs first, and its output is recorded verbatim in the PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the hypothesis-first procedure.
 
 Only scan systems you own or are authorised to test; the tool's etiquette
 defaults (rate caps, per-subnet concurrency, circuit breakers) are published
