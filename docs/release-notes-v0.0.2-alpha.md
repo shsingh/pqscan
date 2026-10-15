@@ -1,10 +1,12 @@
-# pqscan 2026.01-rc1 — TLS/QUIC cipher-configuration and PQC readiness scanner
+# pqscan v0.0.2-alpha — TLS/QUIC cipher-configuration and PQC readiness scanner
 
 pqscan is a small, fast, chainable TLS/QUIC cipher-configuration and
 post-quantum readiness scanner shipped as a single static binary (the
 PD-ecosystem contract in
 [`docs/spec.md#5-feature-set`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set)).
-2026.01-rc1 is the first release candidate: it packages the engine state
+v0.0.2-alpha is the first development cut; the `2026.01-rc1` name is
+reserved for the release that follows completion of the current
+milestone set (M1-M5). It packages the engine state
 that closed the [M0 gate](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md)
 together with the tooling needed to verify it. Artifacts are verifiable
 *before* they are run — that is the governance contract of this tool.
