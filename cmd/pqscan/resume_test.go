@@ -103,22 +103,25 @@ func TestResumeRun(t *testing.T) {
 	if len(rows) != 3 {
 		t.Fatalf("resumed output rows = %d, want 3 (header + 2 records):\n%s", len(rows), outB)
 	}
-	if rows[0] != "target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,error,ts" {
+	if rows[0] != "target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts" {
 		t.Fatalf("csv header wrong: %s", rows[0])
 	}
 	fields1 := strings.Split(rows[1], ",")
 	if fields1[0] != hybridAddr || fields1[1] != hybridHost || strings.Join(fields1[5:8], ",") != "4588,X25519MLKEM768,pq_hybrid" {
 		t.Fatalf("replayed row 1 = %v, want the hybrid record (input %s, host %s) from the WAL", fields1, hybridAddr, hybridHost)
 	}
-	if fields1[15] != seed.Ts {
-		t.Fatalf("row 1 ts = %q, want the wal stamp %q (the record must come from the journal, not a rescan)", fields1[15], seed.Ts)
+	// Row 1 replays out of the WAL: the seed run's verdict blocks are part
+	// of the record and re-encode from the journal payload (cert_/pq_ cells
+	// populated); ts is the last cell (index 24).
+	if fields1[24] != seed.Ts {
+		t.Fatalf("row 1 ts = %q, want the wal stamp %q (the record must come from the journal, not a rescan)", fields1[24], seed.Ts)
 	}
 	fields2 := strings.Split(rows[2], ",")
 	if fields2[0] != classicAddr || fields2[1] != classicHost {
 		t.Fatalf("row 2 = %v, want the pending target scanned (input %s, host %s)", fields2, classicAddr, classicHost)
 	}
-	if fields2[15] == "" || fields2[15] == seed.Ts {
-		t.Fatalf("row 2 ts = %q, want a fresh scan stamp", fields2[15])
+	if fields2[24] == "" || fields2[24] == seed.Ts {
+		t.Fatalf("row 2 ts = %q, want a fresh scan stamp", fields2[24])
 	}
 
 	// 3. Journal after resume: exactly 2 lines — the seed entry byte-for-
