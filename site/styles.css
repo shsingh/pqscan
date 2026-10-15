@@ -47,3 +47,7 @@ svg.mermaid-js g.edgeLabel .labelBkg {
 /* the alternative-tools table: stop the wrappy squeeze on narrow columns */
 main table td:first-child, main table th:first-child { white-space: nowrap; }
 .table > :not(caption) > * > * { padding: 0.45rem 0.7rem; }
+
+/* site tables: keep code chips unbroken + rows top-aligned (the labels table's chip-stacking fix) */
+main table code { white-space: nowrap; }
+main table td, main table th { vertical-align: top; }
