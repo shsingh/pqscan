@@ -14,7 +14,7 @@ import (
 )
 
 // goldenRecord is the known record the record.* goldens encode: a fully
-// populated handshake, QUIC, cert and pq blocks (every optional field
+// populated handshake, QUIC, cert, pq and deep blocks (every optional field
 // present, a negotiated PQ hybrid) and fixed scan stamps.
 //
 // The cert/pq block values are a coherent rubric row for this record's
@@ -26,10 +26,16 @@ import (
 // blocks; every inner field unconditionally encoded, false flags too),
 // not a live scan; the wire-in's rubric consistency is pinned in
 // cmd/pqscan's fixture tests.
+//
+// PQ-20: this record also carries the deep block (--mode deep): the
+// executed plan's counts — attempted = ok + rejected (+ refusals/errors
+// riding findings only) — and the findings vector in plan order, one row
+// per verdict class. Mode is "deep": the deep block only ever encodes on
+// a deep-mode record; the error record below pins the nil-omitted shape.
 func goldenRecord() *out.Record {
 	return &out.Record{
 		Schema: out.SchemaVersion,
-		Mode:   "fast",
+		Mode:   "deep",
 		Target: out.TargetRecord{
 			Input:   "example.com",
 			Host:    "example.com",
@@ -65,6 +71,20 @@ func goldenRecord() *out.Record {
 			Label:   "pq-ready",
 			HNDL:    false,
 			Summary: "negotiated_pq_hybrid(+40); cert_pq_sig(+25); dual_cert(+20)",
+		},
+		Deep: &out.DeepRecord{
+			Mode:      "standard",
+			Attempted: 3,
+			OK:        1,
+			Rejected:  1,
+			Findings: []out.DeepFinding{
+				{Probe: "group/4587", Result: "accepted",
+					Detail: "negotiated SecP256r1MLKEM768, suite TLS_AES_128_GCM_SHA256, tls-1.3"},
+				{Probe: "suite/TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256@1.2", Result: "rejected",
+					Detail: "remote error: tls: protocol version not supported"},
+				{Probe: "sigalg/mldsa44", Result: "refused",
+					Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)"},
+			},
 		},
 		Ts: "2026-10-15T09:30:12Z",
 	}
@@ -138,5 +158,29 @@ func TestJSONAliasIsJSONL(t *testing.T) {
 	}
 	if !bytes.Equal(a, b) {
 		t.Fatalf("record.json and record.jsonl differ (%d vs %d bytes)", len(a), len(b))
+	}
+}
+
+// TestDeepBlockJSONContract: the deep block's byte corners — the block's
+// inners are unconditional (an empty findings vector encodes as
+// "findings":[]), a nil Deep encodes nothing (error.jsonl's shape), and
+// the deep block carries no CSV projection (the header is fixed).
+func TestDeepBlockJSONContract(t *testing.T) {
+	rec := goldenRecord()
+	rec.Deep.Findings = nil
+	rec.Deep.Attempted, rec.Deep.OK, rec.Deep.Rejected = 0, 0, 0
+	var buf bytes.Buffer
+	if err := out.NewEncoder(&buf, out.FormatJSONL).Encode(rec); err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	if want := `,"deep":{"mode":"standard","attempted":0,"ok":0,"rejected":0,"findings":[]}`; !bytes.Contains(buf.Bytes(), []byte(want)) {
+		t.Fatalf("deep block corner not byte-pinned:\nwant: %s\ngot:  %s", want, buf.String())
+	}
+	var buf2 bytes.Buffer
+	if err := out.NewEncoder(&buf2, out.FormatJSONL).Encode(errorRecord()); err != nil {
+		t.Fatalf("encode error record: %v", err)
+	}
+	if bytes.Contains(buf2.Bytes(), []byte(`"deep"`)) {
+		t.Fatalf("nil deep block leaked into the jsonl line: %s", buf2.String())
 	}
 }

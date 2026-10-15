@@ -82,6 +82,14 @@ type Options struct {
 	// at aimd's floor and moves with the run (successes grow, probe
 	// timeouts halve); MaxWindow is only its ceiling.
 	MaxWindow int
+	// Mode is the per-target scan mode (-mode, PQ-20): fast (the single
+	// profile handshake, "" = fast for zero-value callers), deep (the
+	// executed deepplan offer-one plan) or pq (the forced PQ ladder).
+	Mode string
+	// DeepPlan selects the -mode deep plan cap (-deep): deepplan standard
+	// (default, <=24 probes per target) or full (the complete matrix).
+	// It never affects the fast/pq modes.
+	DeepPlan string
 }
 
 // stdin is the process stdin seam: run() reads composed "--" specs from it.
@@ -218,7 +226,7 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 				// nothing in flight, no window signal (it is not a
 				// success nor a congestion event; the record's error is
 				// the skipped-with-reason proof).
-				rec := breakerOpenRecord(t)
+				rec := breakerOpenRecord(t, opts.Mode)
 				recs[next] = rec
 				if opts.Record != nil {
 					opts.Record(rec)
@@ -271,7 +279,23 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 	return recs, nil
 }
 
-// scanTarget is the per-target fast-mode probe path (rc1 scanSingle,
+// scanTarget dispatches the per-target scan by run mode (PQ-20, issue
+// #43): fast is the shipped single-handshake probe; pq appends the forced
+// PQ ladder; deep consumes the deepplan.Build plan. Callers that leave
+// Mode unset get the fast engine (zero-value compatibility).
+func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
+	switch opts.Mode {
+	case modeDeep:
+		rec, failing, timedOut = scanTargetDeep(t, opts)
+	case modePQ:
+		rec, failing, timedOut = scanTargetPQ(t, opts)
+	default:
+		rec, _, failing, timedOut = scanTargetFast(t, opts)
+	}
+	return rec, failing, timedOut
+}
+
+// scanTargetFast is the per-target fast-mode probe path (rc1 scanSingle,
 // grammar-driven: the parsed Target already carries its canonical host,
 // port and class, so no ad-hoc host:port splitting happens here). It
 // reports the TCP plane's probe outcome beside the record — failing = the
@@ -279,8 +303,10 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 // timedOut = the failure is a deadline expiry (aimd.OnTimeout, the §7.3
 // throttle signal; plain refusals are rejections, not congestion). A
 // scan-error record from the rubric is NOT a probe failure: the handshake
-// itself succeeded.
-func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
+// itself succeeded. res is the raw profile handshake (PQ-20's deep/pq
+// executors consume its facts: the Observed prune input and the cert
+// analytics); nil only when the probe died before any observation.
+func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.ProbeResult, failing, timedOut bool) {
 	timeout := opts.ProbeTimeout
 	if timeout <= 0 {
 		timeout = defaultProbeTimeout
@@ -298,11 +324,11 @@ func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timed
 	// TCP plane: browser-grade defaults (stdlib CurvePreferences = MLKEM
 	// hybrid preferred) — the negotiation is the real-world posture.
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
-	res, err := tlsx.ProbeNegotiated(addr, t.Host, nil, timeout)
-	if err != nil && (res == nil || res.Error == "") {
-		rec.Error = err.Error()
-		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", err, nil)
-		return rec, true, isTimeoutError(rec.Error)
+	res, perr := tlsx.ProbeNegotiated(addr, t.Host, nil, timeout)
+	if perr != nil && (res == nil || res.Error == "") {
+		rec.Error = perr.Error()
+		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", perr, nil)
+		return rec, res, true, isTimeoutError(rec.Error)
 	}
 	if res != nil && res.Error != "" {
 		// Refusals are records, not run failures (rejections are results):
@@ -314,7 +340,7 @@ func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timed
 		// A refusal still fails the probe for the breaker's consecutive-
 		// failure count; only the deadline-expiry class signals the AIMD
 		// window (a refusal carries no congestion information).
-		return rec, true, isTimeoutError(rec.Error)
+		return rec, res, true, isTimeoutError(rec.Error)
 	}
 	rec.Handshake = handshakeRecord{
 		Negotiated: res.Negotiated,
@@ -392,17 +418,17 @@ func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timed
 	} else {
 		rec.Quic = &quicRecord{Attempted: false}
 	}
-	return rec, false, false
+	return rec, res, false, false
 }
 
 // breakerOpenRecord builds the breaker-skipped target's record: the
 // schema-1 error shape (like any failed probe — zero handshake, no
 // verdict blocks invented), its Error carrying the skip reason "breaker
 // open" instead of the dial's outcome. Skipped-with-reason, never silent.
-func breakerOpenRecord(t grammar.Target) *scanRecord {
+func breakerOpenRecord(t grammar.Target, mode string) *scanRecord {
 	rec := &scanRecord{
 		Schema: out.SchemaVersion,
-		Mode:   "fast",
+		Mode:   mode,
 		Target: out.TargetRecord{Input: t.Input, Host: t.Host, Port: uint16(t.Port)},
 	}
 	rec.Ts = time.Now().UTC().Format(time.RFC3339Nano)
