@@ -10,6 +10,7 @@ decided, why, and what it supersedes.
 | --- | --- | --- |
 | [0000](0000-architecture-decision-records.md) | Architecture decision records (this process) | accepted |
 | [0001](0001-adopt-go-over-rust.md) | Adopt Go over Rust for the pqscan engines | accepted |
+| [0002](0002-watched-red-merge-gate.md) | Watched RED: test-first as the merge gate | accepted |
 
 ## When an ADR is required
 
