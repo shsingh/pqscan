@@ -1,5 +1,9 @@
 # pqscan
 
+[![License: MIT](https://img.shields.io/badge/licence-MIT-blue)](https://github.com/shsingh/pqscan/blob/main/LICENSE) [![pqscan site](https://img.shields.io/website?down_message=offline&up_message=live&url=https%3A%2F%2Fshsingh.github.io%2Fpqscan%2F&label=site)](https://shsingh.github.io/pqscan/) [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/shsingh/pqscan)](https://github.com/shsingh/pqscan/graphs/commit-activity) [![Libraries.io dependency status for GitHub repo](https://img.shields.io/librariesio/github/shsingh/pqscan)](https://libraries.io/github/shsingh/pqscan) [![GitHub Release](https://img.shields.io/github/v/release/shsingh/pqscan?include_prereleases)](https://github.com/shsingh/pqscan/releases)
+
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/shsingh/pqscan/main.svg)](https://results.pre-commit.ci/latest/github/shsingh/pqscan/main)
+
 A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
 readiness scanner. One static binary that enumerates protocol versions, cipher
 suites, key-exchange groups, signature algorithms and certificate properties —
