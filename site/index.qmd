@@ -13,12 +13,12 @@ cipher suites, key-exchange groups, signature algorithms and certificate
 properties — scores every observation on a PQC-readiness rubric — and
 speaks the Project Discovery dialect (stdin → stdout, streaming JSONL).
 
-**Status:** pre-alpha. The canonical specification lives at
+**Status:** pre-alpha moving to `2026.01-rc1`. The canonical
+specification lives at
 [`docs/spec.md`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md);
-the M0 measurement gate is closed
-([report](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md));
-the M1–M5 leaves are open on the
-[register](https://github.com/shsingh/pqscan/issues/4).
+M1 is complete and the M2 cores have landed — every record carries the
+live PQC verdict and certificate analytics
+([register](https://github.com/shsingh/pqscan/issues/4)).
 
 ## What it does
 
