@@ -1,0 +1,5 @@
+/* pqscan site */
+body { hyphens: none; }
+nav .navbar-brand img { max-height: 36px; }
+code { font-family: "Pragmata Pro", "JetBrains Mono", Consolas, monospace; }
+pre code { font-size: 0.86em; }

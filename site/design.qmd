@@ -1,0 +1,84 @@
+# Design and architecture
+
+Design source: [`docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class) — the normative text; this page is the end-user view.
+
+## Where the time goes
+
+A fast-mode handshake is RTT-bound, not CPU-bound:
+
+```
+L ≈ connect_rtt (1) + tls13_handshake_rtt (1) [+1 HRR]
+    + server_compute (~50–300 ms, CDN edge)
+    + client_crypto (MLKEM-768 encap ~0.05–0.15 ms; negligible)
+```
+
+Throughput for a pool of W concurrent connections is **T ≈ W / L** — the
+budget table below, not threads, is what makes the tool fast.
+
+## The pipeline: five bounded, streaming stages
+
+```mermaid
+flowchart TB
+  A2[stdin] --> A3["1 ingest: grammar parse + dedupe"]
+  A3 --> B0["2 enrich: shard filter + DNS pool (A/AAAA/PTR)"]
+  B0 --> C0["3 scheduler: fair target queue + plan builder"]
+  C0 --> D0["4 TCP engine - crypto/tls + uTLS"]
+  C0 --> D2["4 QUIC engine - quic-go"]
+  D0 --> E0["5 classify + score + WAL + encoders"]
+  D2 --> E0
+  E0 --> OUT[jsonl / csv / text / urls - streamed]
+  C0 -.AIMD + circuit breakers.-> C0
+```
+
+Design rules: no stage waits on a slow item (backpressure via bounded
+channels); no unordered goroutine explosion — worker pools with explicit
+budgets; everything streams (only `-sorted` buffers); cancellation is
+pervasive (Ctrl-C drains, WAL stays consistent).
+
+## Budgets
+
+| Budget | Default | Rationale |
+|---|---|---|
+| Global in-flight connections | 50,000 | `T ≈ W/L`; ~2 GB RAM with 20–40 KB/conn |
+| TCP in-flight | 40k | QUIC conns are ~5× heavier |
+| QUIC in-flight | 10k | per-conn goroutines + timer wheel |
+| Deep-mode probes per target | 6–8 concurrent | politeness; server-side rate kicks |
+| Per-subnet (/24) concurrent | 64 | NAT/policy devices fail closed |
+| Global rate cap | 20k handshakes/s | etiquette default |
+| DNS in-flight | 256 | PTR storms must not starve handshakes |
+| Deadline ladder | connect 2 s / handshake 4 s / probe 8 s (±20 % jitter) | bounds the tail; de-synchronises retries |
+| Retries | 1, transient-only | rejections are results, not errors |
+
+## Adaptive control
+
+Global concurrency ramps AIMD-style toward its cap and halves on error-rate
+spikes; per-/24 and per-ASN circuit breakers cool buckets that time out
+repeatedly — cooled targets emit `skipped` records *with reason*, never
+silent gaps. Probe plans execute 6–8 concurrent per target with per-probe
+deadlines; the scheduler is weighted-fair, so one pathological subnet
+cannot starve the run.
+
+## Probe-plan model (deep mode)
+
+```mermaid
+flowchart TD
+  P[profile handshake<br/>version, suite, group, ALPN, cert] --> S[suite matrix<br/>1.0-1.2: offer-one/observe<br/>1.3: fixed set accepted?]
+  R2[pq forced-group ladder<br/>4588, 4587, 4589, mlkem pure, drafts] --> S
+  S --> T[sigalg matrix incl. mldsa, composite]
+  T --> U[feature probes: HRR, 0-RTT,<br/>resumption xN, SCSV, renegotiation]
+  U --> V[quic plane if hinted or -quic-always]
+  V --> W[classify + score + emit]
+```
+
+The profile handshake prunes phase 2: a suite that already negotiated is
+skipped; groups the server re-routed via HRR are marked. Default plan caps
+at 24 probes/target (`-deep full` unlocks ~120).
+
+## PQC classification
+
+Every negotiated or observed parameter scores `pq | pq_hybrid |
+pq_hybrid_draft | classic | obsolete` from generated registry tables
+([Appendix A](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot)),
+and the readiness verdict (A+…D) carries an **HNDL flag** — classic-only
+key exchange with long-lived certificates means recorded traffic stays
+decryptable by a future quantum attacker.

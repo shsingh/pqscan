@@ -1,0 +1,21 @@
+name: site-check
+on:
+  pull_request:
+    paths: ["site/**", "USAGE.md", ".github/workflows/site.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  site-check:
+    name: site-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: quarto-dev/quarto-actions/setup@v2
+      - name: Render (fail on broken refs)
+        run: quarto render site
+      - name: HTML present
+        run: test -s site/_site/index.html

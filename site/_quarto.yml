@@ -1,0 +1,33 @@
+project:
+  type: website
+
+website:
+  title: pqscan
+  description: "TLS / QUIC cipher-configuration and post-quantum readiness scanner"
+  site-url: https://shsingh.github.io/pqscan/
+  repo-url: https://github.com/shsingh/pqscan
+  repo-branch: main
+  repo-subdir: site
+  repo-actions: [edit, issue]
+  page-navigation: true
+  navbar:
+    left:
+      - href: index.qmd
+        text: Intro
+      - href: design.qmd
+        text: Design
+      - href: usage.qmd
+        text: Usage
+      - href: recipes.qmd
+        text: Recipes
+    right:
+      - icon: github
+        href: https://github.com/shsingh/pqscan
+        aria-label: "pqscan repository"
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    code-copy: true
