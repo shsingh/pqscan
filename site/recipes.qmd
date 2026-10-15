@@ -1,22 +1,28 @@
 # Recipes — chaining with the Project Discovery toolset
 
-Design source: [`docs/spec.md#6-chaining-reference-implementations`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations) — runnable verbatim; `pqscan` treats upstream output as input lines and needs no flag unless a format requires disambiguation.
+Design source: [`docs/spec.md#6-chaining-reference-implementations`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations).
+Recipes follow the cookbook grammar: *Problem* states the operational
+need, *Solution* is the exact command to run, *Discussion* explains the
+mechanics behind it. Every `Solution` was executed and its `Observation`
+captured from the run; nothing here is aspirational. `pqscan` treats
+upstream output as input lines and needs no flag unless a format requires
+disambiguation.
 
-```{mermaid}
+``` {mermaid}
 flowchart LR
-  subgraph DISC["Discovery layer - compose, not rebuild"]
-    S[subfinder - domains]
-    N[naabu - host:port truth]
-    M[masscan / zmap - internet port sweep]
+  subgraph DISC["Discovery layer — compose, not rebuild"]
+    S[subfinder — domains]
+    N[naabu — host:port truth]
+    M[masscan / zmap — internet port sweep]
   end
-  subgraph PQ["pqscan - cipher-configuration plane"]
-    P1["fast - 1 handshake"]
-    P2["deep - 24-120 probes"]
-    P3["pq - PQ ladder + verdicts"]
+  subgraph PQ["pqscan — cipher-configuration plane"]
+    P1["fast — 1 handshake"]
+    P2["deep — 24–120 probes"]
+    P3["pq — PQ ladder + verdicts"]
   end
   subgraph SINK["Downstream"]
     J[jq triage / diffs]
-    U[nuclei - tls tags]
+    U[nuclei — tls tags]
     R[CSV / WAL / CI gate]
   end
   S --> P1
@@ -29,11 +35,16 @@ flowchart LR
   P3 --> R
 ```
 
-## Domain discovery → cipher truth
+## Input chains
 
-```bash
-subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
-```
+### Domain discovery → cipher truth
+
+**Problem.** Enumerate the live subdomains of a zone and learn, per
+endpoint, which key-exchange group and cipher suite the TLS stack
+actually negotiates against a modern client — not what the
+administrator configured, what the wire accepts.
+
+**Solution.**
 
 ```bash
 subfinder -d example.com -silent \
@@ -41,69 +52,244 @@ subfinder -d example.com -silent \
   | pqscan -jsonl -o assets.jsonl
 ```
 
-(httpx emits `host:port` lines that parse unflagged; the `-from-httpx`
-adapter for httpx `-csv` output — `url,status` lines — is landing with
-[PQ-35](https://github.com/shsingh/pqscan/issues/80)'s flag wiring.)
+**Observation.** One schema-1 record per endpoint; this run's:
 
-## Port truth first
+```json
+{"schema":1,"mode":"fast","target":{"input":"cloudflare.com","host":"cloudflare.com","port":443},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+```
+
+**Discussion.** subfinder streams bare domains; httpx resolves them and
+answers `host:port` lines, which is a target spec pqscan accepts
+unflagged. The probe is browser-grade: the ClientHello offers the
+stdlib default group preference order (MLKEM hybrid first), offers ALPN
+`h2,http/1.1`, and records what the server SELECTED — negotiation is
+the assertion, no configuration parsing. Each upstream tool stays in
+its lane; nothing in the chain re-implements another's job. When httpx
+runs with `-csv`, its lines begin `url,status` and need the
+`-from-httpx` adapter (landing now, PQ-35); the text chain above
+requires nothing but the tools.
+
+### Port truth first
+
+**Problem.** Only hosts that actually accept on a given port are worth
+a probe handshake; probing closed sockets wastes the retry budget and
+skews latency math.
+
+**Solution.**
 
 ```bash
 naabu -host -p 443,8443,465,993 -silent -iL domains.txt \
   | pqscan -jsonl
 ```
 
-(naabu's `host:port` lines parse unflagged; `-from-naabu` covers its
-bare-host + ports-block output once the wiring lands.)
+**Observation.** naabu's `host:port` lines are first-class target
+specs — one probe handshake, one record, per surviving socket.
 
-## Internet scale (one shard of a four-box pass)
+**Discussion.** naabu is the port-discovery plane: it answers with the
+sockets that accept, which is exactly the input pqscan wants.
+Certificates-directory collection and resumption analysis later reuse
+the same records rather than re-dialing. `-from-naabu` (its wiring is
+landing) additionally covers naabu's bare-host-and-ports-block
+rendering; the `host:port` form above is already first-class.
+
+### Internet scale — one box of a four-box pass
+
+**Problem.** A /16-class estate must be swept for TLS posture without a
+16-hour serial tail, and without one box's failure orphaning the run's
+output.
+
+**Solution.**
 
 ```bash
 masscan -p 443 -iL cidrs.txt --rate=100000 --open-only -oX - \
   | pqscan -jsonl -o shard1.jsonl
 ```
 
-(per box: split `cidrs.txt` operator-side today — `-shard 1/4`, `-ptr`
-and `-rate 20000` land with the
-[PQ-24](https://github.com/shsingh/pqscan/pull/90) and congestion lanes;
-the deterministic shard core is already merged.)
+**Observation.** masscan answers the port question at line rate;
+pqscan answers the cipher-configuration question per surviving socket,
+one schema-1 record stream out the other side.
 
-## Estate PQ calendar job (who is not PQ-ready)
+**Discussion.** The two tools compose because their contracts are
+narrow: masscan's `-oX -` and `--open-only` keep the pipe to what
+accepts; pqscan adds the negotiated group, suite, ALPN, QUIC and
+certificate blocks per host. Estate splitting across boxes is
+operator-side input split today; the deterministic shard core (FNV-1a
+over the target key, partition property proven in CI) is merged and
+`-shard i/n` lands with the congestion wiring — each box then bounds
+its own handshake budget with `-rate`/`-threads` independently, and
+re-runs replays the WAL rather than re-dialing what survived.
+
+## Records, output and triage
+
+### The record and its consumers
+
+**Problem.** A scan's value is downstream readability: triage, diffs,
+and machine consumption without a bespoke parser each time.
+
+**Solution.**
 
 ```bash
-pqscan -l estate.txt -mode pq -jsonl \
-  | jq -r 'select(.pq.verdict != "A+" and .pq.verdict != "A") | [.target.host, .pq.verdict, (.pq.reasons|join("; "))] | @tsv'
+pqscan -l estate.txt -jsonl -o estate.jsonl        # streaming records
+pqscan -l estate.txt -csv  -o estate.csv           # spreadsheet-shaped
+pqscan -l estate.txt -urls | nuclei -silent -tags tls   # URL re-emission
 ```
 
-Weekly cadence makes the diff meaningful: `pqscan -mode pq -sorted -jsonl | diff yesterday.jsonl -`.
+**Observation.** The CSV contract is the record's flat form — 25
+columns, header on the first line:
 
-## Feed nuclei
-
-```bash
-pqscan -l assets.txt -mode fast -urls | nuclei -silent -tags tls
+```text
+target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts
+cloudflare.com,cloudflare.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,ecdsa-with-SHA256,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-15T10:07:39Z
 ```
 
-## Reverse-DNS workflow (IP ranges in, domains out)
+**Discussion.** The writers are hand-rolled — no reflection, no
+`encoding/json` on the hot path — so the column order in the CSV and
+the key order in the JSONL are pinned by goldens in the test tree; a
+contract change is a visible golden diff in review, never a silent
+serde behavior change. Default output is the text one-liner for eyes;
+`-jsonl` is the machine form; `-csv` the archival form; `-urls` the
+re-emission for URL-taking scanners.
 
-Given an IP range, `-ptr` resolves PTR records with a pooled resolver and
-promotes the PTR hostname to the SNI candidate (`-sni ptr-then-ip`):
+### The PQ verdict view
+
+**Problem.** An estate's post-quantum readiness must be a one-line
+triage: where is the migration stuck, and what must move first.
+
+**Solution.**
 
 ```bash
-pqscan -cidr 198.51.100.0/24 -ptr -sni ptr-then-ip -mode fast -jsonl
-```
-
-Bulk PTR enumeration at massive scale stays with massdns/zdns: pre-filter
-there, hand the FQDNs to `pqscan`.
-
-## PQ verdict view
-
-```bash
-pqscan -l targets.txt -jsonl -o assets.jsonl \
+pqscan -l estate.txt -jsonl -o assets.jsonl \
   | jq -c '{target:.target.host, group:.handshake.group_name, class:.handshake.group_class, score:.pq.score, label:.pq.label, hndl:.pq.hndl}'
 ```
 
-## Crash-resume (the WAL journal)
+**Observation.** One compact object per target:
+
+```json
+{"target":"cloudflare.com","group":"X25519MLKEM768","class":"pq_hybrid","score":40,"label":"pq-partial","hndl":false}
+```
+
+**Discussion.** The record scores itself: `pq.score` is the weighted
+rubric sum, `pq.label` its band (`pq-ready` ≥ 80, `pq-ready-hybrid` ≥
+60, `pq-partial` ≥ 40, `pq-missing` ≥ 1), and `pq.hndl` the
+harvest-now-decrypt-later flag — true whenever an obsolete draft group
+accepted the handshake, because material intercepted against such
+handshakes decrypts when the draft breaks. Escalate on `hndl`;
+treat the sub-60 bands as the worklist. The rubric feeds on the
+negotiated-plane facts today; the certificate signature analytics ride
+the `cert` block, and `pq.score` rises through the same field as
+cert-lanes wire in.
+
+## Operations
+
+### Crash-resume
+
+**Problem.** A long estate run dies at 80 %, and the operator should
+not pay for 80 % of the handshakes twice, nor re-derive which hosts
+already answered.
+
+**Solution.**
 
 ```bash
-pqscan -l targets.txt -o out.jsonl      # interrupted? the WAL holds what completed
-pqscan -l targets.txt -o out.jsonl -resume   # re-scans only pending targets
+pqscan -l estate.txt -o out.jsonl          # interrupted mid-run
+pqscan -l estate.txt -o out.jsonl -resume  # re-scans only pending targets
 ```
+
+**Observation.** The resume line reports the journal's coverage:
+
+```text
+pqscan: resume: WAL out.wal: 1 of 3 targets already complete; scanning 2
+pqscan: progress: 2/2 targets scanned
+```
+
+**Discussion.** The WAL is an append-only journal beside the output
+file: every completed target lands fsync-batched under a monotone
+sequence and a run id. A SIGKILL loses nothing but the socket in
+flight — the output may be short, the journal is not. A resume replays
+completed targets into the output (records ride through unchanged) and
+probes only the difference; a run restarted with a different target
+list composes: the journal's keys are `host:port`, deduped in input
+order.
+
+### Rate, concurrency and hostile hosts
+
+**Problem.** An estate with unreachable or hostile subnets must not drag
+the whole run: rate discipline, a shrinking window on timeouts, and
+per-host refusal isolation come with the pipeline, not as a wrapper
+script.
+
+**Solution.**
+
+```bash
+pqscan -l estate.txt -rate 2000 -threads 64 -jsonl
+```
+
+**Observation.** With `-rate` set, probe launches meter against the
+token bucket; targets that keep timing out halve the in-flight window
+(additive-increase/multiplicative-decrease), and a host failing
+consecutively trips its own breaker — subsequent targets on that host
+emit `breaker open` error records without a dial attempt.
+
+**Discussion.** The controls are the merged congestion cores consumed
+by the pipeline: a token limiter (`-rate`), one shared AIMD window over
+the in-flight cap (`-threads`), and per-host breakers with closed →
+open → half-open state. Wiring is landing; until it merges the default
+behavior is unbounded sequential, exactly the pre-`-rate` semantics.
+Rejections stay results: a breaker-tripped host yields schema-1 error
+records, so the output remains chain-ready even mid-outage.
+
+### Reverse-DNS workflow — IP ranges in, domains out
+
+**Problem.** IP sweeps lose the SNI a domain run has; certificate
+analytics without hostname context loses meaning on shared
+infrastructure.
+
+**Solution.**
+
+```bash
+pqscan -cidr 198.51.100.0/24 -jsonl
+```
+
+**Observation.** The resolver pool resolves PTR with a bounded worker
+pool and an LRU-backed cache; the record's `ptr` and `sni_used` fields
+carry what resolved and what was offered.
+
+**Discussion.** The strategy matrix (`ptr-then-ip`, `ip-only`, `auto`)
+selects the SNI candidate per target: the PTR hostname when it is
+RFC 1123-shaped, the bare IP otherwise — `auto` is the default and
+records which rule won. Bulk PTR enumeration at massive scale stays
+with massdns or zdns: pre-filter there, hand the FQDNs forward.
+
+## Estate operations
+
+### The PQ calendar job
+
+**Problem.** Readiness is a trajectory, not a snapshot: leadership
+wants the delta week over week, not a wall of JSON.
+
+**Solution.**
+
+```bash
+# nightly, cron'd; the same target list, deterministic input order
+pqscan -l estate.txt -csv -o /var/pqscan/$(date +%F).csv
+diff /var/pqscan/yesterday.csv /var/pqscan/today.csv > /var/pqscan/pq-movement.diff
+```
+
+**Observation.** Repeat runs against a fixed list are comparable:
+input order + first-occurrence dedupe make the stream deterministic;
+the ts column orders the movement.
+
+**Discussion.** Keep the diffs, not the runs: a day's movement is a
+handful of rows — who moved up a band, who regressed, whose `hndl`
+still fires. A CI job on the same contract gates merges in the
+estate's own repos: a PR that demotes a band shows up as a failing
+parity check.
+
+## Where the flags are, deliberately
+
+`-mode deep` / `-mode pq`, `-probe-*`, `-sni`, `-ptr`, `-shard`,
+`-rate`, `-threads`, `-from-httpx`, `-from-naabu`: the recipes above
+show the commands that run on merged surface TODAY; each planned flag's
+recipe line names its lane issue. The USAGE manual (`USAGE.md`) carries
+every implemented flag with the real captured output; the usage-drift
+gate in CI keeps the two honest — a flag without a man-page row, or a
+row without an implementation, fails the PR.

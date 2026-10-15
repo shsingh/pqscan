@@ -7,7 +7,7 @@ Design source: [`docs/spec.md#7-the-hard-part-async-architecture-and-throughput-
 A fast-mode handshake is RTT-bound, not CPU-bound:
 
 ```
-L ≈ connect_rtt (1) + tls13_handshake_rtt (1) [+1 HRR]
+L ≈ one connect RTT + one handshake RTT — one more RTT when an HRR hop forces a second flight
     + server_compute (~50–300 ms, CDN edge)
     + client_crypto (MLKEM-768 encap ~0.05–0.15 ms; negligible)
 ```
