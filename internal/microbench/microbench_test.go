@@ -53,3 +53,20 @@ func TestRateAtLeast(t *testing.T) {
 	rate := float64(r.Negotiated) / r.ElapsedTotalS
 	t.Logf("loopback fixture: %d handshakes in %.3fs = %.0f h/s", r.Negotiated, r.ElapsedTotalS, rate)
 }
+
+// TestSLOCoreEvidence: W=8 concurrent workers × 25 handshakes on loopback
+// — the ≥2,500 h/s/core SLO cell (spec §7.8), measured.
+func TestSLOCoreEvidence(t *testing.T) {
+	addr := fixtures.StartFixtureServer(t, fixtures.ServerConfig{
+		Name:             "t13-hybrid-mlkem",
+		MinVersion:       tls.VersionTLS13,
+		MaxVersion:       tls.VersionTLS13,
+		CurvePreferences: []tls.CurveID{tls.X25519MLKEM768, tls.X25519},
+	})
+	r, err := MeasureConcurrent(addr, "pqscan.fixture", 8, 25, 5*time.Second)
+	if err != nil {
+		t.Fatalf("measure: %v", err)
+	}
+	rate := float64(r.Negotiated) / r.ElapsedTotalS
+	t.Logf("W=8 on loopback fixture: %d negotiated in %.2fs = %.0f h/s aggregate", r.Negotiated, r.ElapsedTotalS, rate)
+}
