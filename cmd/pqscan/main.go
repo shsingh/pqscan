@@ -23,8 +23,10 @@ import (
 	"github.com/shsingh/pqscan/internal/tlsx"
 )
 
-// version carries the build's identity; pre-alpha until the release milestone.
-const version = "0.0.1"
+// version carries the build's identity, stamped at build time by the
+// release workflow via -ldflags "-X main.version=<tag>"; default is the
+// source-tree revision (pre-alpha).
+var version = "0.0.1"
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))

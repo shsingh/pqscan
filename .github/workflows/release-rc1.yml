@@ -16,9 +16,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version stamped into the binaries (release tag on publish runs)'
-        required: false
-        default: '2026.01-rc1'
+        description: 'Version stamped into the binaries (release tag on publish runs); the 2026.01-rc1 name is reserved for milestone completion'
+        required: true
       publish:
         description: 'Create the GitHub release — set true only on release cuts (tag refs), never for test dispatches'
         required: false
