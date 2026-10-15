@@ -241,6 +241,19 @@ func AppendRecordJSON(dst []byte, r *Record) []byte {
 		if q.UDPBlocked {
 			dst = append(dst, `,"udp_blocked":true`...)
 		}
+		if q.Discovered != nil {
+			// The PQ-25 h3-discovery facts: the hint half and the
+			// direct-truth half as the lane observed them (JSONL-only
+			// addition; the CSV/text projections carry no new columns).
+			dst = append(dst, `,"discovered":{"alt_svc_h3":`...)
+			dst = strconv.AppendBool(dst, q.Discovered.AltSvcH3)
+			dst = append(dst, `,"h3_direct":`...)
+			dst = strconv.AppendBool(dst, q.Discovered.H3Direct)
+			dst = append(dst, '}')
+		}
+		if q.Mismatch {
+			dst = append(dst, `,"mismatch":true`...)
+		}
 		dst = append(dst, '}')
 	}
 	if c := r.Cert; c != nil {

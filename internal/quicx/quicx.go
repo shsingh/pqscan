@@ -5,6 +5,10 @@ package quicx
 
 import "errors"
 
+// H3ALPN is the ALPN id the QUIC plane pins for its handshakes (RFC 9114
+// h3 — the QUIC-plane truth's protocol token).
+const H3ALPN = "h3"
+
 // QuicResult carries one QUIC handshake observation (spec §5.7). Group
 // semantics match the TCP plane; classes come from the shared taxonomy.
 type QuicResult struct {
@@ -16,6 +20,20 @@ type QuicResult struct {
 	State       string // negotiated | refused | blocked | error
 	DialMs      float64
 	HandshakeMs float64
+
+	// Err is the raw dial/handshake failure text for the classified
+	// (non-negotiated) states (PQ-25): the wiring's honest-refusal
+	// classifier re-reads it to separate the client stack's own
+	// construction refusals from transport outcomes — a local failure
+	// is never recorded as a server verdict.
+	Err string
+}
+
+// H3Negotiated reports whether the session negotiated h3 (PQ-25, spec
+// §5.3: the direct QUIC handshake is the TRUTH, Alt-Svc the hint only).
+// The lane wiring reads exactly this off the probe's result.
+func (r *QuicResult) H3Negotiated() bool {
+	return r.State == "negotiated" && r.ALPN == H3ALPN
 }
 
 // CostStats = per-connection cost of one QUIC session (feeds the 10k

@@ -58,6 +58,67 @@ const alpnHTTP11 = "http/1.1"
 // other protocols here: exactly the h3 token marks the hint.
 const altSvcH3ID = "h3"
 
+// SkipStateNoHint is the QUIC lane's honest informational state (PQ-25,
+// spec §5.3): the alt-svc hint never asserted h3 and the direct probe did
+// not run. Information, not an error — the record carries it so nothing
+// is silent, and the run's exit code never moves on it.
+const SkipStateNoHint = "skipped: no alt-svc h3 hint"
+
+// MismatchState classifies a PROBED lane's hint/truth pairing (PQ-25,
+// spec §5.3: "Alt-Svc used as a hint only — direct probe is truth", and a
+// hint-vs-direct mismatch is a finding, not an error). It returns the
+// record-state token and the mismatch flag; the empty token means the
+// halves agree and the probe's own state stands:
+//
+//	hint=yes truth=no  → "mismatch: hint=yes truth=no" — the endpoint
+//	                     advertises h3 its direct QUIC plane never answers
+//	hint=no  truth=yes → "mismatch: hint=no truth=yes" — h3 speaks with
+//	                     no alt-svc hint ever sent (the -quic-always way
+//	                     to find it)
+//	agreements         → "" (the QUIC state vocabulary stands)
+func MismatchState(hint, truth bool) (string, bool) {
+	switch {
+	case hint && !truth:
+		// The endpoint advertised h3 its direct QUIC plane never
+		// answered — the hint lied (stale alt-svc cache entry, a
+		// policy-filtered UDP plane); the finding says which way.
+		return "mismatch: hint=yes truth=no", true
+	case !hint && truth:
+		// h3 speaks with no alt-svc hint ever sent — the
+		// -quic-always way to find a deployment the hint layer
+		// undersells.
+		return "mismatch: hint=no truth=yes", true
+	default:
+		return "", false
+	}
+}
+
+// ProbeHint runs the hint half alone (the PQ-25 wiring seam): the fast
+// pass's alt-svc collection for one target — TLS with ALPN http/1.1, one
+// HTTP/1.1 GET /, the response's alt-svc header parsed loosely. Returns
+// (hint, raw alt-svc value, err); err is non-nil only for caller aborts
+// (context cancellation / deadline) — every transport-level answer
+// (refused, TLS alert, non-HTTP/1.1 choice, malformed response) is a
+// result carrying a false hint. Discover composes ProbeHint with its
+// direct half; the fast pass composes ProbeHint with the QUIC gate.
+func ProbeHint(ctx context.Context, host string, port uint16, opts Options) (bool, string, error) {
+	if host == "" {
+		return false, "", errHostRequired
+	}
+	if opts.Timeout <= 0 {
+		opts.Timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
+	hint, kept, err := probeAltSvc(ctx, host, port, opts.Timeout)
+	if err != nil {
+		return false, "", err // caller abort, not a target result
+	}
+	diag.Emit(diag.Info, diag.DomQuic, "h3-hint", net.JoinHostPort(host, strconv.Itoa(int(port))),
+		"alt-svc hint collected", nil, map[string]string{"h3": strconv.FormatBool(hint), "alt_svc": kept})
+	return hint, kept, nil
+}
+
 // Discover runs the h3-discovery contract against host:port (PQ-25):
 //
 //   - hint half: TLS with ALPN http/1.1 (no proxy), a single HTTP/1.1
@@ -98,7 +159,7 @@ func Discover(ctx context.Context, host string, port uint16, opts Options) (*Hin
 		// error is only a transport-level defect — refusals and silence
 		// reach here as classified results, never errors — so the truth
 		// falls back to unknown (= false) and the defect is recorded.
-		hints.H3Direct = qr.State == "negotiated" && qr.ALPN == altSvcH3ID
+		hints.H3Direct = qr.H3Negotiated()
 	} else {
 		diag.Emit(diag.Warn, diag.DomQuic, "h3-discovery", target, "QUIC probe errored", qerr, nil)
 	}

@@ -32,6 +32,12 @@ import (
 // riding findings only) — and the findings vector in plan order, one row
 // per verdict class. Mode is "deep": the deep block only ever encodes on
 // a deep-mode record; the error record below pins the nil-omitted shape.
+//
+// PQ-25: the QUIC block grows the h3-discovery facts ADDITIVELY (the
+// discovered block {alt_svc_h3, h3_direct}; the mismatch flag is
+// omitempty and stays absent on this consistent-halves row) — the
+// discovered block encodes after udp_blocked's corner, before any
+// mismatch flag; the CSV/text/urls projections carry no new columns.
 func goldenRecord() *out.Record {
 	return &out.Record{
 		Schema: out.SchemaVersion,
@@ -58,6 +64,7 @@ func goldenRecord() *out.Record {
 			Negotiated: 4588,
 			GroupName:  "X25519MLKEM768",
 			GroupClass: "pq_hybrid",
+			Discovered: &out.H3Discovery{AltSvcH3: true, H3Direct: true},
 		},
 		Cert: &out.CertRecord{
 			SigAlg: "MLDSA65-ECDSA-P256-SHA512",

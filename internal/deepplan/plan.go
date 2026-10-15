@@ -43,6 +43,15 @@ const (
 	KindCert       = "cert"
 	KindResumption = "resumption"
 	KindHRR        = "hrr"
+	// KindQuic is the deep-QUIC group rung (PQ-25, spec §5.3's
+	// "deep-quic group enumeration limited to stdlib-supported groups"):
+	// the group ladder over the QUIC plane — one payload (uint32) per
+	// rung, dispatched by the executor onto quicx's forced-group probe.
+	// The UDP plane offers NO raw share-less path, so a rung the stdlib
+	// cannot construct a share for lands as an honest refused finding
+	// (the #101 discipline), never a dial and never a fabricated
+	// verdict.
+	KindQuic = "quic"
 )
 
 // Plan modes (the -deep plan semantics; unknown modes are errors).
@@ -110,6 +119,19 @@ type Observed struct {
 	NegotiatedSuite string // negotiated cipher suite name ("" = unknown)
 	Version         uint16 // negotiated TLS version code (0 = unknown)
 	HasCert         bool   // the fast handshake already fetched the certificate
+
+	// QuicAttempted is the QUIC lane's gate (PQ-25, spec §5.3): the
+	// profile's hint-gated direct QUIC probe ran (the hint asserted h3
+	// or -quic-always forced it). The deep-QUIC rungs plan only then —
+	// the same gate the fast lane used; -quic-off and an unhinted
+	// target leave the plan QUIC-free. The gate rides Observed because
+	// it is the fast record's OWN fact, not a mode property.
+	QuicAttempted bool
+	// QuicNegotiated is the group the QUIC plane's direct probe already
+	// negotiated (0 = none/unknown): its rung never re-probes (spec
+	// §7.4 phase 1 — the group the profile handshake answered is never
+	// re-run, on either plane).
+	QuicNegotiated uint32
 }
 
 // SuiteOffer is the concrete spec of a suite probe: one suite offered on
@@ -119,6 +141,13 @@ type SuiteOffer struct {
 	Name    string // IANA cipher suite name as the stdlib reports it
 	Version uint16 // the forced protocol version for this offer
 }
+
+// quicGroups is the deep-QUIC ladder's block rungs (PQ-25, spec §5.3):
+// the registry's 4585–4590 hybrid block — the QUIC plane shares the TCP
+// lane's forced-group grammar (RFC 10024 verified per rung on its own
+// transport). The negotiated-group rung rides Observed, not this table.
+// The plan never invents a codepoint.
+var quicGroups = []uint32{4585, 4586, 4587, 4588, 4589, 4590}
 
 // Probe is one scheduled handshake assertion in the plan.
 type Probe struct {
@@ -156,7 +185,7 @@ func Build(target string, mode string, observed *Observed) (*Plan, error) {
 	if observed != nil {
 		obs = *observed
 	}
-	candidate := candidateMatrix()
+	candidate := candidateMatrix(obs)
 	switch mode {
 	case ModeStandard:
 		pruned, err := pruneStandard(candidate, obs, StandardBudget)
@@ -173,10 +202,11 @@ func Build(target string, mode string, observed *Observed) (*Plan, error) {
 
 // candidateMatrix is the exhaustive offer-one list both modes start
 // from, in phase-2 execution order (spec §7.4): the version
-// enumeration, then the forced-group ladder, the suite × version matrix,
-// the signature-scheme ladder, and the feature probes (cert, resumption
-// incl. 0-RTT, hrr).
-func candidateMatrix() []Probe {
+// enumeration, then the forced-group ladder, the QUIC-plane rungs
+// (PQ-25: gated on the observed QuicAttempted fact), the suite ×
+// version matrix, the signature-scheme ladder, and the feature probes
+// (cert, resumption incl. 0-RTT, hrr).
+func candidateMatrix(obs Observed) []Probe {
 	probes := make([]Probe, 0, 80)
 	for _, v := range probeVersions {
 		probes = append(probes, Probe{Name: "version/" + versionName(v), Kind: KindVersion, Payload: v})
@@ -188,6 +218,7 @@ func candidateMatrix() []Probe {
 			Payload: g,
 		})
 	}
+	probes = append(probes, quicProbes(obs)...)
 	for _, cs := range stdlibSuites() {
 		for _, v := range cs.SupportedVersions {
 			if v < tls.VersionTLS10 || v > tls.VersionTLS13 {
@@ -208,6 +239,40 @@ func candidateMatrix() []Probe {
 		probes = append(probes, Probe{Name: "resumption/" + label, Kind: KindResumption, Payload: label})
 	}
 	probes = append(probes, Probe{Name: "hrr/x25519-shareless", Kind: KindHRR})
+	return probes
+}
+
+// quicProbes is the deep-QUIC ladder (PQ-25, issue #48): the group rungs
+// over the QUIC plane — the negotiated-group anchor rung first (the TCP
+// profile's negotiated group, verified on its own transport; named
+// "quic/negotiated-<g>"), then the registry's 4585–4590 block rungs in
+// IANA order ("quic/<g>"), the negotiated payload deduped away. The
+// rungs plan ONLY when the observed QuicAttempted fact says the profile's
+// hint-gated QUIC lane ran; -quic-off and unhinted targets plan none.
+// The executor maps each rung onto quicx's forced-group probe and lands
+// the non-stdlib rungs as honest refused findings (the UDP plane has no
+// share-less raw path — the #101 discipline, spec §5.3's v1 deferral).
+func quicProbes(obs Observed) []Probe {
+	if !obs.QuicAttempted {
+		return nil
+	}
+	var rungs []uint32
+	if obs.NegotiatedGroup != 0 {
+		rungs = append(rungs, obs.NegotiatedGroup) // the anchor rides first
+	}
+	for _, g := range quicGroups {
+		if g != obs.NegotiatedGroup {
+			rungs = append(rungs, g)
+		}
+	}
+	probes := make([]Probe, 0, len(rungs))
+	for _, g := range rungs {
+		name := "quic/" + strconv.FormatUint(uint64(g), 10)
+		if g == obs.NegotiatedGroup {
+			name = "quic/negotiated-" + strconv.FormatUint(uint64(g), 10)
+		}
+		probes = append(probes, Probe{Name: name, Kind: KindQuic, Payload: g})
+	}
 	return probes
 }
 
@@ -261,7 +326,7 @@ func pruneStandard(in []Probe, observed Observed, budget int) ([]Probe, error) {
 	}
 	if len(probes) > budget {
 		return nil, fmt.Errorf(
-			"deepplan: standard candidate exceeds budget %d even after the documented prune classes: %d remain (the group ladder, mldsa sigalgs, 0-RTT, hrr and cert probes must not be silently cut)",
+			"deepplan: standard candidate exceeds budget %d even after the documented prune classes: %d remain (the group ladder, the QUIC-plane rungs, mldsa sigalgs, 0-RTT, hrr and cert probes must not be silently cut)",
 			budget, len(probes))
 	}
 	return probes, nil
@@ -292,6 +357,15 @@ func factPrune(in []Probe, obs Observed) []Probe {
 		}
 		if obs.HasCert && p.Kind == KindCert {
 			continue
+		}
+		if obs.QuicNegotiated != 0 && p.Kind == KindQuic {
+			// The QUIC plane already answered this rung in the
+			// profile's own probe (spec §7.4 phase 1 — the group the
+			// profile handshake answered is never re-run, on either
+			// plane).
+			if g, ok := p.Payload.(uint32); ok && g == obs.QuicNegotiated {
+				continue
+			}
 		}
 		probes = append(probes, p)
 	}

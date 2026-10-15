@@ -74,6 +74,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	_ = fs.Bool("text", false, "one human line per target (default format)")
 	outFile := fs.String("o", "", "write results to file (default stdout)")
 	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
+	// PQ-25/-quic-always (issue #48, spec §5.3): the additive hint-gate
+	// override — force the direct QUIC probe regardless of the alt-svc
+	// hint; -quic-off keeps the highest precedence.
+	quicAlways := fs.Bool("quic-always", false, "run the direct QUIC probe regardless of Alt-Svc h3 hints (the hint gate's override)")
 	resume := fs.Bool("resume", false, "resume an interrupted run from the WAL (<output basename>.wal next to -o)")
 	// Congestion wiring (PQ-23): the §7.3 control surfaces reach the
 	// pipeline through two flags — the token-bucket launch pace and the
@@ -308,13 +312,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	recs := []*scanRecord{}
 	if len(pending) > 0 {
 		scanned, err := (&Engine{}).Run(pending, Options{
-			QuicOff:   *quicOff,
-			Rate:      *rate,
-			MaxWindow: *threads,
-			Mode:      *mode,
-			DeepPlan:  *deepPlan,
-			PtrPool:   ptrPool,
-			CertsDir:  *certsDir,
+			QuicOff:    *quicOff,
+			QuicAlways: *quicAlways,
+			Rate:       *rate,
+			MaxWindow:  *threads,
+			Mode:       *mode,
+			DeepPlan:   *deepPlan,
+			PtrPool:    ptrPool,
+			CertsDir:   *certsDir,
 			Record: func(rec *scanRecord) {
 				if j == nil {
 					return

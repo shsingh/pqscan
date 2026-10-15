@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,20 +38,42 @@ func startClassicFixture(t *testing.T) string {
 	})
 }
 
+// closedPortSeen is the package's record of every loopback port the
+// closed-loop helper has already returned in this process: the kernel may
+// hand the SAME port back immediately after its release (observed on CI's
+// Linux runner — the ephemeral allocator walks back over freed ports
+// under load, two of a 12-target synthetic list collapsed into one
+// host:port and the composition's host:port dedupe dropped the duplicate,
+// breaking the count-pinned shard battery). The dedupe rule is the
+// composition's contract — the helper guarantees distinct addresses
+// instead of every caller guarding.
+var closedPortMu sync.Mutex
+var closedPortSeen = map[string]bool{}
+
 // closedLoopbackPort returns a deterministic unreachable host:port: an
 // address that listened a moment ago and is closed now (loopback RST — no
-// network, no resolver, no long dial timeout).
+// network, no resolver, no long dial timeout). A repeat pick is retried
+// (the allocator walks forward; the retry lands within a few iterations).
 func closedLoopbackPort(t *testing.T) string {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
+	closedPortMu.Lock()
+	defer closedPortMu.Unlock()
+	for i := 0; i < 64; i++ {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("listen: %v", err)
+		}
+		addr := l.Addr().String()
+		if err := l.Close(); err != nil {
+			t.Fatalf("close: %v", err)
+		}
+		if !closedPortSeen[addr] {
+			closedPortSeen[addr] = true
+			return addr
+		}
 	}
-	addr := l.Addr().String()
-	if err := l.Close(); err != nil {
-		t.Fatalf("close: %v", err)
-	}
-	return addr
+	t.Fatal("the kernel kept handing back already-used closed loopback ports")
+	return ""
 }
 
 func mustParse(t *testing.T, specs []string) []grammar.Target {

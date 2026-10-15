@@ -9,20 +9,9 @@ package discovery
 // the offline suite proves the gate by skipping it.
 
 import (
-	"bufio"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"errors"
-	"math/big"
-	"net"
-	"net/http"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -36,98 +25,6 @@ const (
 	respNoAltSvc   = "HTTP/1.1 200 OK\r\nServer: pqscan-fixture\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 	respH2OnlyHint = "HTTP/1.1 200 OK\r\nServer: pqscan-fixture\r\nAlt-Svc: h2=\":443\"; ma=86400\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 )
-
-// fixtureCert is the fixture's self-signed server cert (same shape as the
-// quicx fixture's).
-func fixtureCert(t *testing.T) tls.Certificate {
-	t.Helper()
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("key: %v", err)
-	}
-	tmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(20261016),
-		Subject:               pkix.Name{CommonName: "pqscan.fixture"},
-		DNSNames:              []string{"pqscan.fixture"},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("cert: %v", err)
-	}
-	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
-}
-
-// tlsHTTPFixture binds the TLS TCP listener on port and answers the
-// request with the crafted response bytes. The accept loop MUST
-// handshake (fixture hygiene): a never-handshaken server side presents
-// as a client deadline, not an obvious fixture bug. The request is read
-// and discarded before the write so a clean close never RSTs the
-// response mid-flight.
-func tlsHTTPFixture(t *testing.T, port int, resp []byte) {
-	t.Helper()
-	tlsCfg := &tls.Config{
-		Certificates: []tls.Certificate{fixtureCert(t)},
-		NextProtos:   []string{"http/1.1"},
-		MinVersion:   tls.VersionTLS12,
-	}
-	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
-	if err != nil {
-		t.Fatalf("tcp listen %d: %v", port, err)
-	}
-	t.Cleanup(func() { _ = ln.Close() })
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go func() {
-				tc := tls.Server(conn, tlsCfg)
-				defer func() { _ = tc.Close() }()
-				if err := tc.Handshake(); err != nil {
-					return
-				}
-				if _, lerr := http.ReadRequest(bufio.NewReader(tc)); lerr != nil {
-					return
-				}
-				_, _ = tc.Write(resp)
-			}()
-		}
-	}()
-}
-
-// freeTCPPort grabs an ephemeral port and releases it — a port number
-// nothing is bound to (both halves must refuse).
-func freeTCPPort(t *testing.T) int {
-	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("free port: %v", err)
-	}
-	port := ln.Addr().(*net.TCPAddr).Port
-	_ = ln.Close()
-	return port
-}
-
-// portOf extracts the port from a fixture addr ("127.0.0.1:P").
-func portOf(t *testing.T, addr string) int {
-	t.Helper()
-	_, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		t.Fatalf("fixture addr %q: %v", addr, err)
-	}
-	p, err := strconv.Atoi(port)
-	if err != nil {
-		t.Fatalf("fixture port %q: %v", port, err)
-	}
-	return p
-}
 
 // TestParseAltSvc: the loose directive grammar (RFC 7838) — any h3=
 // assignment token marks the hint and the raw value is kept; other
@@ -184,9 +81,8 @@ func TestDiscoverFixtures(t *testing.T) {
 			name:    "alt-svc hint and direct h3 agree",
 			timeout: 5 * time.Second,
 			build: func(t *testing.T) buildResult {
-				addr := quicx.FixtureH3(t, nil) // binds UDP 127.0.0.1:P
-				port := portOf(t, addr)
-				tlsHTTPFixture(t, port, []byte(respH3Hint)) // TCP on the same P
+				addr := FixtureH3AndHint(t, []byte(respH3Hint)) // the coupled pair on both transports
+				port := PortOf(t, addr)
 				return buildResult{"127.0.0.1", uint16(port)}
 			},
 			want: Hints{AltSvcH3: true, H3Direct: true, AltSvcValue: `h3=":8443"; ma=86400`},
@@ -194,8 +90,7 @@ func TestDiscoverFixtures(t *testing.T) {
 		{
 			name: "no alt-svc header = no hint",
 			build: func(t *testing.T) buildResult {
-				port := freeTCPPort(t)
-				tlsHTTPFixture(t, port, []byte(respNoAltSvc))
+				port := FixtureHintHTTP(t, 0, []byte(respNoAltSvc)) // TCP only: the direct half is answered by nothing
 				return buildResult{"127.0.0.1", uint16(port)}
 			},
 			want: Hints{},
@@ -203,8 +98,7 @@ func TestDiscoverFixtures(t *testing.T) {
 		{
 			name: "alt-svc without h3 token = no hint",
 			build: func(t *testing.T) buildResult {
-				port := freeTCPPort(t)
-				tlsHTTPFixture(t, port, []byte(respH2OnlyHint))
+				port := FixtureHintHTTP(t, 0, []byte(respH2OnlyHint))
 				return buildResult{"127.0.0.1", uint16(port)}
 			},
 			want: Hints{},
@@ -213,7 +107,7 @@ func TestDiscoverFixtures(t *testing.T) {
 			name: "direct h3 without TLS (quic-only target)",
 			build: func(t *testing.T) buildResult {
 				addr := quicx.FixtureH3(t, nil)
-				return buildResult{"127.0.0.1", uint16(portOf(t, addr))}
+				return buildResult{"127.0.0.1", uint16(PortOf(t, addr))}
 			},
 			want: Hints{H3Direct: true},
 		},
@@ -221,14 +115,14 @@ func TestDiscoverFixtures(t *testing.T) {
 			name:    "transport refused is a result, not an error",
 			timeout: 700 * time.Millisecond,
 			build: func(t *testing.T) buildResult {
-				return buildResult{"127.0.0.1", uint16(freeTCPPort(t))}
+				return buildResult{"127.0.0.1", uint16(FreeTCPPort(t))}
 			},
 			want: Hints{},
 		},
 		{
 			name: "cancelled context aborts",
 			build: func(t *testing.T) buildResult {
-				return buildResult{"127.0.0.1", uint16(freeTCPPort(t))}
+				return buildResult{"127.0.0.1", uint16(FreeTCPPort(t))}
 			},
 			wantAbort: context.Canceled,
 		},
@@ -277,9 +171,8 @@ func TestDiscoverEmitsDiagnostics(t *testing.T) {
 	diag.SetDefault(sink)
 	defer diag.SetDefault(nil)
 
-	addr := quicx.FixtureH3(t, nil)
-	port := portOf(t, addr)
-	tlsHTTPFixture(t, port, []byte(respH3Hint))
+	addr := FixtureH3AndHint(t, []byte(respH3Hint))
+	port := PortOf(t, addr)
 	if _, err := Discover(context.Background(), "127.0.0.1", uint16(port), Options{Timeout: 5 * time.Second}); err != nil {
 		t.Fatalf("discover: %v", err)
 	}
@@ -296,6 +189,101 @@ func TestDiscoverEmitsDiagnostics(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("no h3-discovery diagnostics with alt_svc_h3/h3_direct=true; events=%d", rep.Summary.Events)
+	}
+}
+
+// TestMismatchStateClassification (the PQ-25 RED core): the hint/truth
+// pairing table — both mismatch directions name their direction, the
+// agreements leave the empty token so the probe's own state stands, and
+// the flag rides the token exactly.
+func TestMismatchStateClassification(t *testing.T) {
+	cases := []struct {
+		name        string
+		hint, truth bool
+		wantState   string
+		wantFlag    bool
+	}{
+		{"agreement: hint=yes truth=yes", true, true, "", false},
+		{"agreement: hint=no truth=no", false, false, "", false},
+		{"the hint lied: hint=yes truth=no", true, false, "mismatch: hint=yes truth=no", true},
+		{"h3 speaks unhinted: hint=no truth=yes", false, true, "mismatch: hint=no truth=yes", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state, flag := MismatchState(tc.hint, tc.truth)
+			if state != tc.wantState {
+				t.Fatalf("MismatchState(hint=%v truth=%v) state = %q, want %q", tc.hint, tc.truth, state, tc.wantState)
+			}
+			if flag != tc.wantFlag {
+				t.Fatalf("MismatchState(hint=%v truth=%v) flag = %v, want %v", tc.hint, tc.truth, flag, tc.wantFlag)
+			}
+		})
+	}
+}
+
+// TestProbeHintFixtures: the hint half alone (the wiring seam the fast
+// lane composes the QUIC gate from). Hits and misses are results; the
+// raw alt-svc value is kept with the hint; caller aborts are the only
+// errors.
+func TestProbeHintFixtures(t *testing.T) {
+	cases := []struct {
+		name     string
+		build    func(t *testing.T) (host string, port uint16)
+		wantHint bool
+		wantRaw  string
+		wantErr  error
+	}{
+		{
+			name: "alt-svc h3 hint found, raw value kept",
+			build: func(t *testing.T) (string, uint16) {
+				port := FixtureHintHTTP(t, 0, []byte(respH3Hint)) // the hint half binds and holds its own number
+				return "127.0.0.1", uint16(port)
+			},
+			wantHint: true,
+			wantRaw:  `h3=":8443"; ma=86400`,
+		},
+		{
+			name: "no alt-svc header = no hint",
+			build: func(t *testing.T) (string, uint16) {
+				return "127.0.0.1", uint16(FixtureHintHTTP(t, 0, []byte(respNoAltSvc)))
+			},
+		},
+		{
+			name: "h2-only alt-svc = no h3 hint",
+			build: func(t *testing.T) (string, uint16) {
+				return "127.0.0.1", uint16(FixtureHintHTTP(t, 0, []byte(respH2OnlyHint)))
+			},
+		},
+		{
+			name: "transport refused is a result, not an error",
+			build: func(t *testing.T) (string, uint16) {
+				return "127.0.0.1", uint16(FreeTCPPort(t))
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			host, port := tc.build(t)
+			ctx := context.Background()
+			var cancel context.CancelFunc
+			if tc.wantErr != nil {
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			}
+			hint, raw, err := ProbeHint(ctx, host, port, Options{Timeout: 3 * time.Second})
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("ProbeHint err = %v, want %v", err, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				return
+			}
+			if hint != tc.wantHint {
+				t.Fatalf("hint = %v, want %v (raw %q)", hint, tc.wantHint, raw)
+			}
+			if raw != tc.wantRaw {
+				t.Fatalf("raw = %q, want %q", raw, tc.wantRaw)
+			}
+		})
 	}
 }
 
