@@ -9,6 +9,10 @@ import (
 	"github.com/shsingh/pqscan/internal/diag"
 )
 
+// defaultProtos = the browser-grade ALPN offer (negotiated result is
+// recorded; no application data is exchanged).
+var defaultProtos = []string{"h2", "http/1.1"}
+
 // strconvUint keeps diagnostics fields string-typed.
 func strconvUint(u uint32) string { return strconv.FormatUint(uint64(u), 10) }
 
@@ -24,6 +28,7 @@ type ProbeResult struct {
 	RequestedGroup uint32 `json:"requested_group"`  // raw path: HRR target
 	Suite          string `json:"suite"`
 	Version        uint16 `json:"version"`
+	ALPN           string `json:"alpn_neg"` // negotiated ALPN protocol
 	AlertDesc      uint8  `json:"alert"`
 	Error          string `json:"error"`
 }
@@ -48,15 +53,22 @@ func stdlibGroups(groups []uint32) bool {
 // negotiation end to end (real key shares, real HRR handling). addr is
 // host:port; host carries the SNI.
 func ProbeNegotiated(addr, host string, groups []uint32, timeout time.Duration) (*ProbeResult, error) {
-	res := &ProbeResult{Offered: groups[0], Shared: true, Path: "stdlib"}
-	curvePrefs := make([]tls.CurveID, 0, len(groups))
-	for _, g := range groups {
-		curvePrefs = append(curvePrefs, tls.CurveID(g))
+	res := &ProbeResult{Shared: true, Path: "stdlib"}
+	if len(groups) > 0 {
+		res.Offered = groups[0]
+	}
+	var curvePrefs []tls.CurveID
+	if len(groups) > 0 {
+		curvePrefs = make([]tls.CurveID, 0, len(groups))
+		for _, g := range groups {
+			curvePrefs = append(curvePrefs, tls.CurveID(g))
+		}
 	}
 	cfg := &tls.Config{
 		ServerName:         host,
-		InsecureSkipVerify: true, // negotiation is the assertion; cert analytics is a separate probe
-		CurvePreferences:   curvePrefs,
+		InsecureSkipVerify: true,       // negotiation is the assertion; cert analytics is a separate probe
+		CurvePreferences:   curvePrefs, // nil = browser-grade defaults (MLKEM hybrid preferred)
+		NextProtos:         defaultProtos,
 		MinVersion:         tls.VersionTLS12,
 	}
 	dialer := &net.Dialer{Timeout: timeout}
@@ -72,6 +84,7 @@ func ProbeNegotiated(addr, host string, groups []uint32, timeout time.Duration) 
 	res.State = "negotiated"
 	res.Negotiated = uint32(cs.CurveID)
 	res.Version = cs.Version
+	res.ALPN = cs.NegotiatedProtocol
 	if id := cs.CipherSuite; id != 0 {
 		res.Suite = tls.CipherSuiteName(cs.CipherSuite)
 	}
