@@ -709,7 +709,7 @@ still fires. A CI job on the same contract gates merges in the
 estate's own repos: a PR that demotes a band shows up as a failing
 parity check.
 
-### Reverse-DNS workflow — IP ranges in, domains out
+### Reverse-DNS workflow — IP ranges in, domains out (PQ-26)
 
 **Problem.** IP sweeps lose the SNI a domain run has; certificate
 analytics without hostname context loses meaning on shared
@@ -718,20 +718,29 @@ infrastructure.
 **Solution.**
 
 ```bash
-pqscan -cidr 198.51.100.0/24 -jsonl
+pqscan -u 8.8.8.8:443 -ptr -sni auto -certs-dir /tmp/certs -jsonl
 ```
 
-**Observation.** The resolver pool resolves PTR with a bounded worker
-pool and an LRU-backed cache; the record's `ptr` and `sni_used` fields
-carry what resolved and what was offered.
+**Observation.** The literal is resolved pre-probe and the record carries
+the answer verbatim — the PTR-derived candidate is the SNI, the record's
+`ptr` and `sni_used` both fill, and the PEM export leaves the leaf
+behind for downstream tools:
 
-**Discussion.** The strategy matrix (`ptr-then-ip`, `ip-only`, `auto`)
-selects the SNI candidate per target: the PTR hostname when it is
-RFC 1123-shaped, the bare IP otherwise — `auto` is the default and
-records which rule won. Bulk PTR enumeration at massive scale stays
-with massdns or zdns: pre-filter there, hand the FQDNs forward. The
-`-ptr`/`-sni`/`-certs-dir` flags land with the wiring wave; the pool
-and strategies are merged.
+```json
+{"schema":1,"mode":"fast","target":{"input":"8.8.8.8:443","host":"8.8.8.8","ip":"","port":443,"ptr":"dns.google","sni_used":"dns.google"},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+```
+
+**Discussion.** `-ptr` builds the run's pool (bounded: 4 workers, a 2s
+budget, a 1024-entry LRU of positives — misses never cache) off the
+system resolver; `-sni` picks the candidate rule (`auto`/`ptr-then-ip`
+prefer the PTR name and fall back to the literal; `ip-only` always the
+literal; the record's `sni_used` carries the candidate actually used).
+`-certs-dir` writes the scan's end-entity certificate per host
+(`<dir>/<host>.pem`) so a scan feeds a CA/policy pass without a
+re-dial. A literal whose PTR never resolves scans on the literal and
+records the miss as an empty `ptr` — enrichment is never a blocker.
+Bulk PTR enumeration at massive scale stays with massdns or zdns:
+pre-filter there, hand the FQDNs forward.
 
 ## The flag map (live, landing, planned)
 
@@ -743,7 +752,7 @@ and strategies are merged.
 | rate/window/breakers | `-rate`, `-threads` | **live** |
 | PD adapters | `-from-httpx`, `-from-naabu` | **live** |
 | sharding | `-shard i/n` | **live** |
-| identity hooks | `-ptr`, `-sni`, `-certs-dir` | **landing** (the wiring wave) |
+| identity hooks | `-ptr`, `-sni`, `-certs-dir` | **live** |
 | profile config | `-config`, PQSCAN_* env | planned |
 | legacy module | `-legacy heartbleed,ccs,robot` | planned |
 | probe overrides | `-probe-suite`, `-probe-group`, `-probe-sigalgs`, `-probe-version` | planned |

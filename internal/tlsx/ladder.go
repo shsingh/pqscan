@@ -53,6 +53,13 @@ type ProbeResult struct {
 	// the CertificatePQ/CertificateSigAlg pair above is the #82 sig
 	// surface and stays untouched in shape.
 	CertificateInfo *certinfo.Info `json:"cert_info,omitempty"`
+
+	// PQ-26 (issue #49): the end-entity certificate's RAW DER bytes as
+	// the same handshake delivered them — the -certs-dir PEM export's
+	// input. Empty for a raw path or a chain the handshake never
+	// carried; json:"-" (the record's cert block is the ANALYSIS, the
+	// raw bytes ride only to the exporter).
+	LeafRaw []byte `json:"-"`
 }
 
 // stdlibGroups are the codepoints the Go stack can construct a real share
@@ -113,7 +120,10 @@ func ProbeNegotiated(addr, host string, groups []uint32, timeout time.Duration) 
 	// PQ-21: the peer chain arrives with the same ConnectionState that
 	// fills the negotiated row — classify it in this same call, no extra
 	// probe. Fields stay zero for an unanalyzable chain (no invented data).
+	// PQ-26: the raw end-entity DER rides the same block (json:"-" on the
+	// field) for the -certs-dir exporter.
 	if len(cs.PeerCertificates) > 0 {
+		res.LeafRaw = cs.PeerCertificates[0].Raw
 		if ci, cerr := certinfo.Analyze(cs.PeerCertificates); cerr == nil {
 			res.CertificateInfo = ci
 			res.CertificatePQ = ci.SigAlgPQ || ci.KeyAlgPQ

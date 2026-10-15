@@ -16,10 +16,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shsingh/pqscan/internal/diag"
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
+	"github.com/shsingh/pqscan/internal/resolver"
 	"github.com/shsingh/pqscan/internal/shard"
 	"github.com/shsingh/pqscan/internal/wal"
 )
@@ -84,6 +86,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// executed plan's deep block.
 	mode := fs.String("mode", "fast", "scan mode: fast (default) | deep (the executed deep plan) | pq (the forced PQ ladder)")
 	deepPlan := fs.String("deep", "standard", "deep-mode plan cap (-mode deep only): standard (default, <=24 probes/target) | full (the complete matrix)")
+	// Enrichment surfaces (PQ-26/issue #49): -ptr builds the run's
+	// resolver pool (the system resolver, bounded: 4 workers, a 2s
+	// budget, a 1024-entry LRU of positives) for IP targets' reverse
+	// DNS; -sni selects the pool's strategy; -certs-dir names the PEM
+	// export directory.
+	ptr := fs.Bool("ptr", false, "PTR enrichment for IP targets: resolve reverse DNS pre-probe, SNI per -sni; the record carries ptr/sni_used")
+	sni := fs.String("sni", "auto", "SNI strategy for IP targets: auto (default) | ptr-then-ip | ip-only")
+	certsDir := fs.String("certs-dir", "", "write each scanned host's end-entity certificate as PEM to <dir>/<host>.pem")
 	if err := fs.Parse(args); err != nil {
 		return 64
 	}
@@ -132,6 +142,37 @@ func run(args []string, stdout, stderr io.Writer) int {
 				map[string]string{"shard": *shardSpec})
 			fmt.Fprintf(stderr, "pqscan: -shard: %v\n", serr)
 			return 64
+		}
+	}
+
+	// Enrichment validation (PQ-26): unknown -sni strategies are
+	// usage-class refusals — the pool would degrade silently (unknown
+	// → auto), and the CLI refuses honestly instead.
+	if !validSNIStrategy(*sni) {
+		diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -sni refused", nil,
+			map[string]string{"sni": *sni})
+		fmt.Fprintf(stderr, "pqscan: unknown -sni %q (want auto, ptr-then-ip, or ip-only)\n", *sni)
+		return 64
+	}
+
+	// The run's enrichment surfaces (PQ-26): the pool exists only under
+	// -ptr (no flag → the pre-PQ-26 engine: no DNS touch, no fill); the
+	// certs-dir exists before anything scans so every export succeeds.
+	var ptrPool *resolver.Pool
+	if *ptr {
+		ptrPool = resolver.New(resolver.Options{
+			Workers:     4,
+			Timeout:     2 * time.Second,
+			CacheSize:   1024,
+			SNIStrategy: *sni,
+		})
+	}
+	if *certsDir != "" {
+		if err := os.MkdirAll(*certsDir, 0o755); err != nil {
+			diag.Emit(diag.Error, diag.DomOutput, "certs-dir", "", "directory create failed", err,
+				map[string]string{"dir": *certsDir})
+			fmt.Fprintf(stderr, "pqscan: -certs-dir %s: %v\n", *certsDir, err)
+			return 1
 		}
 	}
 
@@ -272,6 +313,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			MaxWindow: *threads,
 			Mode:      *mode,
 			DeepPlan:  *deepPlan,
+			PtrPool:   ptrPool,
+			CertsDir:  *certsDir,
 			Record: func(rec *scanRecord) {
 				if j == nil {
 					return
@@ -419,6 +462,18 @@ func chooseFormat(args []string) out.Format {
 		}
 	}
 	return chosen
+}
+
+// validSNIStrategy reports whether s is a defined -sni strategy value
+// (PQ-26: the resolver package's three; unknown values degrade to auto
+// inside the pool, so the CLI refuses them honestly instead).
+func validSNIStrategy(s string) bool {
+	switch s {
+	case resolver.StrategyAuto, resolver.StrategyPTRThenIP, resolver.StrategyIPOnly:
+		return true
+	default:
+		return false
+	}
 }
 
 // targetKey is the identity of one endpoint across the composition, the
