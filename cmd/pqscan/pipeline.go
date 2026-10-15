@@ -7,6 +7,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,14 +15,26 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shsingh/pqscan/internal/classify"
+	"github.com/shsingh/pqscan/internal/congestion"
 	"github.com/shsingh/pqscan/internal/diag"
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
 	"github.com/shsingh/pqscan/internal/quicx"
 	"github.com/shsingh/pqscan/internal/tlsx"
+)
+
+// breakerThreshold is the consecutive per-host probe failures that open a
+// host's breaker; breakerCooldown is how long an open host refuses dials
+// before its half-open probe. The state is in-memory and never outlives a
+// run (PQ-23); the §7.3 tuned budgets and per-/24 scoping ride the
+// shard/perf-suite lanes.
+const (
+	breakerThreshold = 3
+	breakerCooldown  = 15 * time.Second
 )
 
 // errNoTargets reports an empty composed target list to the caller.
@@ -58,6 +71,17 @@ type Options struct {
 	// (the WAL sink appends there, so a crash keeps each completed
 	// target); nil = no sink.
 	Record func(*scanRecord)
+	// Rate paces probe launches per second through the congestion token
+	// bucket (-rate; 0 = no limit, the pre-PQ-23 engine pace). The bucket
+	// starts with a single token — burst 1 — so the pace is the launch
+	// cadence: one launch per 1/Rate with no burst credit.
+	Rate float64
+	// MaxWindow is the AIMD window's ceiling (-threads): the launch count
+	// the dispatch may keep in flight. Zero (or negative) selects 1 — the
+	// sequential engine, the pre-PQ-23 dispatch. The window itself starts
+	// at aimd's floor and moves with the run (successes grow, probe
+	// timeouts halve); MaxWindow is only its ceiling.
+	MaxWindow int
 }
 
 // stdin is the process stdin seam: run() reads composed "--" specs from it.
@@ -65,21 +89,38 @@ type Options struct {
 // stable for every existing test.
 var stdin io.Reader = os.Stdin
 
-// Engine is the multi-target run pipeline: it scans every parsed
-// grammar.Target in order, fast mode, one record per target.
+// Engine is the multi-target run pipeline: it scans the composed
+// grammar.Targets under the PQ-23 control surfaces — the shared AIMD window
+// capping the launches in flight, the launch pace when -rate set it, and the
+// per-host breaker — one record per target, in composed order.
 type Engine struct {
 	// ProgressEvery is the progress-report interval; zero selects
 	// progressEvery. The scan still reports once at completion.
 	ProgressEvery int
+
+	// aimd holds the run's shared AIMD window: re-created per Run (the
+	// congestion state is in-memory and never outlives a run); nil before
+	// the first Run. Package-internal tests read the final window after
+	// Run returns.
+	aimd *congestion.AIMD
 }
 
-// Run scans targets in order and returns one record per target: reachable
-// targets carry their handshake, failed probes carry a schema-1 record with
-// a non-empty Error (rejections are results, not run failures). progress is
-// invoked at every ProgressEvery-th completed target and once at
-// completion; a nil progress callback is accepted. An empty target list is
-// a caller error; CIDR-class targets are refused with errCidrTargets
-// (expansion is PQ-16).
+// Run scans the composed targets under the PQ-23 control surfaces
+// (docs/spec.md §7.3) and returns one record per target, in composed
+// order: reachable targets carry their handshake, failed probes carry a
+// schema-1 record with a non-empty Error (rejections are results, not
+// run failures), and targets behind an open per-host breaker carry the
+// "breaker open" error record without a dial. The dispatch keeps at most
+// the ONE shared AIMD window's launches in flight — the window starts at
+// one, grows additively per successful target toward its ceiling, and
+// halves per timed-out probe (the per-target probe's timeout is the
+// throttle signal; refusals are rejections, not congestion). When
+// -rate set a pace, every probe launch buys its token from the burst-1
+// token bucket before dialing. The congestion state is in-memory and
+// never outlives a run. progress is invoked at every ProgressEvery-th
+// completed target and once at completion; a nil progress callback is
+// accepted. An empty target list is a caller error; CIDR-class targets
+// are refused with errCidrTargets (expansion is PQ-16).
 func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done, total int)) ([]*scanRecord, error) {
 	if len(targets) == 0 {
 		diag.Emit(diag.Warn, diag.DomEngine, "pipeline", "", "composed target list empty; refusing", nil, nil)
@@ -97,34 +138,154 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 		every = progressEvery
 	}
 	total := len(targets)
-	diag.Emit(diag.Info, diag.DomEngine, "pipeline", "", "multi-target scan started",
-		nil, map[string]string{"total": strconv.Itoa(total), "progress_every": strconv.Itoa(every)})
 
-	recs := make([]*scanRecord, 0, total)
-	for i, t := range targets {
-		rec := scanTarget(t, opts)
-		if opts.Record != nil {
-			opts.Record(rec)
-		}
-		recs = append(recs, rec)
-		if done := i + 1; progress != nil && (done%every == 0 || done == total) {
-			diag.Emit(diag.Info, diag.DomEngine, "pipeline", t.Input, "progress reported",
+	// The per-run control surfaces (PQ-23): ONE shared AIMD whose window
+	// is the in-flight cap; the launch pace (burst 1: the pace is the
+	// launch cadence, no burst credit); the per-host breaker. MaxWindow
+	// normalizes to the pre-PQ-23 engine's 1 (the sequential dispatch).
+	maxWindow := opts.MaxWindow
+	if maxWindow < 1 {
+		maxWindow = 1
+	}
+	aimd := congestion.NewAIMD(maxWindow)
+	e.aimd = aimd
+	var limiter *congestion.Limiter
+	if opts.Rate > 0 {
+		limiter = congestion.NewLimiter(opts.Rate, 1)
+	}
+	breaker := congestion.NewBreaker(breakerThreshold, breakerCooldown)
+	diag.Emit(diag.Info, diag.DomEngine, "pipeline", "", "multi-target scan started",
+		nil, map[string]string{"total": strconv.Itoa(total), "progress_every": strconv.Itoa(every),
+			"rate": strconv.FormatFloat(opts.Rate, 'g', -1, 64), "max_window": strconv.Itoa(maxWindow)})
+
+	// The window-semaphore dispatch: maxWindow workers pull dispatched
+	// target indexes; the dispatcher keeps inFlight (dispatched targets
+	// still unprocessed — scanning or token-waiting) under the AIMD's
+	// window, processing completions singly so every window/breaker
+	// decision and every Record append is made on this goroutine, in
+	// completion order. Composed order survives concurrency: results
+	// carry their index and recs is filled by position (the run's record
+	// order contract, pinned by the multi-target tests).
+	type launchResult struct {
+		idx      int
+		rec      *scanRecord
+		failing  bool // the TCP probe never reached a handshake
+		timedOut bool // the failing probe's budget expired (the throttle)
+	}
+	work := make(chan int)
+	results := make(chan launchResult, maxWindow)
+	var wg sync.WaitGroup
+	for w := 0; w < maxWindow; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range work {
+				if limiter != nil {
+					if aerr := limiter.Acquire(context.Background()); aerr != nil {
+						// The run's context never cancels; the contract
+						// case is recorded in case a future caller arms
+						// one (the launch proceeds ungated otherwise).
+						diag.Emit(diag.Warn, diag.DomEngine, "pipeline", targets[i].Input,
+							"launch pacing aborted", aerr, nil)
+					}
+				}
+				rec, failing, timedOut := scanTarget(targets[i], opts)
+				results <- launchResult{idx: i, rec: rec, failing: failing, timedOut: timedOut}
+			}
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	recs := make([]*scanRecord, total)
+	done, next, inFlight := 0, 0, 0
+	report := func(rec *scanRecord) {
+		if progress != nil && (done%every == 0 || done == total) {
+			diag.Emit(diag.Info, diag.DomEngine, "pipeline", rec.Target.Input, "progress reported",
 				nil, map[string]string{"done": strconv.Itoa(done), "total": strconv.Itoa(total)})
 			progress(done, total)
 		}
 	}
+	for done < total {
+		switch {
+		case next < total && inFlight < aimd.Window():
+			t := targets[next]
+			if !breaker.Allow(t.Host) {
+				// The host's breaker is open: the target leaves as an
+				// error record without any dial — nothing to pace,
+				// nothing in flight, no window signal (it is not a
+				// success nor a congestion event; the record's error is
+				// the skipped-with-reason proof).
+				rec := breakerOpenRecord(t)
+				recs[next] = rec
+				if opts.Record != nil {
+					opts.Record(rec)
+				}
+				diag.Emit(diag.Warn, diag.DomEngine, "pipeline", t.Input, "breaker open; probe skipped", nil,
+					map[string]string{"host": t.Host})
+				next++
+				done++
+				report(rec)
+				continue
+			}
+			// The launch's token comes off the bucket at dispatch — a
+			// worker that has no token yet waits inside its scan loop,
+			// still holding the in-flight slot (token-waiters do not
+			// flood past the window either).
+			work <- next
+			next++
+			inFlight++
+			continue
+		default:
+			// A completion: the in-flight slot frees, the surfaces
+			// record the outcome (breakers take failures and successes;
+			// the window takes the timeout), then the freed budget
+			// re-fills — this loop is the semaphore over the window.
+			r := <-results
+			inFlight--
+			t := targets[r.idx]
+			recs[r.idx] = r.rec
+			if opts.Record != nil {
+				opts.Record(r.rec)
+			}
+			switch {
+			case r.failing:
+				breaker.RecordFailure(t.Host)
+				if r.timedOut {
+					aimd.OnTimeout()
+					diag.Emit(diag.Warn, diag.DomEngine, "pipeline", t.Input, "aimd window halved (probe timeout)", nil,
+						map[string]string{"window": strconv.Itoa(aimd.Window())})
+				}
+			default:
+				breaker.RecordSuccess(t.Host)
+				aimd.OnSuccess()
+			}
+			done++
+			report(r.rec)
+		}
+	}
+	close(work) // everything dispatched and processed; workers drain and exit
+	wg.Wait()
 	return recs, nil
 }
 
 // scanTarget is the per-target fast-mode probe path (rc1 scanSingle,
 // grammar-driven: the parsed Target already carries its canonical host,
-// port and class, so no ad-hoc host:port splitting happens here).
-func scanTarget(t grammar.Target, opts Options) *scanRecord {
+// port and class, so no ad-hoc host:port splitting happens here). It
+// reports the TCP plane's probe outcome beside the record — failing = the
+// probe never reached a handshake (the breaker's failure signal);
+// timedOut = the failure is a deadline expiry (aimd.OnTimeout, the §7.3
+// throttle signal; plain refusals are rejections, not congestion). A
+// scan-error record from the rubric is NOT a probe failure: the handshake
+// itself succeeded.
+func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
 	timeout := opts.ProbeTimeout
 	if timeout <= 0 {
 		timeout = defaultProbeTimeout
 	}
-	rec := &scanRecord{
+	rec = &scanRecord{
 		Schema: out.SchemaVersion,
 		Mode:   "fast",
 		Target: out.TargetRecord{Input: t.Input, Host: t.Host, Port: uint16(t.Port)},
@@ -141,7 +302,7 @@ func scanTarget(t grammar.Target, opts Options) *scanRecord {
 	if err != nil && (res == nil || res.Error == "") {
 		rec.Error = err.Error()
 		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", err, nil)
-		return rec
+		return rec, true, isTimeoutError(rec.Error)
 	}
 	if res != nil && res.Error != "" {
 		// Refusals are records, not run failures (rejections are results):
@@ -150,7 +311,10 @@ func scanTarget(t grammar.Target, opts Options) *scanRecord {
 		// scanSingle dropped dial refusals into empty-error records).
 		rec.Error = res.Error
 		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe refused", errors.New(res.Error), nil)
-		return rec
+		// A refusal still fails the probe for the breaker's consecutive-
+		// failure count; only the deadline-expiry class signals the AIMD
+		// window (a refusal carries no congestion information).
+		return rec, true, isTimeoutError(rec.Error)
 	}
 	rec.Handshake = handshakeRecord{
 		Negotiated: res.Negotiated,
@@ -228,7 +392,38 @@ func scanTarget(t grammar.Target, opts Options) *scanRecord {
 	} else {
 		rec.Quic = &quicRecord{Attempted: false}
 	}
+	return rec, false, false
+}
+
+// breakerOpenRecord builds the breaker-skipped target's record: the
+// schema-1 error shape (like any failed probe — zero handshake, no
+// verdict blocks invented), its Error carrying the skip reason "breaker
+// open" instead of the dial's outcome. Skipped-with-reason, never silent.
+func breakerOpenRecord(t grammar.Target) *scanRecord {
+	rec := &scanRecord{
+		Schema: out.SchemaVersion,
+		Mode:   "fast",
+		Target: out.TargetRecord{Input: t.Input, Host: t.Host, Port: uint16(t.Port)},
+	}
+	rec.Ts = time.Now().UTC().Format(time.RFC3339Nano)
+	rec.Error = "breaker open"
 	return rec
+}
+
+// isTimeoutError reports whether the probe's emitted error text carries
+// one of the net stack's deadline-expiry classes. The pipeline consumes
+// the probe's error STRING only: the transport package
+// (internal/tlsx.ProbeNegotiated) packs every dial/handshake failure into
+// ProbeResult.Error with no timeout flag of its own, so the wiring
+// classifies the §7.3 throttle signal by the text the stack emits. The
+// two classes observed on the real path: a net dialer budget reads
+// "…: i/o timeout", and the TLS-with-dialer handshake deadline reads
+// "context deadline exceeded". Resolver failures, "connection refused"
+// and other refusal texts name their cause and deliberately signal
+// nothing to the window.
+func isTimeoutError(text string) bool {
+	return strings.Contains(text, "i/o timeout") ||
+		strings.Contains(text, "context deadline exceeded")
 }
 
 // rubricNegotiatedClass maps the IANA taxonomy class (classify.Class)

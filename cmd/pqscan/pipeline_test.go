@@ -482,3 +482,263 @@ func TestFlagComposition(t *testing.T) {
 		})
 	}
 }
+
+// --- PQ-23 congestion wiring (issue #46, watched RED) ----------------------
+
+// startStalledFixture returns the address of the deliberate timeout
+// target: a listener that accepts and then goes silent (never reads,
+// never writes). The probe connects, the TLS handshake waits for a
+// ServerHello that never comes, and its probe deadline expires — net's
+// "i/o timeout", the throttle signal class the wiring halves the window
+// on. (Unlike the negotiation fixtures the hold here is the point; this
+// helper lives in cmd because it exercises pacing, not negotiation.)
+func startStalledFixture(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	conns := make([]net.Conn, 0, 4)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return // the cleanup closed the listener
+			}
+			conns = append(conns, conn) // held: silent to the client
+		}
+	}()
+	return ln.Addr().String()
+}
+
+// TestRateLimiterEnforced (PQ-23, watched RED): -rate paces probe
+// LAUNCHES through the token-bucket limiter (burst 1: the pace is the
+// launch cadence) — three targets at 5 rps pay floor(2 launches)/5 rps =
+// 2/5 s between the first and the last launch.
+//
+// The clock statement the pair must carry honestly: the pipeline's clock
+// is the REAL system clock. The congestion core takes an injectable
+// Clock, but no seam carries one into cmd/pqscan's production path (the
+// engine builds the limiter with congestion.NewLimiter, the package's
+// system-clock constructor), so this test asserts the real timing
+// window 2/rps with a 50 ms epsilon for timer/scheduling slop — timers
+// never fire early, so the lower bound is sound; the limiter's pacing
+// math itself is already sim-clock-proven in internal/congestion. The
+// run is the real CLI path (run()): the flags must reach the engine's
+// Options end to end.
+func TestRateLimiterEnforced(t *testing.T) {
+	rows := []struct {
+		name    string
+		rate    string // the -rate value; "" = the flag absent (default 0)
+		wantMin time.Duration
+		wantMax time.Duration
+	}{
+		{
+			name:    "-rate 5 paces three launches (floor 2/5 s minus 50 ms)",
+			rate:    "5",
+			wantMin: 350 * time.Millisecond,
+		},
+		{
+			name:    "default rate 0 stays uncapped",
+			rate:    "",
+			wantMax: 200 * time.Millisecond,
+		},
+	}
+	for _, row := range rows {
+		row := row
+		t.Run(row.name, func(t *testing.T) {
+			// Three distinct loopback targets on closed ports: instant
+			// refusals, so the only pacing between launches is the
+			// limiter's (the refusals are records, the run still exits 0).
+			ports := make([]string, 3)
+			for i := range ports {
+				ports[i] = closedLoopbackPort(t)
+			}
+			list := writeSpecFile(t, "rate-targets.txt", strings.Join(ports, "\n")+"\n")
+			output := filepath.Join(t.TempDir(), "rate.jsonl")
+			args := []string{"-l", list, "-jsonl", "-o", output}
+			if row.rate != "" {
+				args = append([]string{"-rate", row.rate}, args...)
+			}
+
+			start := time.Now()
+			var out, errOut bytes.Buffer
+			code := run(args, &out, &errOut)
+			elapsed := time.Since(start)
+			if code != 0 {
+				t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+			}
+			recs := readJSONLRecords(t, output)
+			if len(recs) != len(ports) {
+				t.Fatalf("records = %d, want %d (stderr: %s)", len(recs), len(ports), errOut.String())
+			}
+			for i, rec := range recs {
+				if rec["target"].(map[string]any)["input"] != ports[i] {
+					t.Fatalf("record %d input = %v, want %q (composed order)",
+						i, rec["target"].(map[string]any)["input"], ports[i])
+				}
+				if e, _ := rec["error"].(string); !strings.Contains(e, "connection refused") {
+					t.Fatalf("record %d error = %q, want the loopback refusal", i, e)
+				}
+			}
+			if row.wantMin > 0 && elapsed < row.wantMin {
+				t.Fatalf("elapsed = %s (< %s): -rate %s does not pace the launches",
+					elapsed, row.wantMin, row.rate)
+			}
+			if row.wantMax > 0 && elapsed > row.wantMax {
+				t.Fatalf("elapsed = %s (> %s): the uncapped default paces anyway",
+					elapsed, row.wantMax)
+			}
+		})
+	}
+}
+
+// TestBreakerOpens (PQ-23, watched RED): three consecutive per-host probe
+// failures open the host's breaker; every target behind the open breaker
+// leaves as a schema-1 error record with the "breaker open" reason, in the
+// same shape as any failed-probe record, WITHOUT a dial. The proof the
+// dial was skipped lives in the record's own error text: the ports below
+// are CLOSED — a dial would surface the OS refusal ("connection refused"),
+// never "breaker open". The breaker is in-memory per run.
+func TestBreakerOpens(t *testing.T) {
+	rows := []struct {
+		name        string
+		targetN     int
+		wantBreaker bool // records past the threshold = "breaker open"
+	}{
+		{
+			name:        "below the threshold every target still dials",
+			targetN:     2,
+			wantBreaker: false,
+		},
+		{
+			name:        "the opening refusal itself dialed (3rd failure)",
+			targetN:     3,
+			wantBreaker: false,
+		},
+		{
+			name:        "past the threshold later targets skip the dial",
+			targetN:     5,
+			wantBreaker: true,
+		},
+	}
+	for _, row := range rows {
+		row := row
+		t.Run(row.name, func(t *testing.T) {
+			ports := make([]string, row.targetN)
+			for i := range ports {
+				ports[i] = closedLoopbackPort(t)
+			}
+			recs, err := (&Engine{}).Run(mustParse(t, ports),
+				Options{QuicOff: true, ProbeTimeout: 500 * time.Millisecond}, nil)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if len(recs) != len(ports) {
+				t.Fatalf("records = %d, want %d", len(recs), len(ports))
+			}
+			for i, rec := range recs {
+				if rec.Target.Input != ports[i] {
+					t.Fatalf("record %d input = %q, want %q (composed order)",
+						i, rec.Target.Input, ports[i])
+				}
+				if i < breakerThreshold {
+					if rec.Error == "" || !strings.Contains(rec.Error, "connection refused") {
+						t.Fatalf("record %d error = %q, want the loopback refusal (a dial happened)",
+							i, rec.Error)
+					}
+					continue
+				}
+				if rec.Pq != nil || rec.Cert != nil {
+					t.Fatalf("record %d: error record carries verdict blocks (pq=%v cert=%v), want nil",
+						i, rec.Pq, rec.Cert)
+				}
+				if row.wantBreaker {
+					if rec.Error != "breaker open" {
+						t.Fatalf("record %d error = %q, want %q (no dial: the OS refusal would name connection refused)",
+							i, rec.Error, "breaker open")
+					}
+					continue
+				}
+				if !strings.Contains(rec.Error, "connection refused") {
+					t.Fatalf("record %d error = %q, want the refusal (the breaker must not open below the threshold)",
+						i, rec.Error)
+				}
+			}
+		})
+	}
+}
+
+// TestAIMDHalving (PQ-23, watched RED): ONE shared AIMD backs the
+// dispatch — successes grow the window additively toward the -threads
+// ceiling, a timed-out probe halves it (the record pins the probe
+// timeout as the throttle signal). Four healthy fixtures ramp the window
+// onto its ceiling; the fifth target is the stalled fixture, whose probe
+// deadline expires and whose completion must come back with the window
+// halved (4 x 0.5 = 2).
+//
+// The assertion is the exposed window (read off the engine after Run
+// returns — the same-package field; the pacing alternative is timing
+// noise here). The GREEN dispatch gates launches on the window, so the
+// stalled target is dispatched only after the healthy four complete:
+// the halve is the last signal processed and the final window is
+// deterministic. The real-clock pacing cost of the ramp belongs to
+// TestRateLimiterEnforced's window; this test pins the window STATE.
+func TestAIMDHalving(t *testing.T) {
+	fast := []string{
+		startHybridFixture(t), startHybridFixture(t),
+		startHybridFixture(t), startHybridFixture(t),
+	}
+	stalled := startStalledFixture(t)
+
+	engine := &Engine{}
+	recs, err := engine.Run(mustParse(t, append(fast, stalled)),
+		Options{QuicOff: true, ProbeTimeout: 500 * time.Millisecond, MaxWindow: 4}, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(recs) != len(fast)+1 {
+		t.Fatalf("records = %d, want %d", len(recs), len(fast)+1)
+	}
+	for i := range fast {
+		if recs[i].Target.Input != fast[i] {
+			t.Fatalf("record %d input = %q, want %q (composed order)", i, recs[i].Target.Input, fast[i])
+		}
+		if recs[i].Error != "" {
+			t.Fatalf("record %d error = %q, want none", i, recs[i].Error)
+		}
+	}
+	last := recs[len(recs)-1]
+	if last.Target.Input != stalled {
+		t.Fatalf("record 5 input = %q, want %q (composed order)", last.Target.Input, stalled)
+	}
+	if last.Error == "" || (!strings.Contains(last.Error, "i/o timeout") &&
+		!strings.Contains(last.Error, "deadline")) {
+		t.Fatalf("record 5 error = %q, want the probe's deadline expiry (net's i/o timeout / the tls-with-dialer context deadline class)", last.Error)
+	}
+	if last.Handshake.Negotiated != 0 {
+		t.Fatalf("record 5 negotiated = %d, want zero on a timed-out record", last.Handshake.Negotiated)
+	}
+	if engine.aimd == nil {
+		t.Fatal("the run's AIMD window is missing off the engine")
+	}
+	if got := engine.aimd.Window(); got != 2 {
+		t.Fatalf("window after 4 successes + 1 timeout = %d, want 2 (capped 4, halved by the timeout)", got)
+	}
+}
+
+// TestRateThreadsFlagRegistration: the two congestion flags register via
+// the fs.Float64/fs.Int shape the usage-drift gate reads back; a parse of
+// both lands on the no-targets refusal (exit 64), never the
+// flag-provided-but-not-defined artifact (issue #46 / PQ-23).
+func TestRateThreadsFlagRegistration(t *testing.T) {
+	var out, errOut bytes.Buffer
+	code := run([]string{"-rate", "5", "-threads", "4"}, &out, &errOut)
+	if code != 64 {
+		t.Fatalf("exit = %d, want 64 (no targets; stderr: %s)", code, errOut.String())
+	}
+	if bytes.Contains(errOut.Bytes(), []byte("flag provided but not defined")) {
+		t.Fatalf("the congestion flags did not register: %q", errOut.String())
+	}
+}

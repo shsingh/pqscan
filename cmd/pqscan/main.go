@@ -59,6 +59,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	outFile := fs.String("o", "", "write results to file (default stdout)")
 	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
 	resume := fs.Bool("resume", false, "resume an interrupted run from the WAL (<output basename>.wal next to -o)")
+	// Congestion wiring (PQ-23): the §7.3 control surfaces reach the
+	// pipeline through two flags — the token-bucket launch pace and the
+	// AIMD window ceiling. Both defaults stay the pre-PQ-23 engine: rate
+	// 0 = uncapped, window 1 = the sequential dispatch.
+	rate := fs.Float64("rate", 0, "probe launches per second through the token-bucket limiter (0 = uncapped: the pre-congestion pace)")
+	threads := fs.Int("threads", 1, "AIMD window ceiling: max target probes in flight (default 1 = the sequential engine)")
 	if err := fs.Parse(args); err != nil {
 		return 64
 	}
@@ -179,7 +185,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	recs := []*scanRecord{}
 	if len(pending) > 0 {
 		scanned, err := (&Engine{}).Run(pending, Options{
-			QuicOff: *quicOff,
+			QuicOff:   *quicOff,
+			Rate:      *rate,
+			MaxWindow: *threads,
 			Record: func(rec *scanRecord) {
 				if j == nil {
 					return
