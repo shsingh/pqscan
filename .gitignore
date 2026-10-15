@@ -20,3 +20,6 @@ results/
 # Temporary
 *.log
 tmp/
+
+# Quarto build output (regenerated; never committed - caught by hooks 2026-10-15)
+site/_site/
