@@ -20,13 +20,6 @@ M1 is complete and the M2 cores have landed — every record carries the
 live PQC verdict and certificate analytics
 ([register](https://github.com/shsingh/pqscan/issues/4)).
 
-## What it does
-
-- **[fast](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set)** — one engineered handshake per target: negotiated parameters, certificate chain, ALPN, features.
-- **deep** — exhaustive suite-by-suite, version-by-version, group and signature-algorithm probing (offer-one / observe-accept), HRR detection, resumption and 0-RTT checks.
-- **pq** — forced-group PQ ladder, PQ signature and certificate classification, estate-wide readiness verdicts with an HNDL risk flag.
-- **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443; HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
-
 ## Performance
 
 ```{=html}
@@ -69,16 +62,6 @@ verification steps, Windows — lives in
 brew tap shsingh/tap && brew install pqscan        # macOS
 go install github.com/shsingh/pqscan/cmd/pqscan@v0.0.2-alpha   # any platform with Go
 gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
-```
-
-## Quick start
-
-```bash
-subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
-```
-
-```bash
-naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
 ```
 
 ## Alternative tools

@@ -15,3 +15,30 @@ pre code { font-size: 0.86em; }
 .punit { font-size: 1.05rem; font-weight: 700; margin-left: 0.15rem; opacity: 0.85; }
 .pcap { margin-top: 0.45rem; font-size: 0.85rem; opacity: 0.75; line-height: 1.35; }
 @media (max-width: 900px) { .pstats { grid-template-columns: repeat(2, 1fr); } }
+
+/* mermaid: grouping (cluster/subgraph) boxes = purple dotted, no fill;
+   everything else (nodes) = solid black lines, no fill — the trishula standard */
+svg.mermaid-js { background: transparent; }
+svg.mermaid-js g.cluster rect {
+  fill: transparent !important;
+  stroke: #712cf9 !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 5 4 !important;
+}
+svg.mermaid-js g.node rect.basic.label-container,
+svg.mermaid-js g.node rect,
+svg.mermaid-js g.node circle,
+svg.mermaid-js g.node polygon,
+svg.mermaid-js g.node path {
+  fill: transparent !important;
+  stroke: #111111 !important;
+  stroke-width: 1.6px !important;
+}
+svg.mermaid-js g.edgeLabel rect,
+svg.mermaid-js g.edgeLabel polygon,
+svg.mermaid-js g.edgeLabel .labelBkg {
+  fill: #ffffff !important;
+  fill-opacity: 1 !important;
+  background: #ffffff !important;
+  border: none !important;
+}
