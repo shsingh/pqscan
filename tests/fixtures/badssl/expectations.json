@@ -1,0 +1,12 @@
+{
+  "comment": "badssl.com expectation rows (spec §10.1 fixture matrix). Rows are DATA: the network-touching integration pass reads them only when PQSCAN_INTEGRATION=1 is set; CI validates the schema only. Extend with a row + its expectation; never loosen one.",
+  "snapshot": "2026-10-15",
+  "rows": [
+    {"host": "rsa2048.badssl.com",   "port": 443, "expect": {"key": "rsa-2048",  "verdict": "classic"}},
+    {"host": "expired.badssl.com",   "port": 443, "expect": {"cert_state": "expired"}},
+    {"host": "wrong.host.badssl.com","port": 443, "expect": {"cert_state": "hostname-mismatch"}},
+    {"host": "rc4-md5.badssl.com",   "port": 443, "expect": {"suite_class": "obsolete", "reachable": false}},
+    {"host": "tls-v1-2.badssl.com",  "port": 1012,"expect": {"version_max": "tls-1.2"}},
+    {"host": "tls-v1-0.badssl.com",  "port": 1009,"expect": {"version_max": "tls-1.0", "verdict": "obsolete"}}
+  ]
+}

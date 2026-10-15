@@ -1,0 +1,22 @@
+# Go
+bin/
+dist/
+*.test
+*.out
+coverage.txt
+*.prof
+
+# Scan output artefacts (fixtures ship their own expectation files under tests/)
+out/
+results/
+*.scan.jsonl
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Temporary
+*.log
+tmp/
