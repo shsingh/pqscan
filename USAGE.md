@@ -122,7 +122,10 @@ OPTIONS
                          target, host, port, ptr, sni, negotiated
                          (codepoint), group_name, group_class, suite,
                          version, alpn, quic_state, quic_group,
-                         udp_blocked, error, ts (RFC 4180 quoting).
+                         udp_blocked, cert_sig_alg, cert_sig_pq,
+                         cert_key_alg, cert_key_pq, cert_dual, pq_score,
+                         pq_label, pq_hndl, pq_summary, error, ts (RFC
+                         4180 quoting).
     -urls                The endpoint list: https://host:port, one line
                          per target (chainable into nuclei/httpx).
     -text                One human line per target (the default format:
