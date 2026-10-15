@@ -72,6 +72,16 @@ PQSCAN_INTEGRATION=1 go test ./internal/tlsx/ -run Integration -v
                                          # live-network truth, never in CI
 ```
 
+- **When a run misbehaves — pull diagnostics** (issue templates require these
+  as attachments, bugs AND scan-touching feature requests):
+
+```bash
+./pqscan -debug -debug-out diag.json <original-arguments...>
+# stderr: live engine decision stream + readable block; diag.json: schema-1 machine report
+jq '.summary' diag.json            # counts at a glance
+jq '[.events[] | select(.level == "error" or .level == "warn")]' diag.json
+```
+
 - **Etiquette invariants** (security-relevant, ADR-relevant): only scan
   systems you own or are authorised to test; the rate caps, per-subnet
   ceilings and breaker thresholds are published defaults — never bypass
