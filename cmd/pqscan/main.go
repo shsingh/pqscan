@@ -11,16 +11,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 
-	"github.com/shsingh/pqscan/internal/classify"
 	"github.com/shsingh/pqscan/internal/diag"
 	"github.com/shsingh/pqscan/internal/out"
-	"github.com/shsingh/pqscan/internal/quicx"
-	"github.com/shsingh/pqscan/internal/tlsx"
 )
 
 // version carries the build's identity, stamped at build time by the
@@ -34,16 +30,17 @@ func main() {
 
 // run executes the CLI and returns the process exit code. The flag set is
 // rebuilt per call so tests exercise the same path the process does
-// (PQ-10). -debug arms the diagnostics sink (PQ-011). -u runs the rc1
-// fast-mode single-target scan (PQ-30); the multi-target grammar lands
-// with PQ-15.
+// (PQ-10). -debug arms the diagnostics sink (PQ-011). -u / -l / --
+// compose into one []grammar.Target list scanned by the multi-target
+// pipeline (PQ-15; cidr specs refuse with the PQ-16 deferral).
 func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("pqscan", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	showVersion := fs.Bool("version", false, "print pqscan version and exit")
 	debug := fs.Bool("debug", false, "full diagnostics: human stream on stderr + machine report")
 	debugOut := fs.String("debug-out", "", "write the machine-parsable diagnostics report (schema 1) to this JSON file")
-	target := fs.String("u", "", "single target: host, host:port, or ip:port (PQ-30; multi-target grammar = PQ-15)")
+	target := fs.String("u", "", "single target: host, host:port, or ip:port (composes with -l and --)")
+	listFile := fs.String("l", "", "read newline-separated target specs from this file (composes with -u and --; deduped by host:port)")
 	asJSONL := fs.Bool("jsonl", false, "emit one schema-1 JSON record per line")
 	outFile := fs.String("o", "", "write results to file (default stdout)")
 	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
@@ -68,112 +65,56 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	if *target == "" {
-		diag.Emit(diag.Warn, diag.DomEngine, "run", "", "no targets; run refuses (multi-target grammar lands with PQ-15)", nil, nil)
-		fmt.Fprintln(stderr, "pqscan: no target specified (use -u; probe engines per the PQ-01 register)")
+	targets, code := composeTargets(*target, *listFile, args, stderr)
+	if code != 0 {
+		return code
+	}
+	if len(targets) == 0 {
+		diag.Emit(diag.Warn, diag.DomEngine, "run", "", "no targets; run refuses", nil, nil)
+		fmt.Fprintln(stderr, "pqscan: no target specified (use -u, -l, or -- for stdin; probe engines per the PQ-01 register)")
 		return 64 // EX_USAGE
 	}
 
-	rec := scanSingle(*target, *quicOff)
-	if rec.Target.Host == "" {
-		return 64
-	}
-
-	line, err := encodeRecord(rec, *asJSONL)
+	recs, err := (&Engine{}).Run(targets, Options{QuicOff: *quicOff}, func(done, total int) {
+		fmt.Fprintf(stderr, "pqscan: progress: %d/%d targets scanned\n", done, total)
+	})
 	if err != nil {
-		diag.Emit(diag.Error, diag.DomOutput, "encode", rec.Target.Host, "record encode failed", err, nil)
+		diag.Emit(diag.Error, diag.DomEngine, "run", "", "pipeline failed", err, nil)
 		fmt.Fprintln(stderr, "pqscan:", err)
 		return 1
 	}
-	diag.Emit(diag.Info, diag.DomOutput, "emit", rec.Target.Host, "record emitted", nil,
-		map[string]string{"format": outFormat(*asJSONL)})
+
+	lines := make([]string, 0, len(recs))
+	for _, rec := range recs {
+		line, err := encodeRecord(rec, *asJSONL)
+		if err != nil {
+			diag.Emit(diag.Error, diag.DomOutput, "encode", rec.Target.Host, "record encode failed", err, nil)
+			fmt.Fprintln(stderr, "pqscan:", err)
+			return 1
+		}
+		lines = append(lines, line)
+		diag.Emit(diag.Info, diag.DomOutput, "emit", rec.Target.Host, "record emitted", nil,
+			map[string]string{"format": outFormat(*asJSONL)})
+	}
+	recTotal := strconv.Itoa(len(targets))
 	if *outFile == "" {
-		fmt.Fprintln(stdout, line)
+		for _, line := range lines {
+			fmt.Fprintln(stdout, line)
+		}
 		return 0
 	}
-	if err := writeResults(*outFile, line); err != nil {
-		diag.Emit(diag.Error, diag.DomOutput, "write", rec.Target.Host, "results write failed", err, nil)
+	if err := writeResults(*outFile, lines); err != nil {
+		diag.Emit(diag.Error, diag.DomOutput, "write", "", "results write failed", err,
+			map[string]string{"file": *outFile, "records": recTotal})
 		fmt.Fprintln(stderr, "pqscan:", err)
 		return 1
 	}
 	return 0
 }
 
-// scanSingle probes one target across both planes and builds the record
-// (TCP always with browser-grade defaults; QUIC for hostname targets
-// unless -quic-off).
-func scanSingle(target string, quicOff bool) *scanRecord {
-	rec := &scanRecord{
-		Schema: out.SchemaVersion,
-		Mode:   "fast",
-		Target: out.TargetRecord{Input: target, Port: 443},
-	}
-
-	host, portStr := target, ""
-	if h, p, err := net.SplitHostPort(target); err == nil {
-		host, portStr = h, p
-	}
-	rec.Target.Host = host
-	if portStr != "" {
-		if p, err := net.LookupPort("tcp", portStr); err == nil {
-			rec.Target.Port = uint16(p)
-		}
-	}
-	addr := net.JoinHostPort(host, portOr(portStr, rec.Target.Port))
-	if strings.Contains(host, "/") {
-		diag.Emit(diag.Error, diag.DomTarget, "parse", target, "cidr targets land with PQ-15", nil, nil)
-		return &scanRecord{Schema: out.SchemaVersion, Mode: "fast", Error: "cidr unsupported until PQ-15"}
-	}
-
-	// TCP plane: browser-grade defaults (stdlib CurvePreferences = MLKEM
-	// hybrid preferred) — the negotiation is the real-world posture.
-	res, err := tlsx.ProbeNegotiated(addr, host, nil, 8*time.Second)
-	if err != nil {
-		rec.Error = err.Error()
-		diag.Emit(diag.Error, diag.DomTLS, "scan", host, "TCP probe errored", err, nil)
-		return rec
-	}
-	rec.Handshake = handshakeRecord{
-		Negotiated: res.Negotiated,
-		GroupName:  groupName(res.Negotiated),
-		Suite:      res.Suite,
-		Version:    versionName(res.Version),
-		ALPNNeg:    res.ALPN,
-	}
-	if cls, ok := classify.GroupClass(res.Negotiated); ok {
-		rec.Handshake.GroupClass = string(cls)
-	}
-	diag.Emit(diag.Info, diag.DomTLS, "scan", host, "TCP handshake negotiated", nil,
-		map[string]string{"negotiated": u32str(res.Negotiated), "suite": res.Suite, "group_class": rec.Handshake.GroupClass})
-
-	// QUIC plane: hostname targets only (IP targets need SNI-less QUIC, M4).
-	if !quicOff && net.ParseIP(host) == nil {
-		qr, qerr := quicx.ProbeQUIC(addr, host, nil, 8*time.Second)
-		if qerr == nil {
-			rec.Quic = &quicRecord{Attempted: true, State: qr.State,
-				Negotiated: qr.Group, GroupName: groupName(qr.Group),
-				GroupClass: qr.GroupClass, UDPBlocked: qr.UDPBlocked}
-			diag.Emit(diag.Info, diag.DomQuic, "scan", host, "QUIC probe recorded", nil,
-				map[string]string{"state": qr.State, "negotiated": u32str(qr.Group), "udp_blocked": fmt.Sprint(qr.UDPBlocked)})
-		} else {
-			rec.Quic = &quicRecord{Attempted: false}
-			diag.Emit(diag.Warn, diag.DomQuic, "scan", host, "QUIC probe omitted", qerr, nil)
-		}
-	} else {
-		rec.Quic = &quicRecord{Attempted: false}
-	}
-	return rec
-}
-
 func u32str(u uint32) string { return fmt.Sprint(u) }
-func portOr(s string, def uint16) string {
-	if s != "" {
-		return s
-	}
-	return fmt.Sprint(def)
-}
 
-// scanRecord is the rc1 single-target record (schema-1 subset; the
+// scanRecord is the schema-1 record (rc1 subset carried per target; the
 // hand-rolled full encoder lands with PQ-16).
 type scanRecord struct {
 	Schema    int              `json:"schema"`
@@ -270,14 +211,18 @@ func encodeRecord(rec *scanRecord, asJSONL bool) (string, error) {
 	return string(b), err
 }
 
-func writeResults(path, line string) error {
+func writeResults(path string, lines []string) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close() //nolint:errcheck
-	_, err = fmt.Fprintln(f, line)
-	return err
+	for _, line := range lines {
+		if _, err := fmt.Fprintln(f, line); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func orNoHost(s string) string {

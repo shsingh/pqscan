@@ -46,8 +46,14 @@ OPTIONS
     TARGETING
     -u target            Single target: hostname, host:port, ip, ip:port,
                          or scheme://host[:port].
-    -l file              Targets from file (stdin also accepted; both
-                         may be mixed; deduped).
+    -l file              Targets from file: newline-separated specs,
+                         blank lines skipped (composes with -u; deduped
+                         by host:port in order).
+    --                   Read target specs from stdin (bare marker after
+                         the options; composes with -u and -l; deduped
+                         by host:port). CIDR specs refuse with the
+                         PQ-16 deferral notice (exit 64) until
+                         per-address expansion ships.
     -cidr range          CIDR expansion (e.g. 192.0.2.0/24).
     -p port[,port...]    Ports; default 443. Ranges allowed (8000-8100).
     -from-httpx          httpx-format input lines.
@@ -132,6 +138,8 @@ EXAMPLES
 
     pqscan -l estate.txt -mode pq -jsonl \
         | jq -r 'select(.pq.verdict != "A+" and .pq.verdict != "A") | [.target.host, .pq.verdict] | @tsv'
+
+    cat targets.txt | pqscan -l known.txt -jsonl -o scan.jsonl --
 
     pqscan -l assets.txt -mode fast -urls | nuclei -silent -tags tls
 
