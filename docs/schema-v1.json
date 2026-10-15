@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shsingh.github.io/pqscan/schema-v1.json",
+  "title": "pqscan schema-1 record",
+  "description": "One record per target per pass. Block order is the encoders' contract: target -> handshake -> quic -> cert -> pq -> deep -> error. Generated from tests/goldens/record.jsonl; the CI schema-sync check regenerates and requires equality.",
+  "type": "object",
+  "required": [
+    "schema",
+    "mode",
+    "target",
+    "handshake",
+    "quic",
+    "cert",
+    "pq",
+    "error"
+  ],
+  "properties": {
+    "target": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "ip": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "ptr": {
+          "type": "string"
+        },
+        "sni_used": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "input",
+        "host",
+        "ip",
+        "port",
+        "ptr",
+        "sni_used"
+      ]
+    },
+    "handshake": {
+      "type": "object",
+      "properties": {
+        "negotiated": {
+          "type": "integer"
+        },
+        "group_name": {
+          "type": "string"
+        },
+        "group_class": {
+          "type": "string"
+        },
+        "suite": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "alpn_neg": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "negotiated",
+        "group_name",
+        "group_class",
+        "suite",
+        "version",
+        "alpn_neg"
+      ]
+    },
+    "quic": {
+      "type": "object",
+      "properties": {
+        "attempted": {
+          "type": "boolean"
+        },
+        "state": {
+          "type": "string"
+        },
+        "negotiated": {
+          "type": "integer"
+        },
+        "group_name": {
+          "type": "string"
+        },
+        "group_class": {
+          "type": "string"
+        },
+        "discovered": {
+          "type": "object",
+          "properties": {
+            "alt_svc_h3": {
+              "type": "boolean"
+            },
+            "h3_direct": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "alt_svc_h3",
+            "h3_direct"
+          ]
+        }
+      },
+      "required": [
+        "attempted",
+        "state",
+        "negotiated",
+        "group_name",
+        "group_class",
+        "discovered"
+      ]
+    },
+    "cert": {
+      "type": "object",
+      "properties": {
+        "sig_alg": {
+          "type": "string"
+        },
+        "sig_pq": {
+          "type": "boolean"
+        },
+        "key_alg": {
+          "type": "string"
+        },
+        "key_pq": {
+          "type": "boolean"
+        },
+        "dual": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sig_alg",
+        "sig_pq",
+        "key_alg",
+        "key_pq",
+        "dual"
+      ]
+    },
+    "pq": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "hndl": {
+          "type": "boolean"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "score",
+        "label",
+        "hndl",
+        "summary"
+      ]
+    },
+    "deep": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "attempted": {
+          "type": "integer"
+        },
+        "ok": {
+          "type": "integer"
+        },
+        "rejected": {
+          "type": "integer"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "probe": {
+                "type": "string"
+              },
+              "result": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "probe",
+              "result",
+              "detail"
+            ]
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "attempted",
+        "ok",
+        "rejected",
+        "findings"
+      ]
+    },
+    "error": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "integer",
+      "const": 1
+    }
+  }
+}

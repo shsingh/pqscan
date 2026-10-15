@@ -178,30 +178,34 @@ Verdict banding: **A+ ≥ 85, A ≥ 70, B ≥ 50, C ≥ 30, D < 30**, plus stand
 **Dialect rules (non-negotiable):** stdin→stdout all the way; one JSON object per line in `-jsonl`/`-json`; human text default is single-line-per-target like httpx; `-csv` for spreadsheets; exit codes documented; a `--silent` that means *only results*.
 
 - Grammar in: hostname, `host:port`, `ip`, `ip:port`, `scheme://host[:port]`, CIDR notation, and the three explicit parsers `-from-httpx` (httpx text mode lines), `-from-naabu` (`host:port`), and masscan stdin auto-parse. Raw pipes "just work" without a flag (first recipe below is two plain pipes).
-- JSONL record (versioned `schema: 1`), full example:
+- JSONL record (versioned `schema: 1`), full example (captured live on
+  google.com; the machine-readable published schema lives at
+  [`docs/schema-v1.json`](docs/schema-v1.json), generated from the goldens
+  and drift-checked in CI):
 
 ```json
-{
-  "schema": 1, "ts": "2026-10-15T09:30:12Z", "mode": "fast",
-  "target": { "input": "example.com", "ip": "203.0.113.10", "port": 443,
-              "ptr": "example.com.", "sni_used": "example.com" },
-  "handshake": { "version": 772,
-                 "group": 4588, "group_name": "X25519MLKEM768", "group_class": "pq_hybrid",
-                 "suite": "TLS_AES_128_GCM_SHA256",
-                 "sig_scheme": "ecdsa_secp256r1_sha256", "sig_class": "classic",
-                 "alpn": ["h2", "http/1.1"] },
-  "offered": { "groups_pq": ["X25519MLKEM768"], "sigalgs_pq": [] },
-  "http": { "proto": "h2", "status": 200, "hsts": true, "alt_svc": ["h3=\":443\""] },
-  "quic": { "attempted": false, "available": false, "group": 4588 },
-  "cert": { "key_alg": "ECDSA-P256", "sig_alg": "ecdsa-with-SHA256",
-            "chain_key_classes": ["classic", "classic"], "pq": false, "scts": false },
-  "pq": { "score": 45, "verdict": "C",
-          "flags": { "kex_pq": true, "auth_pq_signal": false, "cert_pq": false, "hndl_risk": true },
-          "reasons": ["PQ hybrid KEX negotiated", "No PQ auth signal",
-                      "HNDL: classic-only auth with long-lived cert"] },
-  "error": ""
-}
+{"schema":1,"mode":"fast","target":{"input":"google.com","host":"google.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
+
+Block order is the encoders' contract (pinned by the goldens; the key order
+in the JSONL matches):
+
+| Block | Fields |
+|---|---|
+| `target` | `input`, `host`, `ip`, `port`, `ptr`, `sni_used` |
+| `handshake` | `negotiated` (group id), `group_name`, `group_class`, `suite`, `version`, `alpn_neg` |
+| `quic` | `attempted`, `state` (negotiated · handshaked · refused · mismatch · skipped · udp_blocked), `negotiated`, `group_name`, `group_class`, `discovered{alt_svc_h3, h3_direct}` (present when the hint plane ran) |
+| `cert` | `sig_alg`, `sig_pq`, `key_alg`, `key_pq`, `dual` |
+| `pq` | `score` (0–100), `label` (bands: `pq-ready` ≥ 80, `pq-ready-hybrid` ≥ 60, `pq-partial` ≥ 40, `pq-missing` ≥ 1; a scan-error surfaces as 0 with `error`), `hndl` (the harvest-now-decrypt-later flag on an obsolete-draft acceptance), `summary` (the rule trail) |
+| `deep` | deep mode only: `mode` (standard · full), `attempted`, `ok`, `rejected`, `findings[]{probe, result (accepted · rejected · refused · error), detail}` |
+| `error` | per-target error string (an unreachable endpoint is a record, not a process failure) |
+
+The CSV form is the flat 25-column projection of the same record (the header
+order is the contract, also pinned by the goldens): `target, host, port,
+ptr, sni, negotiated, group_name, group_class, suite, version, alpn,
+quic_state, quic_group, udp_blocked, cert_sig_alg, cert_sig_pq,
+cert_key_alg, cert_key_pq, cert_dual, pq_score, pq_label, pq_hndl,
+pq_summary, error, ts`.
 
 - Flags: `-json`, `-jsonl`, `-csv`, `-text`, `-o file`, `-urls` (emit `scheme://host:port` for nuclei), `-fields` selection, `-certs-dir` (write end-entity PEMs for later tooling), `-stream` (unordered streaming, default) vs `-sorted` (buffered ordering by input for human review).
 - Chain examples (verbatim reference implementations, Section 6).

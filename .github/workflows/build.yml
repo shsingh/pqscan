@@ -71,3 +71,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: USAGEmd <-> source flag check
         run: ./scripts/check_usage_drift.sh .
+
+  schema-sync:
+    name: schema-v1 sync (published schema == the golden contract)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: docs/schema-v1.json <-> tests/goldens check
+        run: ./scripts/check_schema_sync.sh

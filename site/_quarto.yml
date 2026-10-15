@@ -29,6 +29,8 @@ website:
         text: Governance
       - href: usage.qmd
         text: Usage
+      - href: schema.qmd
+        text: Record schema
       - href: recipes.qmd
         text: Recipes
     right:
