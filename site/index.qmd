@@ -5,8 +5,6 @@ author: "Shain Singh"
 date: 2026-10-15
 ---
 
-# pqscan
-
 A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
 readiness scanner. One static binary that enumerates protocol versions,
 cipher suites, key-exchange groups, signature algorithms and certificate
@@ -22,26 +20,12 @@ live PQC verdict and certificate analytics
 
 ## Performance
 
-```{=html}
-<div class="pstats">
-  <div class="pstat">
-    <div class="pnum">2,952<span class="punit">/s</span></div>
-    <div class="pcap">handshakes per core — fast mode, W=8 (SLO ≥ 2,500, CI-enforced)</div>
-  </div>
-  <div class="pstat">
-    <div class="pnum">42.4<span class="punit">ms</span></div>
-    <div class="pcap">full fast scan of one external host — connect + handshake, forced hybrid</div>
-  </div>
-  <div class="pstat">
-    <div class="pnum">27.6<span class="punit">ms</span></div>
-    <div class="pcap">QUIC v1 / h3 handshake — X25519MLKEM768 (4588) negotiated live</div>
-  </div>
-  <div class="pstat">
-    <div class="pnum">&lt;8<span class="punit">MB</span></div>
-    <div class="pcap">one static binary — size SLO enforced on every change</div>
-  </div>
-</div>
-```
+| Metric | Measured | Target / provenance |
+|---|---|---|
+| fast-mode handshakes per core (W=8) | **2,952** (re-run 3,026) | SLO ≥ 2,500 — CI-enforced ([#10](https://github.com/shsingh/pqscan/issues/10)) |
+| fast scan of one external host | **42.4 ms** total | connect + handshake, forced hybrid ([#10](https://github.com/shsingh/pqscan/issues/10)) |
+| QUIC v1 / h3 handshake | **27.6 ms** | X25519MLKEM768 (4588) negotiated live ([#9](https://github.com/shsingh/pqscan/issues/9)) |
+| one static binary | **< 8 MB** | size SLO enforced in CI ([size ledger](https://github.com/shsingh/pqscan/blob/main/docs/size-ledger.md)) |
 
 Measured on this repo's own gates; the release gate re-runs SLO + size at
 every cut, so these numbers are never stale on a published artifact.
