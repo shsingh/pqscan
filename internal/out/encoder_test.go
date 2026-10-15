@@ -43,6 +43,24 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 			r.Quic.State = "blocked"
 			r.Quic.UDPBlocked = true
 		}},
+		{"quic discovered block, consistent halves", func(r *Record) {
+			r.Quic.Discovered = &H3Discovery{AltSvcH3: true, H3Direct: true}
+		}},
+		{"quic mismatch: hint lies", func(r *Record) {
+			r.Quic = &QuicRecord{
+				Attempted: true, State: "mismatch: hint=yes truth=no", Mismatch: true,
+				Discovered: &H3Discovery{AltSvcH3: true, H3Direct: false},
+			}
+		}},
+		{"quic skipped-no-hint state", func(r *Record) {
+			r.Quic = &QuicRecord{
+				Attempted: false, State: "skipped: no alt-svc h3 hint",
+				Discovered: &H3Discovery{AltSvcH3: false, H3Direct: false},
+			}
+		}},
+		{"quic -quic-off record: no discovery block", func(r *Record) {
+			r.Quic = &QuicRecord{Attempted: false}
+		}},
 		{"pq + cert blocks", func(r *Record) {
 			r.Cert = &CertRecord{SigAlg: "MLDSA65-ECDSA-P256-SHA512", SigPQ: true, KeyAlg: "ECDSA", KeyPQ: false, Dual: true}
 			r.Pq = &PqRecord{Score: 85, Label: "pq-ready", HNDL: false,

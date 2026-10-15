@@ -118,6 +118,11 @@ type Options struct {
 	// It never affects the fast/pq modes.
 	DeepPlan string
 
+	// QuicAlways forces the QUIC lane's direct probe regardless of the
+	// alt-svc hint (PQ-25's -quic-always; spec §5.3). QuicOff keeps the
+	// highest precedence — a -quic-off run scans no QUIC plane at all.
+	QuicAlways bool
+
 	// PtrPool is the PQ-26 PTR/SNI pool (issue #49): when set, an IP
 	// target resolves its reverse DNS PRE-PROBE — the record's ptr +
 	// sni_used fill and the SNI candidate come off the pool per its

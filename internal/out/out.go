@@ -98,7 +98,28 @@ type HandshakeRecord struct {
 	ALPNNeg    string `json:"alpn_neg,omitempty"`
 }
 
+// H3Discovery is the h3-discovery block (PQ-25, spec §5.3): the QUIC
+// lane's two halves as observed — AltSvcH3 the hint (an alt-svc h3=
+// directive on the fast pass's HTTP probe), H3Direct the direct QUIC
+// truth. Presence is the fact: the block appears wherever the lane
+// evaluated the hint (the probe-run, mismatch and skipped-no-hint
+// states); it stays nil on -quic-off records, where the discovery never
+// ran. JSONL-only fields — the CSV/text projections carry no new
+// columns.
+type H3Discovery struct {
+	AltSvcH3 bool `json:"alt_svc_h3"`
+	H3Direct bool `json:"h3_direct"`
+}
+
 // QuicRecord is the QUIC plane block; nil when the probe never ran.
+//
+// PQ-25 (spec §5.3) lands the discovery facts ADDITIVELY: Discovered
+// carries the hint/truth halves, Mismatch marks the hint-vs-truth
+// disagreement (its finding state token rides State:
+// "mismatch: hint=yes truth=no" / reverse — a finding, not an error:
+// the run's exit code never moves on it); State may also carry the
+// honest information token "skipped: no alt-svc h3 hint" when the hint
+// gate itself decided the lane. CSV/text unchanged.
 type QuicRecord struct {
 	Attempted  bool   `json:"attempted"`
 	State      string `json:"state,omitempty"`
@@ -106,6 +127,12 @@ type QuicRecord struct {
 	GroupName  string `json:"group_name,omitempty"`
 	GroupClass string `json:"group_class,omitempty"`
 	UDPBlocked bool   `json:"udp_blocked,omitempty"`
+	// Discovered is the hint/truth discovery block (nil = the lane
+	// never evaluated the hint, e.g. -quic-off).
+	Discovered *H3Discovery `json:"discovered,omitempty"`
+	// Mismatch marks the hint/truth disagreement class (true only on
+	// the mismatch states; an omitempty field — absent = consistent).
+	Mismatch bool `json:"mismatch,omitempty"`
 }
 
 // DeepFinding is one executed deep-mode probe's verdict (spec §7.4, PQ-20):

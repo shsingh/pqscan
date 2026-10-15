@@ -58,6 +58,44 @@ const alpnHTTP11 = "http/1.1"
 // other protocols here: exactly the h3 token marks the hint.
 const altSvcH3ID = "h3"
 
+// SkipStateNoHint is the QUIC lane's honest informational state (PQ-25,
+// spec §5.3): the alt-svc hint never asserted h3 and the direct probe did
+// not run. Information, not an error — the record carries it so nothing
+// is silent, and the run's exit code never moves on it.
+const SkipStateNoHint = "skipped: no alt-svc h3 hint"
+
+// errNotImplemented gate-guards the PQ-25 wiring stub the watched-RED
+// commit carries; the engines replace it in the GREEN pair.
+var errNotImplemented = errors.New("discovery: PQ-25 engine not implemented (watched-RED stub)")
+
+// MismatchState classifies a PROBED lane's hint/truth pairing (PQ-25,
+// spec §5.3: "Alt-Svc used as a hint only — direct probe is truth", and a
+// hint-vs-direct mismatch is a finding, not an error). It returns the
+// record-state token and the mismatch flag; the empty token means the
+// halves agree and the probe's own state stands:
+//
+//	hint=yes truth=no  → "mismatch: hint=yes truth=no" — the endpoint
+//	                     advertises h3 its direct QUIC plane never answers
+//	hint=no  truth=yes → "mismatch: hint=no truth=yes" — h3 speaks with
+//	                     no alt-svc hint ever sent (the -quic-always way
+//	                     to find it)
+//	agreements         → "" (the QUIC state vocabulary stands)
+func MismatchState(hint, truth bool) (string, bool) {
+	return "", false // PQ-25 watched-RED stub
+}
+
+// ProbeHint runs the hint half alone (the PQ-25 wiring seam): the fast
+// pass's alt-svc collection for one target — TLS with ALPN http/1.1, one
+// HTTP/1.1 GET /, the response's alt-svc header parsed loosely. Returns
+// (hint, raw alt-svc value, err); err is non-nil only for caller aborts
+// (context cancellation / deadline) — every transport-level answer
+// (refused, TLS alert, non-HTTP/1.1 choice, malformed response) is a
+// result carrying a false hint. Discover composes ProbeHint with its
+// direct half; the fast pass composes ProbeHint with the QUIC gate.
+func ProbeHint(ctx context.Context, host string, port uint16, opts Options) (bool, string, error) {
+	return false, "", errNotImplemented // PQ-25 watched-RED stub
+}
+
 // Discover runs the h3-discovery contract against host:port (PQ-25):
 //
 //   - hint half: TLS with ALPN http/1.1 (no proxy), a single HTTP/1.1
