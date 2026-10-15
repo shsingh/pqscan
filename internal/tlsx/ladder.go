@@ -44,6 +44,15 @@ type ProbeResult struct {
 	// table.
 	CertificatePQ     bool   `json:"cert_pq"`
 	CertificateSigAlg string `json:"cert_sig_alg"`
+
+	// PQ-19/PQ-21 record wire-in: the FULL certinfo.Info from the same
+	// handshake that fills the row — the record's cert block (sig/key
+	// names + flags, the chain's DualCert) and the pipeline's rubric
+	// DualCert input both come off this. Nil when the chain is missing,
+	// a raw path, or unanalyzable (the zero policy: no invented rows);
+	// the CertificatePQ/CertificateSigAlg pair above is the #82 sig
+	// surface and stays untouched in shape.
+	CertificateInfo *certinfo.Info `json:"cert_info,omitempty"`
 }
 
 // stdlibGroups are the codepoints the Go stack can construct a real share
@@ -106,6 +115,7 @@ func ProbeNegotiated(addr, host string, groups []uint32, timeout time.Duration) 
 	// probe. Fields stay zero for an unanalyzable chain (no invented data).
 	if len(cs.PeerCertificates) > 0 {
 		if ci, cerr := certinfo.Analyze(cs.PeerCertificates); cerr == nil {
+			res.CertificateInfo = ci
 			res.CertificatePQ = ci.SigAlgPQ || ci.KeyAlgPQ
 			res.CertificateSigAlg = ci.SigAlgName
 		}
