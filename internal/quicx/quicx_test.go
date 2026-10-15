@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -113,15 +114,17 @@ func TestQuicUDPRefusedClassifies(t *testing.T) {
 	}
 }
 
-// integrationOnly gates live-network truth (never in CI).
+// integrationOnly gates live-network truth (never in CI): the gate reads
+// the ENVIRONMENT, not the const name — the const merely names the var
+// (PQ-13: this helper previously returned the const itself, so the gate
+// was always open and quic integration probes ran live in offline runs;
+// regression-proven by the offline suite skipping them).
 func integrationOnly(t *testing.T) {
 	t.Helper()
-	if quicIntegration() == "" {
+	if os.Getenv(quicIntegrationEnv) == "" {
 		t.Skip("PQSCAN_INTEGRATION not set; live-network probe skipped")
 	}
 }
-
-func quicIntegration() string { return quicIntegrationEnv }
 
 // TestIntegrationQuicCloudflareHybrid: forced 4588 inside QUIC v1 against
 // a hybrid edge — the UDP-plane ground truth (spec §10.1).
