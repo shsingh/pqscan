@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shsingh/pqscan/internal/certinfo"
 	"github.com/shsingh/pqscan/internal/diag"
 )
 
@@ -31,6 +32,18 @@ type ProbeResult struct {
 	ALPN           string `json:"alpn_neg"` // negotiated ALPN protocol
 	AlertDesc      uint8  `json:"alert"`
 	Error          string `json:"error"`
+
+	// PQ-21 certificate analytics, computed from the peer chain delivered
+	// by the same handshake that fills ConnectionState (stdlib path only;
+	// a raw-path row or an unanalyzable chain leaves the zero values:
+	// CertificatePQ=false, CertificateSigAlg=""). CertificatePQ is true
+	// when the leaf's signature or key algorithm carries a PQ component
+	// (pure PQ or composite hybrid per certinfo's owned OID table);
+	// CertificateSigAlg carries the leaf's signature-algorithm name, with
+	// an "unknown-signature-algorithm(<oid>)" note for OIDs outside the
+	// table.
+	CertificatePQ     bool   `json:"cert_pq"`
+	CertificateSigAlg string `json:"cert_sig_alg"`
 }
 
 // stdlibGroups are the codepoints the Go stack can construct a real share
@@ -87,6 +100,15 @@ func ProbeNegotiated(addr, host string, groups []uint32, timeout time.Duration) 
 	res.ALPN = cs.NegotiatedProtocol
 	if id := cs.CipherSuite; id != 0 {
 		res.Suite = tls.CipherSuiteName(cs.CipherSuite)
+	}
+	// PQ-21: the peer chain arrives with the same ConnectionState that
+	// fills the negotiated row — classify it in this same call, no extra
+	// probe. Fields stay zero for an unanalyzable chain (no invented data).
+	if len(cs.PeerCertificates) > 0 {
+		if ci, cerr := certinfo.Analyze(cs.PeerCertificates); cerr == nil {
+			res.CertificatePQ = ci.SigAlgPQ || ci.KeyAlgPQ
+			res.CertificateSigAlg = ci.SigAlgName
+		}
 	}
 	return res, nil
 }
