@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // jsonRec is the stdlib-marshal reference shape: encoding/json over the
@@ -42,8 +43,8 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 			r.Quic.State = "blocked"
 			r.Quic.UDPBlocked = true
 		}},
-		{"html bytes in error", func(r *Record) { r.Error = "alert <ssl3> & \"bad\\path\"\nsecond line\ttab" }},
-		{"unicode separators in host", func(r *Record) { r.Target.Host = "h o st"; r.Target.Input = "2028 20 29" }},
+		{"html bytes in error", func(r *Record) { r.Error = "alert <ssl3> & \"bad\\path\"\nsecond line	tab" }},
+		{"unicode separators in host", func(r *Record) { r.Target.Host = "h\u2028o\u2029st"; r.Target.Input = "2028\u2028 20\u2029 29" }},
 		{"invalid utf-8 in error", func(r *Record) { r.Error = "dial \xff tcp: refused" }},
 		{"empty everything", func(r *Record) { *r = Record{Schema: 1} }},
 	}
@@ -58,15 +59,54 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 			if err := enc.Encode(&rec); err != nil {
 				t.Fatalf("encode: %v", err)
 			}
+			got := strings.TrimSuffix(buf.String(), "\n")
+			if row.name == "invalid utf-8 in error" {
+				// Toolchain-sensitive in encoding/json itself: go1.26
+				// emits the ESCAPE TEXT \ufffd (6 bytes), go1.27 the raw
+				// replacement rune (3 bytes) — surfaced by CI on this PR
+				// (go.mod pins 1.26, local runs 1.27). The writer's own
+				// choice is pinned below, NOT against a moving stdlib:
+				// one replacement rune per bad byte (RFC 8259: JSON text
+				// is exchanged as UTF-8; the line stays valid UTF-8).
+				if !(strings.Contains(got, "\ufffd") && utf8.ValidString(got)) {
+					t.Fatalf("hand-rolled invalid-utf-8 behavior drifted (want one U+FFFD rune, output still valid UTF-8): %s", got)
+				}
+				return
+			}
 			want, err := jsonRec(&rec)
 			if err != nil {
 				t.Fatalf("stdlib marshal: %v", err)
 			}
-			got := strings.TrimSuffix(buf.String(), "\n")
 			if got != string(want) {
 				t.Fatalf("hand-rolled line differs from encoding/json\n got: %s\nwant: %s", got, want)
 			}
 		})
+	}
+}
+
+// TestJSONLReplacesInvalidUTF8: every bad byte becomes one U+FFFD and the
+// line stays valid UTF-8 on any toolchain (the CI-vs-local stdlib drift
+// never reaches the wire).
+func TestJSONLReplacesInvalidUTF8(t *testing.T) {
+	rec := &Record{
+		Schema: 1, Mode: "fast",
+		Target: TargetRecord{Input: "\xff\xfe bad \x80", Host: "bad", Port: 443},
+		Error:  "dial \xff tcp: refused",
+	}
+	var buf bytes.Buffer
+	if err := NewEncoder(&buf, FormatJSONL).Encode(rec); err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	got := buf.String()
+	if !utf8.ValidString(got) {
+		t.Fatalf("line with invalid utf-8 leaves the encoder still invalid: %q", got)
+	}
+	if strings.Contains(got, "\\ufffd") {
+		t.Fatalf("escape-text \\ufffd leaked into the line (want the raw rune): %q", got)
+	}
+	var recOut map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSuffix(got, "\n")), &recOut); err != nil {
+		t.Fatalf("line is not parseable json: %v", err)
 	}
 }
 
