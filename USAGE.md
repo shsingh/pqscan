@@ -68,9 +68,33 @@ OPTIONS
                          -o because the journal path derives from it).
 
     MODES AND PROBES
-    -mode m               fast (default) | deep | pq | selftest.
-    -deep standard|full   deep plan cap: default <=24 probes per target;
-                          full unlocks the complete matrix (~120).
+    -mode m               Scan mode: fast (default) | deep | pq.
+                          fast = today's single profile handshake.
+                          deep = the executed deep plan (spec §7.4): the
+                          profile handshake runs first and prunes the
+                          plan (a suite/group/version already negotiating
+                          is never re-probed), then every planned probe
+                          dispatches offer-one (one suite/group/version
+                          per handshake) and the executed plan lands in
+                          the record's deep block: mode/attempted/ok/
+                          rejected + findings[] (probe, result:
+                          accepted|rejected|refused|error, detail —
+                          rejections are results, verbatim alerts).
+                          pq = the forced PQ ladder (4585–4590 RFC 10024
+                          hybrids + the obsolete Kyber drafts): the
+                          ladder's observations land in the record's
+                          handshake block (the first accepted hybrid) and
+                          the pq verdict (a draft acceptance = HNDL).
+                          (selftest is a planned mode.)
+    -deep standard|full   Deep plan cap (-mode deep only): standard
+                          (default) caps the plan at <=24 probes per
+                          target with the documented prune priority;
+                          full unlocks the complete offer-one matrix
+                          (~120+): every stdlib suite × version pair
+                          (secure AND insecure lists), the forced-group
+                          ladders, the full signature-scheme ladder and
+                          the feature probes — observed facts never prune
+                          it.
     -quic                 QUIC/h3 probing on domain workloads.
     -quic-always          QUIC probing regardless of Alt-Svc hints.
     -quic-off             Skip the QUIC plane probe entirely (TCP-only
