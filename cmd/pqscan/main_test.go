@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -125,4 +126,65 @@ func mustHuman(t *testing.T, r *diag.Report) string {
 		t.Fatal(err)
 	}
 	return h
+}
+
+// TestRunSingleTargetFastScan: -u target runs the fast-mode probe end to
+// end and emits the schema-1 record (rc1's live single-target contract;
+// the multi-target grammar lands with PQ-15). The QUIC plane probes only
+// hostname targets; the fixture provides a loopback host:port.
+func TestRunSingleTargetFastScan(t *testing.T) {
+	addr := fixtures.StartFixtureServer(t, fixtures.ServerConfig{
+		Name:             "t13-hybrid-mlkem",
+		MinVersion:       tls.VersionTLS13,
+		MaxVersion:       tls.VersionTLS13,
+		CurvePreferences: []tls.CurveID{tls.X25519MLKEM768, tls.X25519},
+		ALPN:             []string{"h2", "http/1.1"},
+	})
+	outFile := filepath.Join(t.TempDir(), "out.jsonl")
+
+	var out, errOut bytes.Buffer
+	code := run([]string{"-u", addr, "-jsonl", "-o", outFile, "-quic-off"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+	}
+	b, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("jsonl: %v", err)
+	}
+	var rec map[string]any
+	if err := json.Unmarshal(b[:len(b)-1], &rec); err != nil {
+		t.Fatalf("record json invalid: %v", err)
+	}
+	if rec["schema"].(float64) != 1 {
+		t.Fatal("record schema missing")
+	}
+	hs, _ := rec["handshake"].(map[string]any)
+	if hs["negotiated"].(float64) != 4588 {
+		t.Fatalf("handshake.negotiated = %v, want 4588", hs["negotiated"])
+	}
+	if hs["group_class"] != "pq_hybrid" {
+		t.Fatalf("handshake.group_class = %v, want pq_hybrid", hs["group_class"])
+	}
+	if hs["alpn_neg"] != "h2" {
+		t.Fatalf("handshake.alpn_neg = %v, want h2", hs["alpn_neg"])
+	}
+}
+
+// TestRunSingleTargetText pins the default text one-liner (human output;
+// the jsonl line is the machine form).
+func TestRunSingleTargetText(t *testing.T) {
+	addr := fixtures.StartFixtureServer(t, fixtures.ServerConfig{
+		Name:             "t13-hybrid-mlkem",
+		MinVersion:       tls.VersionTLS13,
+		MaxVersion:       tls.VersionTLS13,
+		CurvePreferences: []tls.CurveID{tls.X25519MLKEM768, tls.X25519},
+	})
+	var out, errOut bytes.Buffer
+	code := run([]string{"-u", addr, "-quic-off"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("exit = %d (stderr: %s)", code, errOut.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("pq_hybrid")) || !bytes.Contains(out.Bytes(), []byte("X25519MLKEM768")) {
+		t.Fatalf("text line missing the negotiated class/group: %q", out.String())
+	}
 }
