@@ -8,11 +8,14 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +27,32 @@ import (
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
 	"github.com/shsingh/pqscan/internal/quicx"
+	"github.com/shsingh/pqscan/internal/resolver"
+	"github.com/shsingh/pqscan/internal/target"
 	"github.com/shsingh/pqscan/internal/tlsx"
 )
+
+// certWriteMu serializes the -certs-dir PEM writes: the dispatch keeps
+// window-many probes in flight and two targets can share a host; one
+// file per host means the writers would otherwise race the same path.
+var certWriteMu sync.Mutex
+
+// writeCertPEM exports one scanned host's end-entity certificate as a
+// CERTIFICATE-PEM block at <dir>/<host>.pem (PQ-26; -certs-dir). The
+// directory is created on demand (the run's MkdirAll already built it;
+// a component-level caller may not have).
+func writeCertPEM(dir, host string, raw []byte) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	certWriteMu.Lock()
+	defer certWriteMu.Unlock()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, host+".pem"),
+		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: raw}), 0o644)
+}
 
 // breakerThreshold is the consecutive per-host probe failures that open a
 // host's breaker; breakerCooldown is how long an open host refuses dials
@@ -86,10 +113,21 @@ type Options struct {
 	// profile handshake, "" = fast for zero-value callers), deep (the
 	// executed deepplan offer-one plan) or pq (the forced PQ ladder).
 	Mode string
-	// DeepPlan selects the -mode deep plan cap (-deep): deepplan standard
+	// DeepPlan selects the -deep plan cap (-deep): deepplan standard
 	// (default, <=24 probes per target) or full (the complete matrix).
 	// It never affects the fast/pq modes.
 	DeepPlan string
+
+	// PtrPool is the PQ-26 PTR/SNI pool (issue #49): when set, an IP
+	// target resolves its reverse DNS PRE-PROBE — the record's ptr +
+	// sni_used fill and the SNI candidate come off the pool per its
+	// strategy; hostname targets never consult the pool (their SNI is
+	// the host). nil = no enrichment (the pre-PQ-26 engine).
+	PtrPool *resolver.Pool
+
+	// CertsDir exports each scanned host's end-entity certificate as
+	// PEM on scan (-certs-dir; <dir>/<host>.pem); "" = no export.
+	CertsDir string
 }
 
 // stdin is the process stdin seam: run() reads composed "--" specs from it.
@@ -321,10 +359,29 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	// CSV rows and journal entries carry it; the JSONL line does not.
 	rec.Ts = time.Now().UTC().Format(time.RFC3339Nano)
 
+	// PQ-26 (-ptr): an IP target's reverse DNS resolves PRE-PROBE through
+	// the run's pool — the resolved name (or "" on a miss, an error or a
+	// malformed answer: misses are never cached) and the strategy's SNI
+	// candidate land on the record (ptr + sni_used), and the candidate is
+	// what the planes dial with. Hostname targets never consult the pool:
+	// their SNI is the host, and nothing fills.
+	sniHost := t.Host
+	if opts.PtrPool != nil && t.Class == "ip" {
+		if addr, perr := netip.ParseAddr(t.Host); perr == nil {
+			ptrName, _ := opts.PtrPool.ResolvePTR(context.Background(), addr)
+			candidate, won := opts.PtrPool.SNIFromPTR(ptrName, addr)
+			rec.Target.Ptr = ptrName
+			rec.Target.SNIUsed = candidate
+			sniHost = candidate
+			diag.Emit(diag.Info, diag.DomDNS, "scan", t.Host, "ip-target SNI resolved pre-probe", nil,
+				map[string]string{"ptr": ptrName, "sni": candidate, "strategy_won": won})
+		}
+	}
+
 	// TCP plane: browser-grade defaults (stdlib CurvePreferences = MLKEM
 	// hybrid preferred) — the negotiation is the real-world posture.
 	addr := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
-	res, perr := tlsx.ProbeNegotiated(addr, t.Host, nil, timeout)
+	res, perr := tlsx.ProbeNegotiated(addr, sniHost, nil, timeout)
 	if perr != nil && (res == nil || res.Error == "") {
 		rec.Error = perr.Error()
 		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", perr, nil)
@@ -400,6 +457,22 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	} else {
 		fields["hndl"] = strconv.FormatBool(verdict.HNDL)
 		diag.Emit(diag.Info, diag.DomEngine, "scan", t.Host, "readiness verdict", nil, fields)
+	}
+
+	// PQ-26 (-certs-dir): the profile handshake's end-entity certificate
+	// exports as PEM once per scanned host (<dir>/<host>.pem) — deep/pq
+	// inherit the export (they run this fast shape first, so the profile
+	// handshake is the cert fetch). Best-effort: a write failure warns in
+	// the diagnostics and never fails the scan (the record is already
+	// complete; the export is downstream tooling convenience).
+	if opts.CertsDir != "" && res != nil && res.Error == "" && len(res.LeafRaw) > 0 {
+		if cerr := writeCertPEM(opts.CertsDir, t.Host, res.LeafRaw); cerr != nil {
+			diag.Emit(diag.Error, diag.DomOutput, "certs-dir", t.Host, "end-entity PEM export failed", cerr,
+				map[string]string{"dir": opts.CertsDir})
+		} else {
+			diag.Emit(diag.Info, diag.DomOutput, "certs-dir", t.Host, "end-entity PEM exported", nil,
+				map[string]string{"dir": opts.CertsDir})
+		}
 	}
 
 	// QUIC plane: hostname targets only (IP targets need SNI-less QUIC, M4).
@@ -479,9 +552,18 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 	}
 }
 
-// composeTargets parses the composed target sources (-u spec, -l file lines,
-// and the bare "--" stdin marker) into a deduplicated []grammar.Target, in
-// first-occurrence order (dedupe key: host:port).
+// composeTargets parses the composed target sources into a deduplicated
+// []grammar.Target, in first-occurrence order (dedupe key: host:port).
+//
+// The spec sources stay -u / -l / the bare "--" marker; the PD-dialect
+// adapter files (PQ-35, issue #80) join them through internal/target:
+// -from-httpx (httpx lines: scheme://host:port with an optional URL path
+// suffix) and -from-naabu (the naabu render: host:port lines, a host line
+// followed by its bare-decimal ports block, or the bare host) strip the
+// dialect decoration and hand every line to grammar.Parse exactly as -u
+// does — ONE grammar and ONE dedupe layer serve every input source.
+// Source order is the flag order: -u, then -l, then the stdin marker,
+// then the adapter files (-from-httpx before -from-naabu).
 //
 // The "--" marker is detected in the RAW argument list: Go's flag package
 // consumes the terminator and it never lands in fs.Args() (surfaced by the
@@ -491,11 +573,12 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // treated as a file name). stdin expands exactly once.
 //
 // Refusals (exit 64, usage class): a source that fails to read, a spec the
-// grammar rejects, and CIDR-class targets — a cidr spec prints the PQ-16
-// deferral and refuses before anything is scanned (per-address expansion is
-// PQ-16; the grammar yields one Target per network, so the loop rejects the
-// class directly).
-func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
+// grammar rejects (the adapter dialects annotate the failing line's
+// number), and CIDR-class targets — a cidr spec prints the PQ-16 deferral
+// and refuses before anything is scanned (per-address expansion is PQ-16;
+// the grammar yields one Target per network, so the loop rejects the class
+// directly). No partial list ever scans.
+func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
 	var specs []string
 	if listFile == "--" {
 		listFile = "" // the marker composes via the spec loop below
@@ -519,12 +602,79 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 		}
 	}
 
+	// The adapter files (PQ-35): read in source order, parsed by
+	// internal/target into the same []grammar.Target shape the spec loop
+	// produces; the shared admission below treats them identically.
+	var adapterBatches [][]grammar.Target
+	readAdapter := func(flag, path string) ([]grammar.Target, int) {
+		f, err := os.Open(path)
+		if err != nil {
+			diag.Emit(diag.Error, diag.DomTarget, "compose", "", flag+" read failed", err, map[string]string{"file": path})
+			fmt.Fprintf(stderr, "pqscan: %s %s: %v\n", flag, path, err)
+			return nil, 64
+		}
+		defer f.Close() //nolint:errcheck
+		var ts []grammar.Target
+		switch flag {
+		case "-from-httpx":
+			ts, err = target.FromHTTPX(f)
+		case "-from-naabu":
+			ts, err = target.FromNaabu(f)
+		}
+		if err != nil {
+			diag.Emit(diag.Error, diag.DomTarget, "compose", "", flag+" parse failed", err, map[string]string{"file": path})
+			fmt.Fprintf(stderr, "pqscan: %s %s: %v\n", flag, path, err)
+			return nil, 64
+		}
+		return ts, 0
+	}
+	for _, src := range []struct{ flag, path string }{
+		{"-from-httpx", httpxFile},
+		{"-from-naabu", naabuFile},
+	} {
+		if src.path == "" {
+			continue
+		}
+		ts, code := readAdapter(src.flag, src.path)
+		if code != 0 {
+			return nil, code
+		}
+		adapterBatches = append(adapterBatches, ts)
+	}
+
 	targets := make([]grammar.Target, 0, len(specs))
 	seen := make(map[string]bool, len(specs))
 	stdinDrained := false
-	// parseSpecs fans one batch of specs into targets (in order), expanding
-	// the stdin marker exactly once.
+
 	var parseSpecs func([]string) error
+
+	// admit is the shared admission every source walks: the stdin marker
+	// expands exactly once, cidr refuses with the PQ-16 deferral, and
+	// everything else dedupes by host:port (first occurrence wins).
+	var admit func(t grammar.Target) error
+	admit = func(t grammar.Target) error {
+		switch t.Class {
+		case "stdin":
+			if stdinDrained {
+				return nil
+			}
+			stdinDrained = true
+			return parseSpecs(readSpecs(stdin))
+		case "cidr":
+			diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is PQ-16)", nil, nil)
+			fmt.Fprintf(stderr, "pqscan: -cidr target %q: %v\n", t.Input, errCidrTargets)
+			return errCidrTargets
+		default:
+			key := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
+			if seen[key] {
+				return nil // dedupe by host:port, first occurrence wins
+			}
+			seen[key] = true
+			targets = append(targets, t)
+			return nil
+		}
+	}
+
 	parseSpecs = func(batch []string) error {
 		for _, spec := range batch {
 			parsed, err := grammar.Parse(spec)
@@ -532,26 +682,8 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 				return err
 			}
 			for _, t := range parsed {
-				switch t.Class {
-				case "stdin":
-					if stdinDrained {
-						continue
-					}
-					stdinDrained = true
-					if err := parseSpecs(readSpecs(stdin)); err != nil {
-						return err
-					}
-				case "cidr":
-					diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is PQ-16)", nil, nil)
-					fmt.Fprintf(stderr, "pqscan: -cidr target %q: %v\n", t.Input, errCidrTargets)
-					return errCidrTargets
-				default:
-					key := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
-					if seen[key] {
-						continue // dedupe by host:port, first occurrence wins
-					}
-					seen[key] = true
-					targets = append(targets, t)
+				if err := admit(t); err != nil {
+					return err
 				}
 			}
 		}
@@ -563,6 +695,17 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 			fmt.Fprintln(stderr, "pqscan:", err)
 		}
 		return nil, 64
+	}
+	for _, batch := range adapterBatches {
+		for _, t := range batch {
+			if err := admit(t); err != nil {
+				if !errors.Is(err, errCidrTargets) {
+					// the adapter refusal already annotated its line
+					fmt.Fprintln(stderr, "pqscan:", err)
+				}
+				return nil, 64
+			}
+		}
 	}
 	return targets, 0
 }

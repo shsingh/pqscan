@@ -3,15 +3,12 @@
 # check enforces its documented row instead. Source of truth:
 # docs/spec.md#8-cli-surface (M1-M5 leaves).
 c
-certs-dir
 cidr
 client-fingerprint
 config
 connect-timeout
 dns-threads
 fields
-from-httpx
-from-naabu
 http
 legacy
 p
@@ -19,13 +16,10 @@ probe-group
 probe-sigalgs
 probe-suite
 probe-version
-ptr
 quic
 quic-always
 retries
-shard
 silent
-sni
 sorted
 stats
 timeout

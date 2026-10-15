@@ -56,10 +56,31 @@ OPTIONS
                          per-address expansion ships.
     -cidr range          CIDR expansion (e.g. 192.0.2.0/24).
     -p port[,port...]    Ports; default 443. Ranges allowed (8000-8100).
-    -from-httpx          httpx-format input lines.
-    -from-naabu          naabu host:port input lines.
-    -shard i/n           Split the input into n shards and process only
-                         shard i (zgrab2-style, for multi-box passes).
+    -from-httpx file     httpx text lines: each line is
+                         scheme://host:port with an optional URL path
+                         suffix — both strip to the host[:port] spec,
+                         so bare host:port/host lines parse too
+                         (https/443 default). Composes with -u/-l/--
+                         under the one dedupe; # comments skip.
+                         (httpx's -csv url,status rows are a planned
+                         adapter.)
+    -from-naabu file     naabu lines: host:port per line, or the
+                         ports block — a host line followed by
+                         bare-decimal port lines — or the bare host
+                         (no ports block: https/443 default).
+                         Composes with -u/-l/-- under the one dedupe;
+                         # comments skip. A read or parse failure
+                         refuses the run named by its flag (exit 64).
+    -shard i/n           Scan only shard i of n (zgrab2-style, for
+                         multi-box passes; 1 <= i <= n): the composed
+                         targets (post-composition, after the one
+                         dedupe) filter to the shard's membership —
+                         fnv1a64(host:port) % n == i-1 — so the n
+                         boxes' shards are disjoint and complete, and
+                         a target always lands in the same shard at a
+                         fixed total; keep the total fixed across
+                         re-runs. the run notes its slice on stderr:
+                         shard i/n: N of M targets.
     -resume              Resume an interrupted run from the WAL
                          (<output basename>.wal beside -o; targets the
                          journal already holds a record for, keyed by
@@ -109,11 +130,26 @@ OPTIONS
     HELLO AND TLS
     -client-fingerprint p   chrome | firefox | safari | ios | gotls
                             (uTLS preset).
-    -sni strategy           auto (default) | ptr-then-ip | ip-only |
-                            strict-sni (non-matching certs cannot satisfy
-                            verdicts, still recorded).
-    -ptr / -no-ptr          PTR enrichment for IP targets (default on for
-                            domain workflows).
+    -sni strategy           auto (default) | ptr-then-ip | ip-only:
+                          the SNI candidate rule for IP targets under
+                          -ptr (ptr-then-ip/auto prefer the PTR-derived
+                          name and fall back to the literal when the
+                          PTR is missing or unshaped; ip-only always
+                          uses the literal; the record's sni_used
+                          carries the candidate actually used).
+                          strict-sni (non-matching certs cannot satisfy
+                          verdicts, still recorded) remains planned.
+    -ptr                  PTR enrichment for IP targets: the run
+                          resolves each IP literal's reverse DNS
+                          pre-probe (the pooled system resolver: 4
+                          workers, a 2s budget, a 1024-entry LRU of
+                          positives) and applies the -sni strategy;
+                          the record's ptr and sni_used fill.
+                          hostname targets never consult the pool
+                          (their SNI is the host). default off (an
+                          IP target's SNI stays the bare literal
+                          without the flag); -no-ptr remains a
+                          planned spelling.
     -timeout secs           Per-probe timeout (default 8s with +-20%% jitter).
     -connect-timeout secs   TCP/UDP connect timeout (default 2s).
     -retries n              Transient-only retries (default 1; protocol
@@ -164,7 +200,12 @@ OPTIONS
     -o file           Output file (stdout default). The run journal rides
                       beside it as <basename>.wal (see FILES).
     -fields a,b,c     Field selection.
-    -certs-dir dir    Write end-entity PEMs for downstream tools.
+    -certs-dir dir    Write each scanned host's end-entity certificate
+                      as PEM to <dir>/<host>.pem (the profile
+                      handshake's leaf bytes; one file per host,
+                      overwritten per host; best-effort — a write
+                      failure warns in the diagnostics and the scan
+                      continues).
     -silent           Only results (no banners/logging).
     -sorted           Buffered, input-ordered output (default streams
                       unordered as targets complete).

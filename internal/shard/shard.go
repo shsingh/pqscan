@@ -38,7 +38,10 @@ type TargetKey = string
 //   - non-integer parts
 //   - n < 1
 //   - i < 1 (negative, or "0/n": an empty shard)
-//   - i == n ("n/n") and i > n: the PQ-24 grammar accepts only 1 <= i < n
+//   - i > n. The PQ-24 grammar accepts 1 <= i <= n — the last shard's
+//     n/n spelling INCLUDED: a partition's last box needs a valid spec,
+//     and the wired -shard flag's 2-shard partition (shard 1 + shard 2
+//     over one list) would be unspecifiable otherwise.
 func Spec(spec string) (Index, Total int, err error) {
 	raw := spec
 	s := strings.TrimSpace(spec)
@@ -66,11 +69,11 @@ func Spec(spec string) (Index, Total int, err error) {
 		return 0, 0, fmt.Errorf("shard: invalid spec %q: shard index %d must be at least 1 (negative)", raw, idx)
 	case idx == 0:
 		return 0, 0, fmt.Errorf("shard: invalid spec %q: 0/n assigns no targets; the shard index must be at least 1", raw)
-	case idx == tot:
-		return 0, 0, fmt.Errorf("shard: invalid spec %q: n/n rejected per PQ-24 grammar; valid shard specs satisfy 1 <= i < n", raw)
 	case idx > tot:
 		return 0, 0, fmt.Errorf("shard: invalid spec %q: shard index %d > total %d", raw, idx, tot)
 	}
+	// i == total is VALID (the partition's last box: the n/n spelling
+	// scans the n-th bucket — a 2-shard pass needs both spellings).
 	return idx, tot, nil
 }
 
