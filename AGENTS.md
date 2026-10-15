@@ -47,7 +47,7 @@ go build -o pqscan ./cmd/pqscan && ./pqscan -version
 subfinder -d example.com -silent | ./pqscan -jsonl -o assets.jsonl
 naabu -l domains.txt -p 443,8443,993 -silent | ./pqscan -from-naabu -jsonl
 ./pqscan -l estate.txt -mode pq -jsonl           # PQ ladder + readiness verdicts
-./pqscan -u cloudflare.com -mode deep -deep full -jsonl   # offer-one matrix (deep findings)
+./pqscan -u google.com -mode deep -deep full -jsonl   # offer-one matrix (deep findings)
 ./pqscan -cidr 198.51.100.0/24 -ptr -sni ptr-then-ip -jsonl
 ```
 

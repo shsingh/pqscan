@@ -21,11 +21,11 @@ func integrationOnly(t *testing.T) {
 func TestIntegrationCloudflareHybrid(t *testing.T) {
 	integrationOnly(t)
 
-	r, err := ProbeNegotiated("cloudflare.com:443", "cloudflare.com", []uint32{4588}, 8*time.Second)
+	r, err := ProbeNegotiated("google.com:443", "google.com", []uint32{4588}, 8*time.Second)
 	if err != nil {
 		t.Fatalf("probe: %v", err)
 	}
-	t.Logf("cloudflare 4588-forced: %+v", r)
+	t.Logf("google 4588-forced: %+v", r)
 	if r.State != "negotiated" {
 		t.Fatalf("state = %q (%s); want negotiated", r.State, r.Error)
 	}
@@ -41,7 +41,7 @@ func TestIntegrationCloudflareHybrid(t *testing.T) {
 func TestIntegrationKyberDraftOracle(t *testing.T) {
 	integrationOnly(t)
 
-	obs, err := SendHelloProbe("cloudflare.com:443", "cloudflare.com", []uint32{25497}, 0)
+	obs, err := SendHelloProbe("google.com:443", "google.com", []uint32{25497}, 0)
 	if err != nil {
 		t.Fatalf("probe: %v", err)
 	}
