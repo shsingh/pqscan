@@ -1,78 +1,19 @@
 package quicx
 
 import (
-	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/tls"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"math/big"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/quic-go/quic-go"
 	"github.com/shsingh/pqscan/internal/diag"
 )
 
-// quicFixture spins a local QUIC v1 listener (ALPN h3, self-signed cert,
-// pinned group preferences) — the offline ground truth the probe engine
-// is verified against (spec §10.1).
+// quicFixture is the in-package shim over the shared fixture (FixtureH3,
+// exported so sibling packages' tests reuse the same offline ground truth).
 func quicFixture(t *testing.T, curvePrefs []tls.CurveID) string {
 	t.Helper()
-
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("key: %v", err)
-	}
-	tmpl := &x509.Certificate{
-		SerialNumber:          big.NewInt(20261016),
-		Subject:               pkix.Name{CommonName: "pqscan.fixture"},
-		DNSNames:              []string{"pqscan.fixture"},
-		NotBefore:             time.Now().Add(-time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
-	if err != nil {
-		t.Fatalf("cert: %v", err)
-	}
-
-	tlsCfg := &tls.Config{
-		Certificates:     []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: key}},
-		CurvePreferences: curvePrefs,
-		NextProtos:       []string{"h3"},
-		MinVersion:       tls.VersionTLS13,
-	}
-	ln, err := quic.ListenAddr("127.0.0.1:0", tlsCfg, &quic.Config{HandshakeIdleTimeout: 3 * time.Second})
-	if err != nil {
-		t.Fatalf("quic listen: %v", err)
-	}
-	t.Cleanup(func() { _ = ln.Close() })
-
-	go func() {
-		for {
-			sess, err := ln.Accept(context.Background())
-			if err != nil {
-				return
-			}
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				stream, err := sess.AcceptStream(ctx)
-				if err == nil {
-					_ = stream.Close()
-				}
-			}()
-		}
-	}()
-
-	return ln.Addr().String()
+	return FixtureH3(t, curvePrefs)
 }
 
 // TestQuicNegotiatesHybrid: group control on the QUIC plane — a client
