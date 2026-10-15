@@ -107,15 +107,15 @@ func TestResumeRun(t *testing.T) {
 		t.Fatalf("csv header wrong: %s", rows[0])
 	}
 	fields1 := strings.Split(rows[1], ",")
-	if fields1[0] != hybridHost || strings.Join(fields1[5:8], ",") != "4588,X25519MLKEM768,pq_hybrid" {
-		t.Fatalf("replayed row 1 = %v, want the hybrid record from the WAL", fields1)
+	if fields1[0] != hybridAddr || fields1[1] != hybridHost || strings.Join(fields1[5:8], ",") != "4588,X25519MLKEM768,pq_hybrid" {
+		t.Fatalf("replayed row 1 = %v, want the hybrid record (input %s, host %s) from the WAL", fields1, hybridAddr, hybridHost)
 	}
 	if fields1[15] != seed.Ts {
 		t.Fatalf("row 1 ts = %q, want the wal stamp %q (the record must come from the journal, not a rescan)", fields1[15], seed.Ts)
 	}
 	fields2 := strings.Split(rows[2], ",")
-	if fields2[0] != classicHost {
-		t.Fatalf("row 2 host = %q, want %s (the pending target scanned)", fields2[0], classicHost)
+	if fields2[0] != classicAddr || fields2[1] != classicHost {
+		t.Fatalf("row 2 = %v, want the pending target scanned (input %s, host %s)", fields2, classicAddr, classicHost)
 	}
 	if fields2[15] == "" || fields2[15] == seed.Ts {
 		t.Fatalf("row 2 ts = %q, want a fresh scan stamp", fields2[15])
