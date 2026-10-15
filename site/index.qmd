@@ -1,0 +1,47 @@
+---
+title: pqscan
+description: "TLS / QUIC cipher-configuration and post-quantum readiness scanner"
+author: "Shain Singh"
+date: 2026-10-15
+---
+
+# pqscan
+
+A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
+readiness scanner. One static binary that enumerates protocol versions,
+cipher suites, key-exchange groups, signature algorithms and certificate
+properties — scores every observation on a PQC-readiness rubric — and
+speaks the Project Discovery dialect (stdin → stdout, streaming JSONL).
+
+**Status:** pre-alpha. The canonical specification lives at
+[`docs/spec.md`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md);
+the M0 measurement gate ([PQ-01 register](https://github.com/shsingh/pqscan/issues/4))
+is in progress.
+
+## What it does
+
+- **[fast](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set)** — one engineered handshake per target: negotiated parameters, certificate chain, ALPN, features.
+- **deep** — exhaustive suite-by-suite, version-by-version, group and signature-algorithm probing (offer-one / observe-accept), HRR detection, resumption and 0-RTT checks.
+- **pq** — forced-group PQ ladder, PQ signature and certificate classification, estate-wide readiness verdicts with an HNDL risk flag.
+- **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443; HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
+
+## Quick start
+
+```bash
+subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
+```
+
+```bash
+naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
+```
+
+## Navigate
+
+- [Design](design.qmd) — the two handshake planes, the bounded pipeline, budgets.
+- [Usage](usage.qmd) — the man page (flags, exit codes, diagnostics).
+- [Recipes](recipes.qmd) — chaining with subfinder / httpx / naabu / masscan / nuclei.
+- [Specification](https://github.com/shsingh/pqscan/blob/main/docs/spec.md) — the normative document.
+
+Only scan systems you own or are authorised to test — see
+[Security](https://github.com/shsingh/pqscan/security/advisories/new) and
+[`SECURITY.md`](https://github.com/shsingh/pqscan/blob/main/SECURITY.md).
