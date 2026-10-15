@@ -1,0 +1,87 @@
+# perf: the CI perf suite (PQ-24; spec §7.8 SLO cells, spec §10.3: offline —
+# loopback fixtures and local builds only, no external network dependence).
+# The SLO tests are env-gated behind PQSCAN_PERF=1 so the plain offline test
+# job (build.yml: go test ./...) stays loopback-free; this workflow runs the
+# gated suite.
+#
+# The SIZE gate is referenced, not duplicated: its canonical CI job is
+# build.yml's size-gate, and the shared SLO definition is internal/microbench's
+# TestSizeSLO — the job below runs that same test so a dispatched (or push-
+# triggered) perf run carries the size gate on a branch too, without a second
+# gate constant in YAML.
+name: perf
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - internal/**
+
+permissions:
+  contents: read
+
+jobs:
+  resume-slo:
+    name: "resume SLO (SIGKILL → -resume cycle; pending-only re-scan; wall budget)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: "TestResumeSLO (PQSCAN_PERF=1, 50 loopback targets, 6s wall budget)"
+        run: |
+          set -o pipefail
+          PQSCAN_PERF=1 go test ./internal/microbench/ -run 'TestResumeSLO' -v 2>&1 | tee perf-resume-slo.log
+      - name: Upload the resume SLO log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-resume-slo
+          path: perf-resume-slo.log
+          retention-days: 7
+
+  slo-suite:
+    name: "SLO suite (the throughput SLO + size + resume SLO family)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: "The SLO family (PQSCAN_PERF=1)"
+        run: |
+          set -o pipefail
+          PQSCAN_PERF=1 go test ./internal/microbench/ -run 'SLO' -v 2>&1 | tee perf-slo-suite.log
+      - name: Upload the SLO suite log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-slo-suite
+          path: perf-slo-suite.log
+          retention-days: 7
+
+  size-gate:
+    name: "size gate (reference: build.yml's size-gate — the shared TestSizeSLO)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Run the size gate's shared SLO test (no gate constant re-stated)
+        run: |
+          set -o pipefail
+          go test ./internal/microbench/ -run 'TestSizeSLO' -v 2>&1 | tee size-gate.log
