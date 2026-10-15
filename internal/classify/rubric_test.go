@@ -78,7 +78,7 @@ func TestVerdictTable(t *testing.T) {
 			wantHNDL:        false,
 			wantErr:         true,
 			wantErrContains: "zero PQ signal",
-			wantSummary:     "no_pq_offer(0)",
+			wantSummary:     "no_pq_offer(+0)",
 		},
 		{
 			name:            "classic-only with PQ offered (unaccepted): offers are informational, zero = scan-error",
@@ -118,7 +118,7 @@ func TestVerdictTable(t *testing.T) {
 			wantHNDL:        false,
 			wantErr:         true,
 			wantErrContains: "zero PQ signal",
-			wantSummary:     "no_pq_offer(0)",
+			wantSummary:     "no_pq_offer(+0)",
 		},
 		{
 			name:            "empty negotiated class: unrecognised, no rules evaluated",
