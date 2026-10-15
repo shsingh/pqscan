@@ -43,37 +43,6 @@ import (
 // exercises the same OID-table path a real ML-DSA/composite cert hits.
 // ---------------------------------------------------------------------------
 
-// algID mirrors a X.509 AlgorithmIdentifier.
-type algID struct {
-	Alg    asn1.ObjectIdentifier
-	Params asn1.RawValue `asn1:"optional,tag:params"`
-}
-
-// spkiT mirrors SubjectPublicKeyInfo.
-type spkiT struct {
-	Alg algID
-	Key asn1.BitString
-}
-
-// tbsT mirrors TBSCertificate (the fields needed to re-encode).
-type tbsT struct {
-	Raw      asn1.RawContent
-	Version  int `asn1:"optional,tag:0,default:0,explicit"`
-	Serial   *big.Int
-	Sig      algID
-	Issuer   asn1.RawValue
-	Validity asn1.RawValue
-	Subject  asn1.RawValue
-	SPKI     spkiT
-}
-
-// certT mirrors the outer Certificate.
-type certT struct {
-	TBS  tbsT
-	SigA algID
-	SigV asn1.BitString
-}
-
 // mustCert creates + parses one certificate; signer is the ISSUER's key.
 func mustCert(t *testing.T, tmpl, parent *x509.Certificate, pub crypto.PublicKey, signer crypto.Signer) *x509.Certificate {
 	t.Helper()
@@ -125,13 +94,17 @@ func dottedOID(s string) (asn1.ObjectIdentifier, error) {
 
 // relabelCert re-encodes real certificate DER with the signature
 // AlgorithmIdentifier OIDs (both slots) and/or the SPKI algorithm OID
-// swapped to the given dotted strings ("" = keep). When wantParse is true
-// the re-encoded DER must still pass x509.ParseCertificate (the verified
-// honest behavior for signature-side swaps); when false, ParseCertificate
-// is expected to reject it (ML-DSA SPKI on a wrong-length body — the
-// verified honest finding) and the fixture is delivered as a raw-DER
-// certificate, a production contract input for Analyze.
-func relabelCert(t *testing.T, cert *x509.Certificate, sigOID, spKIOID string, wantParse bool) *x509.Certificate {
+// swapped to the given dotted strings ("" = keep).
+//
+// Honest toolchain record (recorded in run output by the Logf's below):
+// whether ParseCertificate accepts a relabeled algorithm OID is
+// toolchain-dependent — go1.26 accepts unknown signature and SPKI OIDs
+// wholesale; go1.27+'s ML-DSA-aware parser rejects an ML-DSA SPKI whose
+// body has the wrong length. Either outcome feeds Analyze correctly: both
+// a parsed certificate and a raw-DER (&x509.Certificate{Raw: der}) are
+// production contract inputs, so the fixture delivers whichever the
+// toolchain produced and the assertions are identical on both paths.
+func relabelCert(t *testing.T, cert *x509.Certificate, sigOID, spKIOID string) *x509.Certificate {
 	t.Helper()
 	var c certT
 	if _, err := asn1.Unmarshal(cert.Raw, &c); err != nil {
@@ -142,17 +115,17 @@ func relabelCert(t *testing.T, cert *x509.Certificate, sigOID, spKIOID string, w
 		if err != nil {
 			t.Fatalf("bad signature oid %q: %v", sigOID, err)
 		}
-		c.TBS.Raw = nil // otherwise RawContent overrides the edited fields
-		c.TBS.Sig.Alg = oid
-		c.SigA.Alg = oid
+		c.TBSCertificate.Raw = nil // otherwise RawContent overrides the edited fields
+		c.TBSCertificate.Signature.Alg = oid
+		c.SignatureAlgorithm.Alg = oid
 	}
 	if spKIOID != "" {
 		oid, err := dottedOID(spKIOID)
 		if err != nil {
 			t.Fatalf("bad SPKI oid %q: %v", spKIOID, err)
 		}
-		c.TBS.Raw = nil
-		c.TBS.SPKI.Alg.Alg = oid
+		c.TBSCertificate.Raw = nil
+		c.TBSCertificate.SubjectPKI.Algorithm.Alg = oid
 	}
 	der, err := asn1.Marshal(c)
 	if err != nil {
@@ -160,14 +133,8 @@ func relabelCert(t *testing.T, cert *x509.Certificate, sigOID, spKIOID string, w
 	}
 	out, err := x509.ParseCertificate(der)
 	if err != nil {
-		if wantParse {
-			t.Fatalf("parse relabeled cert: %v", err)
-		}
 		t.Logf("honest finding: relabeled DER rejected by ParseCertificate (%v); fixture delivered as raw-DER certificate", err)
 		return &x509.Certificate{Raw: der}
-	}
-	if !wantParse {
-		t.Fatalf("re-labeled DER parsed though the fixture wanted the raw-DER path")
 	}
 	return out
 }
@@ -203,8 +170,8 @@ func buildClassicalChain(t *testing.T) []*x509.Certificate {
 func buildAllPQChain(t *testing.T) []*x509.Certificate {
 	t.Helper()
 	chain := buildClassicalChain(t)
-	leaf := relabelCert(t, chain[0], "2.16.840.1.101.3.4.3.19", "2.16.840.1.101.3.4.3.19", false)
-	root := relabelCert(t, chain[2], "2.16.840.1.101.3.4.3.19", "2.16.840.1.101.3.4.3.19", false)
+	leaf := relabelCert(t, chain[0], "2.16.840.1.101.3.4.3.19", "2.16.840.1.101.3.4.3.19")
+	root := relabelCert(t, chain[2], "2.16.840.1.101.3.4.3.19", "2.16.840.1.101.3.4.3.19")
 	return []*x509.Certificate{leaf, root}
 }
 
@@ -393,7 +360,7 @@ func TestAnalyzeLeafSubjectWins(t *testing.T) {
 // OID recorded.
 func TestAnalyzePQSigLeafWithClassicalIssuers(t *testing.T) {
 	chain := buildClassicalChain(t)
-	leaf := relabelCert(t, chain[0], "2.16.840.1.101.3.4.3.18", "", true)
+	leaf := relabelCert(t, chain[0], "2.16.840.1.101.3.4.3.18", "")
 	chained := []*x509.Certificate{leaf, chain[1], chain[2]}
 	info, err := Analyze(chained)
 	if err != nil {
@@ -430,8 +397,8 @@ func TestAnalyzePQSigLeafWithClassicalIssuers(t *testing.T) {
 // framing's "PQ signature anywhere").
 func TestAnalyzeClassicalLeafOverPQIssuers(t *testing.T) {
 	chain := buildClassicalChain(t)
-	inter := relabelCert(t, chain[1], "2.16.840.1.101.3.4.3.18", "", true)
-	root := relabelCert(t, chain[2], "2.16.840.1.101.3.4.3.18", "", true)
+	inter := relabelCert(t, chain[1], "2.16.840.1.101.3.4.3.18", "")
+	root := relabelCert(t, chain[2], "2.16.840.1.101.3.4.3.18", "")
 	chained := []*x509.Certificate{chain[0], inter, root}
 	info, err := Analyze(chained)
 	if err != nil {
@@ -478,8 +445,8 @@ func TestAnalyzeAllPQChain(t *testing.T) {
 // KeyAlg stays the LEAF's own RSA — the issuer's key must not leak.
 func TestAnalyzePQKeyUnderClassicalSig(t *testing.T) {
 	chain := buildClassicalChain(t)
-	leaf := relabelCert(t, chain[0], "2.16.840.1.101.3.4.3.18", "", true)
-	inter := relabelCert(t, chain[1], "", "2.16.840.1.101.3.4.3.18", false)
+	leaf := relabelCert(t, chain[0], "2.16.840.1.101.3.4.3.18", "")
+	inter := relabelCert(t, chain[1], "", "2.16.840.1.101.3.4.3.18")
 	info, err := Analyze([]*x509.Certificate{leaf, inter, chain[2]})
 	if err != nil {
 		t.Fatalf("analyze: %v", err)
@@ -504,7 +471,7 @@ func TestAnalyzePQKeyUnderClassicalSig(t *testing.T) {
 // dual rule must see the classical-signed members behind it.
 func TestAnalyzeCompositeHybrid(t *testing.T) {
 	chain := buildClassicalChain(t)
-	leaf := relabelCert(t, chain[0], "1.3.6.1.5.5.7.6.41", "", true)
+	leaf := relabelCert(t, chain[0], "1.3.6.1.5.5.7.6.41", "")
 	chained := []*x509.Certificate{leaf, chain[1], chain[2]}
 	info, err := Analyze(chained)
 	if err != nil {
@@ -549,7 +516,7 @@ func TestAnalyzeCompositeHybrid(t *testing.T) {
 // classical, and the name carries the unknown note — no crash, no panic.
 func TestAnalyzeUnknownOIDNeverCrashes(t *testing.T) {
 	chain := buildClassicalChain(t)
-	leaf := relabelCert(t, chain[0], "1.3.6.1.4.1.99999.1.2", "", true)
+	leaf := relabelCert(t, chain[0], "1.3.6.1.4.1.99999.1.2", "")
 	info, err := Analyze([]*x509.Certificate{leaf, chain[1], chain[2]})
 	if err != nil {
 		t.Fatalf("analyze must not fail on unknown OIDs: %v", err)

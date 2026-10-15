@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shsingh/pqscan/internal/certinfo"
 	"github.com/shsingh/pqscan/internal/diag"
 )
 
@@ -99,6 +100,15 @@ func ProbeNegotiated(addr, host string, groups []uint32, timeout time.Duration) 
 	res.ALPN = cs.NegotiatedProtocol
 	if id := cs.CipherSuite; id != 0 {
 		res.Suite = tls.CipherSuiteName(cs.CipherSuite)
+	}
+	// PQ-21: the peer chain arrives with the same ConnectionState that
+	// fills the negotiated row — classify it in this same call, no extra
+	// probe. Fields stay zero for an unanalyzable chain (no invented data).
+	if len(cs.PeerCertificates) > 0 {
+		if ci, cerr := certinfo.Analyze(cs.PeerCertificates); cerr == nil {
+			res.CertificatePQ = ci.SigAlgPQ || ci.KeyAlgPQ
+			res.CertificateSigAlg = ci.SigAlgName
+		}
 	}
 	return res, nil
 }

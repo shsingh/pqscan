@@ -94,27 +94,32 @@ func TestAnalyzeRealMLDSACertChain(t *testing.T) {
 		t.Fatalf("PQOIDs = %v, want exactly the ML-DSA-65 OID once (key+sig dedup)", info.PQOIDs)
 	}
 
-	// ML-DSA-44-pinned anchor through the same generation path: a leaf whose
-	// own key is ML-DSA-44 signed by the ML-DSA-65 root — two PQ parameter
-	// sets must surface as two PQ OIDs, both names from the table.
+	// ML-DSA-44-pinned anchor through the same generation path
 	mld44, err := mldsa.GenerateKey(mldsa.MLDSA44())
 	if err != nil {
 		t.Fatalf("mldsa44 key gen: %v", err)
 	}
+	// a leaf whose own key is ML-DSA-44 signed by the ML-DSA-65 root: the
+	// signature OID follows the ISSUER (ML-DSA-65), the leaf's own SPKI is
+	// the ML-DSA-44 key — both PQ OIDs must surface, both names from the
+	// table, on genuinely signed certificates.
 	leaf44 := mustCertGo127(t, &x509.Certificate{
 		SerialNumber: big.NewInt(23),
 		Subject:      pkix.Name{CommonName: "pqscan-mldsa44-real-leaf"},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(24 * time.Hour),
-	}, root, mld44.Public(), mld44)
+	}, root, mld44.Public(), mld)
 	info44, err := Analyze([]*x509.Certificate{leaf44, root})
 	if err != nil {
 		t.Fatalf("analyze 44: %v", err)
 	}
-	if info44.SigAlg != "2.16.840.1.101.3.4.3.17" || info44.SigAlgName != "ML-DSA-44" {
-		t.Fatalf("SigAlg = %q/%q, want the ML-DSA-44 anchor", info44.SigAlg, info44.SigAlgName)
+	if info44.SigAlg != "2.16.840.1.101.3.4.3.18" || info44.SigAlgName != "ML-DSA-65" {
+		t.Fatalf("SigAlg = %q/%q, want ML-DSA-65 (the issuer's signature)", info44.SigAlg, info44.SigAlgName)
 	}
 	if !info44.KeyAlgPQ || info44.KeyAlg != "ML-DSA-44" {
 		t.Fatalf("KeyAlg = %q/%v, want ML-DSA-44/PQ", info44.KeyAlg, info44.KeyAlgPQ)
+	}
+	if len(info44.PQOIDs) != 2 {
+		t.Fatalf("PQOIDs = %v, want both the ML-DSA-65 and ML-DSA-44 OIDs (dedup)", info44.PQOIDs)
 	}
 }
