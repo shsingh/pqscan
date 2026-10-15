@@ -20,6 +20,7 @@ import (
 	"github.com/shsingh/pqscan/internal/diag"
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
+	"github.com/shsingh/pqscan/internal/shard"
 	"github.com/shsingh/pqscan/internal/wal"
 )
 
@@ -56,6 +57,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// serves every input source.
 	httpxFile := fs.String("from-httpx", "", "read httpx-format input lines from this file (scheme://host:port with an optional URL path; composes with -u/-l/--; deduped by host:port)")
 	naabuFile := fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines, or a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)")
+	// Multi-box partition (PQ-24/issue #47): -shard i/n names this box's
+	// slice of the composed list — the deterministic fnv1a64(host:port)
+	// % n == i-1 rule, so the n boxes' shards are disjoint and complete.
+	shardSpec := fs.String("shard", "", `scan only shard i of n (spec "i/n"; the composed targets filter to the shard's membership: a multi-box pass = disjoint, complete)`)
 	// Output format selectors (spec §5.7): the LAST selector on the
 	// command line wins and text is the absent-flag default —
 	// chooseFormat resolves it. The five spellings register as real flags
@@ -118,6 +123,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 64
 	}
 
+	// Shard validation (PQ-24): the "i/n" grammar is a usage-class
+	// refusal before anything composes (a bogus spec is a startup
+	// mistake, like a bogus -mode).
+	if *shardSpec != "" {
+		if _, _, serr := shard.Spec(*shardSpec); serr != nil {
+			diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -shard refused", serr,
+				map[string]string{"shard": *shardSpec})
+			fmt.Fprintf(stderr, "pqscan: -shard: %v\n", serr)
+			return 64
+		}
+	}
+
 	targets, code := composeTargets(*target, *listFile, *httpxFile, *naabuFile, args, stderr)
 	if code != 0 {
 		return code
@@ -126,6 +143,41 @@ func run(args []string, stdout, stderr io.Writer) int {
 		diag.Emit(diag.Warn, diag.DomEngine, "run", "", "no targets; run refuses", nil, nil)
 		fmt.Fprintln(stderr, "pqscan: no target specified (use -u, -l, or -- for stdin; probe engines per the PQ-01 register)")
 		return 64 // EX_USAGE
+	}
+
+	// -shard i/n (PQ-24): the composed list FILTERS to the shard's
+	// membership — deterministic FNV-1a over the target key, so a target
+	// always lands in the same shard at a fixed total, and the n shards
+	// over one list are a partition (disjoint + complete): a multi-box
+	// pass covers the input with no target scanned twice. The box notes
+	// its slice on stderr; an empty member set is a degenerate shard —
+	// the honestly-empty run (nothing to scan, nothing invented).
+	if *shardSpec != "" {
+		shardIdx, shardTotal, _ := shard.Spec(*shardSpec) // validated above
+		keys := make([]shard.TargetKey, 0, len(targets))
+		for _, t := range targets {
+			keys = append(keys, targetKey(t.Host, t.Port))
+		}
+		members := shard.Assign(keys, shardIdx, shardTotal)
+		member := make(map[shard.TargetKey]bool, len(members))
+		for _, k := range members {
+			member[k] = true
+		}
+		shardTargets := make([]grammar.Target, 0, len(members))
+		for i, t := range targets {
+			if member[keys[i]] {
+				shardTargets = append(shardTargets, t)
+			}
+		}
+		fmt.Fprintf(stderr, "pqscan: shard %d/%d: %d of %d targets\n",
+			shardIdx, shardTotal, len(shardTargets), len(targets))
+		diag.Emit(diag.Info, diag.DomEngine, "shard", "", "targets filtered to the shard's membership", nil,
+			map[string]string{"shard": fmt.Sprintf("%d/%d", shardIdx, shardTotal),
+				"members": strconv.Itoa(len(shardTargets)), "composed": strconv.Itoa(len(targets))})
+		targets = shardTargets
+		if len(targets) == 0 {
+			return 0
+		}
 	}
 
 	// The run journal rides beside the output file (<basename>.wal, PQ-16):

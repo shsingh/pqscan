@@ -21,7 +21,6 @@ ptr
 quic
 quic-always
 retries
-shard
 silent
 sni
 sorted

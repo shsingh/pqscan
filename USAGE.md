@@ -71,8 +71,16 @@ OPTIONS
                          Composes with -u/-l/-- under the one dedupe;
                          # comments skip. A read or parse failure
                          refuses the run named by its flag (exit 64).
-    -shard i/n           Split the input into n shards and process only
-                         shard i (zgrab2-style, for multi-box passes).
+    -shard i/n           Scan only shard i of n (zgrab2-style, for
+                         multi-box passes; 1 <= i <= n): the composed
+                         targets (post-composition, after the one
+                         dedupe) filter to the shard's membership —
+                         fnv1a64(host:port) % n == i-1 — so the n
+                         boxes' shards are disjoint and complete, and
+                         a target always lands in the same shard at a
+                         fixed total; keep the total fixed across
+                         re-runs. the run notes its slice on stderr:
+                         shard i/n: N of M targets.
     -resume              Resume an interrupted run from the WAL
                          (<output basename>.wal beside -o; targets the
                          journal already holds a record for, keyed by

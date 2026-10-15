@@ -158,12 +158,20 @@ one schema-1 record stream out the other side.
 **Discussion.** The two tools compose because their contracts are
 narrow: masscan's `-oX -` and `--open-only` keep the pipe to what
 accepts; pqscan adds the negotiated group, suite, ALPN, QUIC and
-certificate blocks per host. Estate splitting across boxes is
-operator-side input split today; the deterministic shard core (FNV-1a
-over the target key, partition property proven in CI) is merged and
-`-shard i/n` lands with the wiring wave — each box then bounds its own
-handshake budget with `-rate`/`-threads` independently, and re-runs
-replay the WAL rather than re-dialing what survived.
+certificate blocks per host. Estate splitting is the flag's job now:
+`-shard i/n` (PQ-24) filters the composed targets to one box's slice —
+`fnv1a64(host:port) % n == i-1`, the shards disjoint and complete at a
+fixed total — so the four boxes run the same list, each with its own
+`-shard 1/4 … 4/4`, and the union of their records is the estate. The
+stderr note carries the slice's count (`shard 1/4: N of M targets`);
+each box bounds its own handshake budget with `-rate`/`-threads`
+independently, and re-runs replay the WAL rather than re-dialing what
+survived. Live partition proof on a 9-target list, both slice notes:
+
+```text
+pqscan: shard 1/2: 4 of 9 targets
+pqscan: shard 2/2: 5 of 9 targets
+```
 
 ### Target grammar and its refusals
 
@@ -733,8 +741,8 @@ and strategies are merged.
 | deep modes | `-mode deep`, `-deep standard\|full` | **live** |
 | forced PQ ladder | `-mode pq` | **live** |
 | rate/window/breakers | `-rate`, `-threads` | **live** |
-| PD adapters | `-from-httpx`, `-from-naabu` | **landing** (the wiring wave) |
-| sharding | `-shard i/n` | **landing** (the wiring wave) |
+| PD adapters | `-from-httpx`, `-from-naabu` | **live** |
+| sharding | `-shard i/n` | **live** |
 | identity hooks | `-ptr`, `-sni`, `-certs-dir` | **landing** (the wiring wave) |
 | profile config | `-config`, PQSCAN_* env | planned |
 | legacy module | `-legacy heartbleed,ccs,robot` | planned |
