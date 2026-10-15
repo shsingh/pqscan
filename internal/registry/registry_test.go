@@ -185,7 +185,7 @@ func TestLoadMalformed(t *testing.T) {
 			name:      "row too short",
 			csv:       csvHeader + "\n29,x25519\n",
 			wantLine:  2,
-			wantSub:   "need at least 5 fields",
+			wantSub:   "need at least 5",
 			wantExact: "registry: line 2: malformed row: got 2 fields, need at least 5",
 		},
 		{
