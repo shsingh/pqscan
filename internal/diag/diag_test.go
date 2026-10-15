@@ -13,6 +13,7 @@ func TestSinkRecordsAndCaps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sink: %v", err)
 	}
+	SetDefault(s) // arm the package sink for Emit
 	for i := 0; i < 150; i++ {
 		Emit(Info, DomEngine, "ladder", "example.com:443", "step", nil, map[string]string{"i": itoa(i)})
 	}
@@ -24,8 +25,8 @@ func TestSinkRecordsAndCaps(t *testing.T) {
 	if r.Schema != SchemaVersion {
 		t.Fatalf("schema = %d, want %d", r.Schema, SchemaVersion)
 	}
-	if len(r.Events) != 100 && len(r.Events) != 100 { // unbounded sink keeps all; capped keeps cap
-		t.Fatalf("events = %d, want cap (100) or all (151)", len(r.Events))
+	if got := len(r.Events); !(got == 100 || got == 151) { // capped sink keeps the cap; unbounded keeps all
+		t.Fatalf("events = %d, want cap (100) or all (151)", got)
 	}
 	if r.Summary.Events < 100 {
 		t.Fatalf("summary events = %d, want >= 100", r.Summary.Events)
@@ -39,6 +40,7 @@ func TestSinkRecordsAndCaps(t *testing.T) {
 // and the summary; nothing looks like a stack trace.
 func TestHumanizeReadable(t *testing.T) {
 	s, _ := NewSink(false, 50)
+	SetDefault(s)
 	Emit(Warn, DomQuic, "probe", "example.com:443", "server silent; recorded as blocked", nil, map[string]string{"udp_blocked": "true"})
 	r, err := s.Report()
 	if err != nil {
@@ -59,6 +61,7 @@ func TestHumanizeReadable(t *testing.T) {
 // TestMachineJSONParses: the Report encodes to schema:1 JSON cleanly.
 func TestMachineJSONParses(t *testing.T) {
 	s, _ := NewSink(false, 10)
+	SetDefault(s)
 	Emit(Info, DomNet, "dial", "example.com:443", "connect", nil, nil)
 	b, err := json.Marshal(mustReport(t, s))
 	if err != nil {
