@@ -60,7 +60,12 @@ OPTIONS
     -from-naabu          naabu host:port input lines.
     -shard i/n           Split the input into n shards and process only
                          shard i (zgrab2-style, for multi-box passes).
-    -resume              Resume an interrupted run from the WAL.
+    -resume              Resume an interrupted run from the WAL
+                         (<output basename>.wal beside -o; targets the
+                         journal already holds a record for, keyed by
+                         host:port, skip rescanning and their records
+                         replay out of the WAL into the output; requires
+                         -o because the journal path derives from it).
 
     MODES AND PROBES
     -mode m               fast (default) | deep | pq | selftest.
@@ -110,10 +115,20 @@ OPTIONS
                       REQUIRE this attachment (see the issue templates).
 
     OUTPUT
-    -json, -jsonl, -csv, -urls, -text
-                      Output formats (default text, single line per
-                      target; JSONL is streaming).
-    -o file           Output file (stdout default).
+    -jsonl, -json        One schema-1 JSON record per line, keys in the
+                         pinned order, hand-rolled (no reflection, no
+                         encoding/json on the encode path; streaming).
+    -csv                 CSV: header row on the first line, then per row
+                         target, host, port, ptr, sni, negotiated
+                         (codepoint), group_name, group_class, suite,
+                         version, alpn, quic_state, quic_group,
+                         udp_blocked, error, ts (RFC 4180 quoting).
+    -urls                The endpoint list: https://host:port, one line
+                         per target (chainable into nuclei/httpx).
+    -text                One human line per target (the default format:
+                         group= class= suite= version= alpn= ...).
+    -o file           Output file (stdout default). The run journal rides
+                      beside it as <basename>.wal (see FILES).
     -fields a,b,c     Field selection.
     -certs-dir dir    Write end-entity PEMs for downstream tools.
     -silent           Only results (no banners/logging).
