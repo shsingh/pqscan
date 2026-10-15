@@ -27,6 +27,21 @@ gate (engine spike + Go/Rust re-scoring) has not started.
 - **Chainable** — hosts, `ip:port`, CIDR, subfinder/httpx/naabu/masscan
   output in; JSONL/CSV/text/URLs out.
 
+## Measured performance
+
+M0-gate measurements (spec
+[`§7.8`](docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class)):
+the SLO suite is re-run on every perf-suite merge and this table tracks the
+current evidence. Issue comments on the linked evidence carry the verbatim
+run transcripts.
+
+| Metric | Target | Measured | Run |
+|---|---|---|---|
+| fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,952 (re-run 3,026) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
+| obsolete-Kyber compat oracle (live) | — | share-less offer of group 25497 answered by an HRR demanding the draft group | `PQSCAN_INTEGRATION=1 go test ./internal/tlsx/ -run Integration -v` — [evidence #8](https://github.com/shsingh/pqscan/issues/8) |
+
 ## Quick examples
 
 ```bash
