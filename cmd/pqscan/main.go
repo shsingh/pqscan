@@ -65,6 +65,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// 0 = uncapped, window 1 = the sequential dispatch.
 	rate := fs.Float64("rate", 0, "probe launches per second through the token-bucket limiter (0 = uncapped: the pre-congestion pace)")
 	threads := fs.Int("threads", 1, "AIMD window ceiling: max target probes in flight (default 1 = the sequential engine)")
+	// Mode wiring (PQ-20/issue #43): -mode selects the per-target scan
+	// mode and -deep the deep plan cap; the deep-mode record carries the
+	// executed plan's deep block.
+	mode := fs.String("mode", "fast", "scan mode: fast (default) | deep (the executed deep plan) | pq (the forced PQ ladder)")
+	deepPlan := fs.String("deep", "standard", "deep-mode plan cap (-mode deep only): standard (default, <=24 probes/target) | full (the complete matrix)")
 	if err := fs.Parse(args); err != nil {
 		return 64
 	}
@@ -87,6 +92,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	format := chooseFormat(args)
+
+	// Mode validation (PQ-20): bogus -mode/-deep values are usage-class
+	// refusals before anything composes or scans (the offending value
+	// named; exit 64).
+	if !validMode(*mode) {
+		diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -mode refused", nil,
+			map[string]string{"mode": *mode})
+		fmt.Fprintf(stderr, "pqscan: unknown -mode %q (want fast, deep, or pq)\n", *mode)
+		return 64
+	}
+	if !validDeepPlan(*deepPlan) {
+		diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -deep plan refused", nil,
+			map[string]string{"deep": *deepPlan})
+		fmt.Fprintf(stderr, "pqscan: unknown -deep plan %q (want standard or full)\n", *deepPlan)
+		return 64
+	}
 
 	targets, code := composeTargets(*target, *listFile, args, stderr)
 	if code != 0 {
@@ -188,6 +209,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			QuicOff:   *quicOff,
 			Rate:      *rate,
 			MaxWindow: *threads,
+			Mode:      *mode,
+			DeepPlan:  *deepPlan,
 			Record: func(rec *scanRecord) {
 				if j == nil {
 					return

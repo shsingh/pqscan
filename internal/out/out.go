@@ -27,9 +27,16 @@ type Record struct {
 	// the verdict computed on them). Both nil on a record whose probe
 	// failed before their step: the Error field is that record's
 	// verdict path.
+	//
+	// Deep (PQ-20) is the deep-mode executor block (-mode deep only):
+	// the executed plan's counts + findings. Nil on fast/pq records and
+	// on deep records whose profile handshake failed (phase 1 gates
+	// phase 2); the CSV projection carries no deep columns — the
+	// findings vector lives in the JSONL line alone.
 	Quic  *QuicRecord `json:"quic,omitempty"`
 	Cert  *CertRecord `json:"cert,omitempty"`
 	Pq    *PqRecord   `json:"pq,omitempty"`
+	Deep  *DeepRecord `json:"deep,omitempty"`
 	Error string      `json:"error"`
 
 	// Ts is the record's wall-clock stamp (RFC 3339 UTC, set by the scan
@@ -99,4 +106,34 @@ type QuicRecord struct {
 	GroupName  string `json:"group_name,omitempty"`
 	GroupClass string `json:"group_class,omitempty"`
 	UDPBlocked bool   `json:"udp_blocked,omitempty"`
+}
+
+// DeepFinding is one executed deep-mode probe's verdict (spec §7.4, PQ-20):
+// the plan's probe id, the observation's verdict class, and the observed
+// detail verbatim. Result vocabulary (the report contract, spec §8 --mode):
+// accepted | rejected | refused | error — a rejection is the SERVER's
+// decision on the offer (it saw a well-formed offer and refused, alert
+// class); refused covers both a dial-class refusal and a probe the
+// scanning engine itself cannot offer (the not-offerable class: the detail
+// says which, honestly); error is any other probe-path failure.
+type DeepFinding struct {
+	Probe  string `json:"probe"`
+	Result string `json:"result"`
+	Detail string `json:"detail"`
+}
+
+// DeepRecord is the deep-mode executor block (PQ-20): the executed plan's
+// summary and the per-probe findings, one per attempted probe (the plan
+// order). Mode is the executed -deep plan (standard | full). Attempted,
+// OK and Rejected count the executed probes (Attempted = the executed
+// count; OK the accepted; Rejected the server-rejected — refusals and
+// errors ride Findings only). Nil for every record that did not execute a
+// deep plan (-mode fast/pq, and the deep runs that short-circuited on a
+// failed profile handshake — spec §7.4 phase 1 gates phase 2).
+type DeepRecord struct {
+	Mode      string        `json:"mode"`
+	Attempted int           `json:"attempted"`
+	OK        int           `json:"ok"`
+	Rejected  int           `json:"rejected"`
+	Findings  []DeepFinding `json:"findings"`
 }
