@@ -1,0 +1,74 @@
+# PQ-22 second pair: the real-tool differential gate (docs/spec.md §10.1).
+#
+# Acceptance semantics for the CI side — OFFLINE ONLY, no network, no tool
+# installs: the parity bridge (scripts/differential_bridge.go →
+# internal/differential.Parity) runs against the canned reference-tool
+# outputs under tests/fixtures/differential/ and must
+#   (1) hold parity on the canonical record set (exit 0), and
+#   (2) catch a diverged record set (exit non-zero — the gate can fail).
+# Divergences recorded in the canonical fixtures are documented exceptions
+# in tests/fixtures/differential/README.md (spec §10.1's exception class).
+#
+# The live path (both reference tools + a real pqscan build vs a real
+# target) never runs here — it is the env-gated scripts/differential_run.sh
+# consumed locally with DIFFERENTIAL_LIVE=1; the parity-live job only
+# demonstrates its SKIP on this runner (tool-absent gate; localhost target
+# so that even a future tool-ful runner never reaches the network).
+name: differential
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  parity-canned:
+    name: differential-parity (canned fixtures, offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Parity holds on the canned record set (exit 0)
+        run: |
+          go run ./scripts \
+            -pqscan tests/fixtures/differential/pqscan-cloudflare.jsonl \
+            -gnutls tests/fixtures/differential/gnutls-cli-debug-cloudflare.txt \
+            -sslyze tests/fixtures/differential/sslyze-cloudflare.json
+      - name: The gate catches a diverged record set (exit must be non-zero)
+        run: |
+          set -euo pipefail
+          if go run ./scripts \
+            -pqscan tests/fixtures/differential/pqscan-cloudflare.jsonl \
+            -gnutls tests/fixtures/differential/gnutls-cli-debug-cloudflare.txt \
+            -sslyze tests/fixtures/differential/sslyze-divergent-hybrid-rejected.json \
+            > catch.out 2>&1; then
+            echo "::error::the bridge accepted a diverged reference set — the parity gate cannot catch"
+            cat catch.out
+            exit 1
+          fi
+          echo "gate verified: the diverged fixture record set → non-zero exit (expected catch):"
+          cat catch.out
+
+  parity-live:
+    name: differential-live (env-gated; SKIP when tools absent)
+    runs-on: ubuntu-latest
+    env:
+      DIFFERENTIAL_LIVE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Live harness demonstrates its gates (localhost only, tool-absent → SKIP)
+        run: ./scripts/differential_run.sh 127.0.0.1 4433

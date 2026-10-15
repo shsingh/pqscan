@@ -1,0 +1,2558 @@
+{
+  "invalid_server_strings": [],
+  "server_scan_results": [
+    {
+      "uuid": "b7340fed-80ec-4372-947e-88c99588e6fe",
+      "server_location": {
+        "hostname": "cloudflare.com",
+        "port": 443,
+        "connection_type": "DIRECT",
+        "ip_address": "104.16.132.229",
+        "http_proxy_settings": null
+      },
+      "connectivity_status": "COMPLETED",
+      "scan_status": "COMPLETED",
+      "scan_result": {
+        "certificate_info": {
+          "status": "COMPLETED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": {
+            "hostname_used_for_server_name_indication": "cloudflare.com",
+            "certificate_deployments": [
+              {
+                "received_certificate_chain": [
+                  {
+                    "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                    "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                    "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                    "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                    "serial_number": 283175262338558411663964591884949194155,
+                    "not_valid_before": "2026-09-05T22:29:39Z",
+                    "not_valid_after": "2026-12-04T23:29:33Z",
+                    "subject_alternative_name": {
+                      "dns_names": [
+                        "cloudflare.com",
+                        "ns.cloudflare.com",
+                        "*.ns.cloudflare.com",
+                        "*.secondary.cloudflare.com",
+                        "secondary.cloudflare.com"
+                      ],
+                      "ip_addresses": []
+                    },
+                    "signature_hash_algorithm": {
+                      "name": "sha256",
+                      "digest_size": 32
+                    },
+                    "signature_algorithm_oid": {
+                      "name": "ecdsa-with-SHA256",
+                      "dotted_string": "1.2.840.10045.4.3.2"
+                    },
+                    "subject": {
+                      "rfc4514_string": "CN=cloudflare.com",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "cloudflare.com",
+                          "rfc4514_string": "CN=cloudflare.com"
+                        }
+                      ]
+                    },
+                    "issuer": {
+                      "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "countryName",
+                            "dotted_string": "2.5.4.6"
+                          },
+                          "value": "US",
+                          "rfc4514_string": "C=US"
+                        },
+                        {
+                          "oid": {
+                            "name": "organizationName",
+                            "dotted_string": "2.5.4.10"
+                          },
+                          "value": "Google Trust Services",
+                          "rfc4514_string": "O=Google Trust Services"
+                        },
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "WE1",
+                          "rfc4514_string": "CN=WE1"
+                        }
+                      ]
+                    },
+                    "public_key": {
+                      "algorithm": "ECPublicKey",
+                      "key_size": 256,
+                      "rsa_e": null,
+                      "rsa_n": null,
+                      "ec_curve_name": "secp256r1",
+                      "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                      "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                    }
+                  }
+                ],
+                "leaf_certificate_has_must_staple_extension": false,
+                "leaf_certificate_is_ev": false,
+                "leaf_certificate_signed_certificate_timestamps_count": 2,
+                "received_chain_contains_anchor_certificate": false,
+                "received_chain_has_valid_order": true,
+                "path_validation_results": [
+                  {
+                    "trust_store": {
+                      "path": "/Users/shsingh/.local/pipx/venvs/sslyze/lib/python3.13/site-packages/sslyze/plugins/certificate_info/trust_stores/pem_files/google_aosp.pem",
+                      "name": "Android",
+                      "version": "16.0.0_r4",
+                      "ev_oids": null
+                    },
+                    "verified_certificate_chain": [
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                        "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                        "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                        "serial_number": 283175262338558411663964591884949194155,
+                        "not_valid_before": "2026-09-05T22:29:39Z",
+                        "not_valid_after": "2026-12-04T23:29:33Z",
+                        "subject_alternative_name": {
+                          "dns_names": [
+                            "cloudflare.com",
+                            "ns.cloudflare.com",
+                            "*.ns.cloudflare.com",
+                            "*.secondary.cloudflare.com",
+                            "secondary.cloudflare.com"
+                          ],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha256",
+                          "digest_size": 32
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA256",
+                          "dotted_string": "1.2.840.10045.4.3.2"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=cloudflare.com",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "cloudflare.com",
+                              "rfc4514_string": "CN=cloudflare.com"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                          "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICnzCCAiWgAwIBAgIQf/MZd5csIkp2FV0TttaF4zAKBggqhkjOPQQDAzBHMQsw\nCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\nMBIGA1UEAxMLR1RTIFJvb3QgUjQwHhcNMjMxMjEzMDkwMDAwWhcNMjkwMjIwMTQw\nMDAwWjA7MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVR29vZ2xlIFRydXN0IFNlcnZp\nY2VzMQwwCgYDVQQDEwNXRTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvzTr+\nZ1dHTCEDhUDCR127WEcPQMFcF4XGGTfn1XzthkubgdnXGhOlCgP4mMTG6J7/EFmP\nLCaY9eYmJbsPAvpWo4H+MIH7MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggr\nBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU\nkHeSNWfE/6jMqeZ72YB5e8yT+TgwHwYDVR0jBBgwFoAUgEzW63T/STaj1dj8tT7F\navCUHYwwNAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzAChhhodHRwOi8vaS5wa2ku\nZ29vZy9yNC5jcnQwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL2MucGtpLmdvb2cv\nci9yNC5jcmwwEwYDVR0gBAwwCjAIBgZngQwBAgEwCgYIKoZIzj0EAwMDaAAwZQIx\nAOcCq1HW90OVznX+0RGU1cxAQXomvtgM8zItPZCuFQ8jSBJSjz5keROv9aYsAm5V\nsQIwJonMaAFi54mrfhfoFNZEfuNMSQ6/bIBiNLiyoX46FohQvKeIoJ99cx7sUkFN\n7uJW\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=",
+                        "fingerprint_sha1": "EI+/eU4Y7FNHpBTkNwzEUGwperI=",
+                        "fingerprint_sha256": "HfwWBfutNY2LyET3bRUgP6ycpcGnn9SFf/ryhk++v5Y=",
+                        "serial_number": 170074200136485300614847617070429275619,
+                        "not_valid_before": "2023-12-13T09:00:00Z",
+                        "not_valid_after": "2029-02-20T14:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 50569337001019775542419232413368734004704230189724449705800802116400853085574,
+                          "ec_y": 34198221137025661509654727532611692388189710215628844282750320103361737849430
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\nVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\nA1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\nWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\nIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\nAATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\nQHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\nHYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\nBBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\np/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=",
+                        "fingerprint_sha1": "d9MDZ7XgDBX2DDhh33zhO5JGTUc=",
+                        "fingerprint_sha256": "NJ36QFjF4mMSOzmK55VXPE4TE8g/5o+TVWzV6AMbPH0=",
+                        "serial_number": 159662532700760215368942768210,
+                        "not_valid_before": "2016-06-22T00:00:00Z",
+                        "not_valid_after": "2036-06-22T00:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 384,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp384r1",
+                          "ec_x": 37471137007972414188180584817005857701594611622436499579709175026540926241259029249891351931980308501383755467997302,
+                          "ec_y": 9183005163897397881300021216631269301828759039006067320487338515525388614843808427732645382476107253937965649436042
+                        }
+                      }
+                    ],
+                    "validation_error": null,
+                    "was_validation_successful": true
+                  },
+                  {
+                    "trust_store": {
+                      "path": "/Users/shsingh/.local/pipx/venvs/sslyze/lib/python3.13/site-packages/sslyze/plugins/certificate_info/trust_stores/pem_files/apple.pem",
+                      "name": "Apple",
+                      "version": "iOS 26, iPadOS 26, macOS 26, tvOS 26, visionOS 26 and watchOS 26",
+                      "ev_oids": null
+                    },
+                    "verified_certificate_chain": [
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                        "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                        "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                        "serial_number": 283175262338558411663964591884949194155,
+                        "not_valid_before": "2026-09-05T22:29:39Z",
+                        "not_valid_after": "2026-12-04T23:29:33Z",
+                        "subject_alternative_name": {
+                          "dns_names": [
+                            "cloudflare.com",
+                            "ns.cloudflare.com",
+                            "*.ns.cloudflare.com",
+                            "*.secondary.cloudflare.com",
+                            "secondary.cloudflare.com"
+                          ],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha256",
+                          "digest_size": 32
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA256",
+                          "dotted_string": "1.2.840.10045.4.3.2"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=cloudflare.com",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "cloudflare.com",
+                              "rfc4514_string": "CN=cloudflare.com"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                          "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICnzCCAiWgAwIBAgIQf/MZd5csIkp2FV0TttaF4zAKBggqhkjOPQQDAzBHMQsw\nCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\nMBIGA1UEAxMLR1RTIFJvb3QgUjQwHhcNMjMxMjEzMDkwMDAwWhcNMjkwMjIwMTQw\nMDAwWjA7MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVR29vZ2xlIFRydXN0IFNlcnZp\nY2VzMQwwCgYDVQQDEwNXRTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvzTr+\nZ1dHTCEDhUDCR127WEcPQMFcF4XGGTfn1XzthkubgdnXGhOlCgP4mMTG6J7/EFmP\nLCaY9eYmJbsPAvpWo4H+MIH7MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggr\nBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU\nkHeSNWfE/6jMqeZ72YB5e8yT+TgwHwYDVR0jBBgwFoAUgEzW63T/STaj1dj8tT7F\navCUHYwwNAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzAChhhodHRwOi8vaS5wa2ku\nZ29vZy9yNC5jcnQwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL2MucGtpLmdvb2cv\nci9yNC5jcmwwEwYDVR0gBAwwCjAIBgZngQwBAgEwCgYIKoZIzj0EAwMDaAAwZQIx\nAOcCq1HW90OVznX+0RGU1cxAQXomvtgM8zItPZCuFQ8jSBJSjz5keROv9aYsAm5V\nsQIwJonMaAFi54mrfhfoFNZEfuNMSQ6/bIBiNLiyoX46FohQvKeIoJ99cx7sUkFN\n7uJW\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=",
+                        "fingerprint_sha1": "EI+/eU4Y7FNHpBTkNwzEUGwperI=",
+                        "fingerprint_sha256": "HfwWBfutNY2LyET3bRUgP6ycpcGnn9SFf/ryhk++v5Y=",
+                        "serial_number": 170074200136485300614847617070429275619,
+                        "not_valid_before": "2023-12-13T09:00:00Z",
+                        "not_valid_after": "2029-02-20T14:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 50569337001019775542419232413368734004704230189724449705800802116400853085574,
+                          "ec_y": 34198221137025661509654727532611692388189710215628844282750320103361737849430
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\nVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\nA1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\nWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\nIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\nAATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\nQHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\nHYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\nBBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\np/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=",
+                        "fingerprint_sha1": "d9MDZ7XgDBX2DDhh33zhO5JGTUc=",
+                        "fingerprint_sha256": "NJ36QFjF4mMSOzmK55VXPE4TE8g/5o+TVWzV6AMbPH0=",
+                        "serial_number": 159662532700760215368942768210,
+                        "not_valid_before": "2016-06-22T00:00:00Z",
+                        "not_valid_after": "2036-06-22T00:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 384,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp384r1",
+                          "ec_x": 37471137007972414188180584817005857701594611622436499579709175026540926241259029249891351931980308501383755467997302,
+                          "ec_y": 9183005163897397881300021216631269301828759039006067320487338515525388614843808427732645382476107253937965649436042
+                        }
+                      }
+                    ],
+                    "validation_error": null,
+                    "was_validation_successful": true
+                  },
+                  {
+                    "trust_store": {
+                      "path": "/Users/shsingh/.local/pipx/venvs/sslyze/lib/python3.13/site-packages/sslyze/plugins/certificate_info/trust_stores/pem_files/oracle_java.pem",
+                      "name": "Java",
+                      "version": "jdk-13.0.2",
+                      "ev_oids": null
+                    },
+                    "verified_certificate_chain": [
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                        "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                        "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                        "serial_number": 283175262338558411663964591884949194155,
+                        "not_valid_before": "2026-09-05T22:29:39Z",
+                        "not_valid_after": "2026-12-04T23:29:33Z",
+                        "subject_alternative_name": {
+                          "dns_names": [
+                            "cloudflare.com",
+                            "ns.cloudflare.com",
+                            "*.ns.cloudflare.com",
+                            "*.secondary.cloudflare.com",
+                            "secondary.cloudflare.com"
+                          ],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha256",
+                          "digest_size": 32
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA256",
+                          "dotted_string": "1.2.840.10045.4.3.2"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=cloudflare.com",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "cloudflare.com",
+                              "rfc4514_string": "CN=cloudflare.com"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                          "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICnzCCAiWgAwIBAgIQf/MZd5csIkp2FV0TttaF4zAKBggqhkjOPQQDAzBHMQsw\nCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\nMBIGA1UEAxMLR1RTIFJvb3QgUjQwHhcNMjMxMjEzMDkwMDAwWhcNMjkwMjIwMTQw\nMDAwWjA7MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVR29vZ2xlIFRydXN0IFNlcnZp\nY2VzMQwwCgYDVQQDEwNXRTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvzTr+\nZ1dHTCEDhUDCR127WEcPQMFcF4XGGTfn1XzthkubgdnXGhOlCgP4mMTG6J7/EFmP\nLCaY9eYmJbsPAvpWo4H+MIH7MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggr\nBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU\nkHeSNWfE/6jMqeZ72YB5e8yT+TgwHwYDVR0jBBgwFoAUgEzW63T/STaj1dj8tT7F\navCUHYwwNAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzAChhhodHRwOi8vaS5wa2ku\nZ29vZy9yNC5jcnQwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL2MucGtpLmdvb2cv\nci9yNC5jcmwwEwYDVR0gBAwwCjAIBgZngQwBAgEwCgYIKoZIzj0EAwMDaAAwZQIx\nAOcCq1HW90OVznX+0RGU1cxAQXomvtgM8zItPZCuFQ8jSBJSjz5keROv9aYsAm5V\nsQIwJonMaAFi54mrfhfoFNZEfuNMSQ6/bIBiNLiyoX46FohQvKeIoJ99cx7sUkFN\n7uJW\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=",
+                        "fingerprint_sha1": "EI+/eU4Y7FNHpBTkNwzEUGwperI=",
+                        "fingerprint_sha256": "HfwWBfutNY2LyET3bRUgP6ycpcGnn9SFf/ryhk++v5Y=",
+                        "serial_number": 170074200136485300614847617070429275619,
+                        "not_valid_before": "2023-12-13T09:00:00Z",
+                        "not_valid_after": "2029-02-20T14:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 50569337001019775542419232413368734004704230189724449705800802116400853085574,
+                          "ec_y": 34198221137025661509654727532611692388189710215628844282750320103361737849430
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIIDejCCAmKgAwIBAgIQf+UwvzMTQ77dghYQST2KGzANBgkqhkiG9w0BAQsFADBX\nMQswCQYDVQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTEQMA4GA1UE\nCxMHUm9vdCBDQTEbMBkGA1UEAxMSR2xvYmFsU2lnbiBSb290IENBMB4XDTIzMTEx\nNTAzNDMyMVoXDTI4MDEyODAwMDA0MlowRzELMAkGA1UEBhMCVVMxIjAgBgNVBAoT\nGUdvb2dsZSBUcnVzdCBTZXJ2aWNlcyBMTEMxFDASBgNVBAMTC0dUUyBSb290IFI0\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE83Rzp2iLYK5DuDXFgTB7S0md+8Fhzube\nRr1r1WEYNa5A3XP3iZEwWus87oV8okB2O6nGuEfYKueSkWpz6bFyOZ8pn6KY019e\nWIZlD6GEZQbR3IvJx3PIjGov5cSr0R2Ko4H/MIH8MA4GA1UdDwEB/wQEAwIBhjAd\nBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDwYDVR0TAQH/BAUwAwEB/zAd\nBgNVHQ4EFgQUgEzW63T/STaj1dj8tT7FavCUHYwwHwYDVR0jBBgwFoAUYHtmGkUN\nl8qJUC99BM00qP/8/UswNgYIKwYBBQUHAQEEKjAoMCYGCCsGAQUFBzAChhpodHRw\nOi8vaS5wa2kuZ29vZy9nc3IxLmNydDAtBgNVHR8EJjAkMCKgIKAehhxodHRwOi8v\nYy5wa2kuZ29vZy9yL2dzcjEuY3JsMBMGA1UdIAQMMAowCAYGZ4EMAQIBMA0GCSqG\nSIb3DQEBCwUAA4IBAQAYQrsPBtYDh5bjP2OBDwmkoWhIDDkic574y04tfzHpn+cJ\nodI2D4SseesQ6bDrarZ7C30ddLibZatoKiws3UL9xnELz4ct92vID24FfVbiI1hY\n+SW6FoVHkNeWIP0GCbaM4C6uVdF5dTUsMVs/ZbzNnIdCp5Gxmx5ejvEau8otR/Cs\nkGN+hr/W5GvT1tMBjgWKZ1i4//emhA1JG1BbPzoLJQvyEotc03lXjTaCzv8mEbep\n8RqZ7a2CPsgRbuvTPBwcOMBBmuFeU88+FSBX6+7iP0il8b4Z0QFqIwwMHfs/L6K1\nvepuoxtGzi4CZ68zJpiq1UvSqTbFJjtbD4seiMHl\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=",
+                        "fingerprint_sha1": "kyvtM5qmkhLIk3W3kwS0dUkLiaA=",
+                        "fingerprint_sha256": "drJ7gKWAJ9w88dpo2sFwEO2TmX0LYD4vrb6FASSTtac=",
+                        "serial_number": 170001980149335831901244157168837298715,
+                        "not_valid_before": "2023-11-15T03:43:21Z",
+                        "not_valid_after": "2028-01-28T00:00:42Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha256",
+                          "digest_size": 32
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "sha256WithRSAEncryption",
+                          "dotted_string": "1.2.840.113549.1.1.11"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "BE",
+                              "rfc4514_string": "C=BE"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "GlobalSign nv-sa",
+                              "rfc4514_string": "O=GlobalSign nv-sa"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationalUnitName",
+                                "dotted_string": "2.5.4.11"
+                              },
+                              "value": "Root CA",
+                              "rfc4514_string": "OU=Root CA"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GlobalSign Root CA",
+                              "rfc4514_string": "CN=GlobalSign Root CA"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 384,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp384r1",
+                          "ec_x": 37471137007972414188180584817005857701594611622436499579709175026540926241259029249891351931980308501383755467997302,
+                          "ec_y": 9183005163897397881300021216631269301828759039006067320487338515525388614843808427732645382476107253937965649436042
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkG\nA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv\nb3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw05ODA5MDExMjAw\nMDBaFw0yODAxMjgxMjAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i\nYWxTaWduIG52LXNhMRAwDgYDVQQLEwdSb290IENBMRswGQYDVQQDExJHbG9iYWxT\naWduIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDaDuaZ\njc6j40+Kfvvxi4Mla+pIH/EqsLmVEQS98GPR4mdmzxzdzxtIK+6NiY6arymAZavp\nxy0Sy6scTHAHoT0KMM0VjU/43dSMUBUc71DuxC73/OlS8pF94G3VNTCOXkNz8kHp\n1Wrjsok6Vjk4bwY8iGlbKk3Fp1S4bInMm/k8yuX9ifUSPJJ4ltbcdG6TRGHRjcdG\nsnUOhugZitVtbNV4FpWi6cgKOOvyJBNPc1STE4U6G7weNLWLBYy5d4ux2x8gkasJ\nU26Qzns3dLlwR5EiUWMWea6xrkEmCMgZK9FGqkjWZCrXgzT/LCrBbBlDSgeF59N8\n9iFo7+ryUp9/k5DPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8E\nBTADAQH/MB0GA1UdDgQWBBRge2YaRQ2XyolQL30EzTSo//z9SzANBgkqhkiG9w0B\nAQUFAAOCAQEA1nPnfE920I2/7LqivjTFKDK1fPxsnCwrvQmeU79rXqoRSLblCKOz\nyj1hTdNGCbM+w6DjY1Ub8rrvrTnhQ7k4o+YviiY776BQVvnGCv04zcQLcFGUl5gE\n38NflNUVyRRBnMRddWQVDf9VMOyGj/8N7yy5Y0b2qvzfvGn9LhJIZJrglfCm7ymP\nAbEVtQwdpf5pLGkkeB6zpxxxYu7KyJesF12KwvhHhm4qxFYxldBniYUr+WymXUad\nDKqC5JlR3XC321Y9YeRq4VzW9v493kHMB65jUr9TU/Qr6cf9tveCX4XSQRjbgbME\nHMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "K87oWBWM9UZfyddvDfoxL+8lpNyoUB2ptGtn0fv6G2Q=",
+                        "fingerprint_sha1": "sbyWi9T0nWIqqJqB8hUBUqQdgpw=",
+                        "fingerprint_sha256": "69QQQOS7PsdCyeOB0x7ypBpItmhclufO88HfbNQzHJk=",
+                        "serial_number": 4835703278459707669005204,
+                        "not_valid_before": "1998-09-01T12:00:00Z",
+                        "not_valid_after": "2028-01-28T12:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha1",
+                          "digest_size": 20
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "sha1WithRSAEncryption",
+                          "dotted_string": "1.2.840.113549.1.1.5"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "BE",
+                              "rfc4514_string": "C=BE"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "GlobalSign nv-sa",
+                              "rfc4514_string": "O=GlobalSign nv-sa"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationalUnitName",
+                                "dotted_string": "2.5.4.11"
+                              },
+                              "value": "Root CA",
+                              "rfc4514_string": "OU=Root CA"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GlobalSign Root CA",
+                              "rfc4514_string": "CN=GlobalSign Root CA"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GlobalSign Root CA,OU=Root CA,O=GlobalSign nv-sa,C=BE",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "BE",
+                              "rfc4514_string": "C=BE"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "GlobalSign nv-sa",
+                              "rfc4514_string": "O=GlobalSign nv-sa"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationalUnitName",
+                                "dotted_string": "2.5.4.11"
+                              },
+                              "value": "Root CA",
+                              "rfc4514_string": "OU=Root CA"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GlobalSign Root CA",
+                              "rfc4514_string": "CN=GlobalSign Root CA"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "RSAPublicKey",
+                          "key_size": 2048,
+                          "rsa_e": 65537,
+                          "rsa_n": 27527298331346624659307815003393871405544020859223571253338520804765223430982458246098772321151941672961640627675186276205051526242643378100158885513217742058056466168392650055013100104849176312294167242041140310435772026717601763184706480259485212806902223894888566729634266984619221168862421838192203495151893762216777748330129909588210203299778581898175320882908371930984451809054509645379277309791084909705758372477320893336152882629891014286744815684371510751674825920204180490258122986862539585201934155220945732937830308834387108046657005363452071776396707181283143463213972159925612976006433949563180335468751,
+                          "ec_curve_name": null,
+                          "ec_x": null,
+                          "ec_y": null
+                        }
+                      }
+                    ],
+                    "validation_error": null,
+                    "was_validation_successful": true
+                  },
+                  {
+                    "trust_store": {
+                      "path": "/Users/shsingh/.local/pipx/venvs/sslyze/lib/python3.13/site-packages/sslyze/plugins/certificate_info/trust_stores/pem_files/mozilla_nss.pem",
+                      "name": "Mozilla",
+                      "version": "2026-03-28",
+                      "ev_oids": [
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.2.276.0.44.1.1.1.4"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.2.392.200091.100.721.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.2.40.0.17.1.22"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.2.616.1.113527.2.5.1.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.159.1.17.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.13177.10.1.3.10"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.14370.1.6"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.14777.6.1.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.14777.6.1.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.17326.10.14.2.1.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.17326.10.14.2.2.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.17326.10.8.12.1.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.17326.10.8.12.2.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.22234.2.5.2.3.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.23223.1.1.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.29836.1.10"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.34697.2.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.34697.2.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.34697.2.3"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.34697.2.4"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.36305.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.40869.1.1.22.3"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.4146.1.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.4788.2.202.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.6334.1.100.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.6449.1.2.1.5.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.782.1.2.1.8.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.7879.13.24.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "1.3.6.1.4.1.8024.0.2.100.1.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.156.112554.3"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.528.1.1003.1.2.7"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.578.1.26.1.3.3"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.756.1.83.21.0"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.756.1.89.1.2.1.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.792.3.0.3.1.1.5"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.792.3.0.4.1.1.4"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.113733.1.7.23.6"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.113733.1.7.48.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114028.10.1.2"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114171.500.9"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114404.1.1.2.4.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114412.2.1"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114413.1.7.23.3"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114414.1.7.23.3"
+                        },
+                        {
+                          "name": "Unknown OID",
+                          "dotted_string": "2.16.840.1.114414.1.7.24.3"
+                        }
+                      ]
+                    },
+                    "verified_certificate_chain": [
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                        "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                        "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                        "serial_number": 283175262338558411663964591884949194155,
+                        "not_valid_before": "2026-09-05T22:29:39Z",
+                        "not_valid_after": "2026-12-04T23:29:33Z",
+                        "subject_alternative_name": {
+                          "dns_names": [
+                            "cloudflare.com",
+                            "ns.cloudflare.com",
+                            "*.ns.cloudflare.com",
+                            "*.secondary.cloudflare.com",
+                            "secondary.cloudflare.com"
+                          ],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha256",
+                          "digest_size": 32
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA256",
+                          "dotted_string": "1.2.840.10045.4.3.2"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=cloudflare.com",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "cloudflare.com",
+                              "rfc4514_string": "CN=cloudflare.com"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                          "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICnzCCAiWgAwIBAgIQf/MZd5csIkp2FV0TttaF4zAKBggqhkjOPQQDAzBHMQsw\nCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\nMBIGA1UEAxMLR1RTIFJvb3QgUjQwHhcNMjMxMjEzMDkwMDAwWhcNMjkwMjIwMTQw\nMDAwWjA7MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVR29vZ2xlIFRydXN0IFNlcnZp\nY2VzMQwwCgYDVQQDEwNXRTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvzTr+\nZ1dHTCEDhUDCR127WEcPQMFcF4XGGTfn1XzthkubgdnXGhOlCgP4mMTG6J7/EFmP\nLCaY9eYmJbsPAvpWo4H+MIH7MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggr\nBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU\nkHeSNWfE/6jMqeZ72YB5e8yT+TgwHwYDVR0jBBgwFoAUgEzW63T/STaj1dj8tT7F\navCUHYwwNAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzAChhhodHRwOi8vaS5wa2ku\nZ29vZy9yNC5jcnQwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL2MucGtpLmdvb2cv\nci9yNC5jcmwwEwYDVR0gBAwwCjAIBgZngQwBAgEwCgYIKoZIzj0EAwMDaAAwZQIx\nAOcCq1HW90OVznX+0RGU1cxAQXomvtgM8zItPZCuFQ8jSBJSjz5keROv9aYsAm5V\nsQIwJonMaAFi54mrfhfoFNZEfuNMSQ6/bIBiNLiyoX46FohQvKeIoJ99cx7sUkFN\n7uJW\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=",
+                        "fingerprint_sha1": "EI+/eU4Y7FNHpBTkNwzEUGwperI=",
+                        "fingerprint_sha256": "HfwWBfutNY2LyET3bRUgP6ycpcGnn9SFf/ryhk++v5Y=",
+                        "serial_number": 170074200136485300614847617070429275619,
+                        "not_valid_before": "2023-12-13T09:00:00Z",
+                        "not_valid_after": "2029-02-20T14:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 50569337001019775542419232413368734004704230189724449705800802116400853085574,
+                          "ec_y": 34198221137025661509654727532611692388189710215628844282750320103361737849430
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\nVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\nA1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\nWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\nIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\nAATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\nQHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\nHYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\nBBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\np/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=",
+                        "fingerprint_sha1": "d9MDZ7XgDBX2DDhh33zhO5JGTUc=",
+                        "fingerprint_sha256": "NJ36QFjF4mMSOzmK55VXPE4TE8g/5o+TVWzV6AMbPH0=",
+                        "serial_number": 159662532700760215368942768210,
+                        "not_valid_before": "2016-06-22T00:00:00Z",
+                        "not_valid_after": "2036-06-22T00:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 384,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp384r1",
+                          "ec_x": 37471137007972414188180584817005857701594611622436499579709175026540926241259029249891351931980308501383755467997302,
+                          "ec_y": 9183005163897397881300021216631269301828759039006067320487338515525388614843808427732645382476107253937965649436042
+                        }
+                      }
+                    ],
+                    "validation_error": null,
+                    "was_validation_successful": true
+                  },
+                  {
+                    "trust_store": {
+                      "path": "/Users/shsingh/.local/pipx/venvs/sslyze/lib/python3.13/site-packages/sslyze/plugins/certificate_info/trust_stores/pem_files/microsoft_windows.pem",
+                      "name": "Windows",
+                      "version": "2026-03-28",
+                      "ev_oids": null
+                    },
+                    "verified_certificate_chain": [
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                        "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                        "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                        "serial_number": 283175262338558411663964591884949194155,
+                        "not_valid_before": "2026-09-05T22:29:39Z",
+                        "not_valid_after": "2026-12-04T23:29:33Z",
+                        "subject_alternative_name": {
+                          "dns_names": [
+                            "cloudflare.com",
+                            "ns.cloudflare.com",
+                            "*.ns.cloudflare.com",
+                            "*.secondary.cloudflare.com",
+                            "secondary.cloudflare.com"
+                          ],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha256",
+                          "digest_size": 32
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA256",
+                          "dotted_string": "1.2.840.10045.4.3.2"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=cloudflare.com",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "cloudflare.com",
+                              "rfc4514_string": "CN=cloudflare.com"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                          "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICnzCCAiWgAwIBAgIQf/MZd5csIkp2FV0TttaF4zAKBggqhkjOPQQDAzBHMQsw\nCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\nMBIGA1UEAxMLR1RTIFJvb3QgUjQwHhcNMjMxMjEzMDkwMDAwWhcNMjkwMjIwMTQw\nMDAwWjA7MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVR29vZ2xlIFRydXN0IFNlcnZp\nY2VzMQwwCgYDVQQDEwNXRTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvzTr+\nZ1dHTCEDhUDCR127WEcPQMFcF4XGGTfn1XzthkubgdnXGhOlCgP4mMTG6J7/EFmP\nLCaY9eYmJbsPAvpWo4H+MIH7MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggr\nBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU\nkHeSNWfE/6jMqeZ72YB5e8yT+TgwHwYDVR0jBBgwFoAUgEzW63T/STaj1dj8tT7F\navCUHYwwNAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzAChhhodHRwOi8vaS5wa2ku\nZ29vZy9yNC5jcnQwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL2MucGtpLmdvb2cv\nci9yNC5jcmwwEwYDVR0gBAwwCjAIBgZngQwBAgEwCgYIKoZIzj0EAwMDaAAwZQIx\nAOcCq1HW90OVznX+0RGU1cxAQXomvtgM8zItPZCuFQ8jSBJSjz5keROv9aYsAm5V\nsQIwJonMaAFi54mrfhfoFNZEfuNMSQ6/bIBiNLiyoX46FohQvKeIoJ99cx7sUkFN\n7uJW\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=",
+                        "fingerprint_sha1": "EI+/eU4Y7FNHpBTkNwzEUGwperI=",
+                        "fingerprint_sha256": "HfwWBfutNY2LyET3bRUgP6ycpcGnn9SFf/ryhk++v5Y=",
+                        "serial_number": 170074200136485300614847617070429275619,
+                        "not_valid_before": "2023-12-13T09:00:00Z",
+                        "not_valid_after": "2029-02-20T14:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services",
+                              "rfc4514_string": "O=Google Trust Services"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "WE1",
+                              "rfc4514_string": "CN=WE1"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 256,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp256r1",
+                          "ec_x": 50569337001019775542419232413368734004704230189724449705800802116400853085574,
+                          "ec_y": 34198221137025661509654727532611692388189710215628844282750320103361737849430
+                        }
+                      },
+                      {
+                        "as_pem": "-----BEGIN CERTIFICATE-----\nMIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\nVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\nA1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\nWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\nIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\nAATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\nQHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\nHYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\nBBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\np/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n-----END CERTIFICATE-----\n",
+                        "hpkp_pin": "mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=",
+                        "fingerprint_sha1": "d9MDZ7XgDBX2DDhh33zhO5JGTUc=",
+                        "fingerprint_sha256": "NJ36QFjF4mMSOzmK55VXPE4TE8g/5o+TVWzV6AMbPH0=",
+                        "serial_number": 159662532700760215368942768210,
+                        "not_valid_before": "2016-06-22T00:00:00Z",
+                        "not_valid_after": "2036-06-22T00:00:00Z",
+                        "subject_alternative_name": {
+                          "dns_names": [],
+                          "ip_addresses": []
+                        },
+                        "signature_hash_algorithm": {
+                          "name": "sha384",
+                          "digest_size": 48
+                        },
+                        "signature_algorithm_oid": {
+                          "name": "ecdsa-with-SHA384",
+                          "dotted_string": "1.2.840.10045.4.3.3"
+                        },
+                        "subject": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "issuer": {
+                          "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                          "attributes": [
+                            {
+                              "oid": {
+                                "name": "countryName",
+                                "dotted_string": "2.5.4.6"
+                              },
+                              "value": "US",
+                              "rfc4514_string": "C=US"
+                            },
+                            {
+                              "oid": {
+                                "name": "organizationName",
+                                "dotted_string": "2.5.4.10"
+                              },
+                              "value": "Google Trust Services LLC",
+                              "rfc4514_string": "O=Google Trust Services LLC"
+                            },
+                            {
+                              "oid": {
+                                "name": "commonName",
+                                "dotted_string": "2.5.4.3"
+                              },
+                              "value": "GTS Root R4",
+                              "rfc4514_string": "CN=GTS Root R4"
+                            }
+                          ]
+                        },
+                        "public_key": {
+                          "algorithm": "ECPublicKey",
+                          "key_size": 384,
+                          "rsa_e": null,
+                          "rsa_n": null,
+                          "ec_curve_name": "secp384r1",
+                          "ec_x": 37471137007972414188180584817005857701594611622436499579709175026540926241259029249891351931980308501383755467997302,
+                          "ec_y": 9183005163897397881300021216631269301828759039006067320487338515525388614843808427732645382476107253937965649436042
+                        }
+                      }
+                    ],
+                    "validation_error": null,
+                    "was_validation_successful": true
+                  }
+                ],
+                "verified_chain_has_sha1_signature": false,
+                "verified_chain_has_legacy_symantec_anchor": false,
+                "ocsp_response": null,
+                "ocsp_response_is_trusted": null,
+                "verified_certificate_chain": [
+                  {
+                    "as_pem": "-----BEGIN CERTIFICATE-----\nMIID0zCCA3igAwIBAgIRANUJklyNsQ4ZE6Ohyxx7BaswCgYIKoZIzj0EAwIwOzEL\nMAkGA1UEBhMCVVMxHjAcBgNVBAoTFUdvb2dsZSBUcnVzdCBTZXJ2aWNlczEMMAoG\nA1UEAxMDV0UxMB4XDTI2MDkwNTIyMjkzOVoXDTI2MTIwNDIzMjkzM1owGTEXMBUG\nA1UEAxMOY2xvdWRmbGFyZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR+\nzmFk2tUQkjjV68FkY5y3/ekkm/cMcgjpYsUGjYRvzpWC1YBNhkge5+86iffd6F2G\nHBciNS4t1CGn20FoEucOo4ICfTCCAnkwDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQM\nMAoGCCsGAQUFBwMBMAwGA1UdEwEB/wQCMAAwHQYDVR0OBBYEFNNSG3S1RQpCoCtj\nbB6fFUGKIvmHMB8GA1UdIwQYMBaAFJB3kjVnxP+ozKnme9mAeXvMk/k4MDUGCCsG\nAQUFBwEBBCkwJzAlBggrBgEFBQcwAoYZaHR0cDovL2kucGtpLmdvb2cvd2UxLmNy\ndDB3BgNVHREEcDBugg5jbG91ZGZsYXJlLmNvbYIRbnMuY2xvdWRmbGFyZS5jb22C\nEyoubnMuY2xvdWRmbGFyZS5jb22CGiouc2Vjb25kYXJ5LmNsb3VkZmxhcmUuY29t\nghhzZWNvbmRhcnkuY2xvdWRmbGFyZS5jb20wEwYDVR0gBAwwCjAIBgZngQwBAgEw\nNgYDVR0fBC8wLTAroCmgJ4YlaHR0cDovL2MucGtpLmdvb2cvd2UxL2dBb29BZnp4\nOXV3LmNybDCCAQUGCisGAQQB1nkCBAIEgfYEgfMA8QB2AMIxfldFGaNF7n843rKQ\nQevHwiFaIr9/1bWtdprZDlLNAAABoHPoBMoAAAQDAEcwRQIgTY2icRQ9zdZ1IDYM\nC16AcunlNQO08Ne3KvUJzQPo2pcCIQDpsVu06QMCPVGvMqbsyuErSWGfUSNV4NZN\n5MA6VT1hgAB3ANdtfRDRp/V3wsfpX9cAv/mCyTNaZeHQswFzF8DIxWl3AAABoHPo\nBLcAAAQDAEgwRgIhAJ9FxiJ8f+NHMEPwlAhntMe5kFwQaFQiP4oeGozz5ePcAiEA\n+lvQPBAjQDswZHOWmzHIZkrY6hy3N0eH056gdgAdO7kwCgYIKoZIzj0EAwIDSQAw\nRgIhAJwzW+J0yoGca/N+Dy3kekDofJHSzhdub2w/j2YqchfeAiEAku056/zi664u\nr1tIjbzAooVw0aBhBKgnT1AiT+lZaWI=\n-----END CERTIFICATE-----\n",
+                    "hpkp_pin": "dwjmLC0WOWNMwJPMHi67GYDnrQDrLk5cFVlmeutsGCs=",
+                    "fingerprint_sha1": "UQznTOpNSLB0hpH2GRghhNItAP0=",
+                    "fingerprint_sha256": "lhA06+c8CquS7lwSekJluZq8Ns3wtTuCsQeI4IenKhQ=",
+                    "serial_number": 283175262338558411663964591884949194155,
+                    "not_valid_before": "2026-09-05T22:29:39Z",
+                    "not_valid_after": "2026-12-04T23:29:33Z",
+                    "subject_alternative_name": {
+                      "dns_names": [
+                        "cloudflare.com",
+                        "ns.cloudflare.com",
+                        "*.ns.cloudflare.com",
+                        "*.secondary.cloudflare.com",
+                        "secondary.cloudflare.com"
+                      ],
+                      "ip_addresses": []
+                    },
+                    "signature_hash_algorithm": {
+                      "name": "sha256",
+                      "digest_size": 32
+                    },
+                    "signature_algorithm_oid": {
+                      "name": "ecdsa-with-SHA256",
+                      "dotted_string": "1.2.840.10045.4.3.2"
+                    },
+                    "subject": {
+                      "rfc4514_string": "CN=cloudflare.com",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "cloudflare.com",
+                          "rfc4514_string": "CN=cloudflare.com"
+                        }
+                      ]
+                    },
+                    "issuer": {
+                      "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "countryName",
+                            "dotted_string": "2.5.4.6"
+                          },
+                          "value": "US",
+                          "rfc4514_string": "C=US"
+                        },
+                        {
+                          "oid": {
+                            "name": "organizationName",
+                            "dotted_string": "2.5.4.10"
+                          },
+                          "value": "Google Trust Services",
+                          "rfc4514_string": "O=Google Trust Services"
+                        },
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "WE1",
+                          "rfc4514_string": "CN=WE1"
+                        }
+                      ]
+                    },
+                    "public_key": {
+                      "algorithm": "ECPublicKey",
+                      "key_size": 256,
+                      "rsa_e": null,
+                      "rsa_n": null,
+                      "ec_curve_name": "secp256r1",
+                      "ec_x": 57356061605271946836966352097412504667136422782477541639729331197998507782094,
+                      "ec_y": 67625778088337208370528165424062315221169472801652254893826175362238508099342
+                    }
+                  },
+                  {
+                    "as_pem": "-----BEGIN CERTIFICATE-----\nMIICnzCCAiWgAwIBAgIQf/MZd5csIkp2FV0TttaF4zAKBggqhkjOPQQDAzBHMQsw\nCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEU\nMBIGA1UEAxMLR1RTIFJvb3QgUjQwHhcNMjMxMjEzMDkwMDAwWhcNMjkwMjIwMTQw\nMDAwWjA7MQswCQYDVQQGEwJVUzEeMBwGA1UEChMVR29vZ2xlIFRydXN0IFNlcnZp\nY2VzMQwwCgYDVQQDEwNXRTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvzTr+\nZ1dHTCEDhUDCR127WEcPQMFcF4XGGTfn1XzthkubgdnXGhOlCgP4mMTG6J7/EFmP\nLCaY9eYmJbsPAvpWo4H+MIH7MA4GA1UdDwEB/wQEAwIBhjAdBgNVHSUEFjAUBggr\nBgEFBQcDAQYIKwYBBQUHAwIwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU\nkHeSNWfE/6jMqeZ72YB5e8yT+TgwHwYDVR0jBBgwFoAUgEzW63T/STaj1dj8tT7F\navCUHYwwNAYIKwYBBQUHAQEEKDAmMCQGCCsGAQUFBzAChhhodHRwOi8vaS5wa2ku\nZ29vZy9yNC5jcnQwKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL2MucGtpLmdvb2cv\nci9yNC5jcmwwEwYDVR0gBAwwCjAIBgZngQwBAgEwCgYIKoZIzj0EAwMDaAAwZQIx\nAOcCq1HW90OVznX+0RGU1cxAQXomvtgM8zItPZCuFQ8jSBJSjz5keROv9aYsAm5V\nsQIwJonMaAFi54mrfhfoFNZEfuNMSQ6/bIBiNLiyoX46FohQvKeIoJ99cx7sUkFN\n7uJW\n-----END CERTIFICATE-----\n",
+                    "hpkp_pin": "kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=",
+                    "fingerprint_sha1": "EI+/eU4Y7FNHpBTkNwzEUGwperI=",
+                    "fingerprint_sha256": "HfwWBfutNY2LyET3bRUgP6ycpcGnn9SFf/ryhk++v5Y=",
+                    "serial_number": 170074200136485300614847617070429275619,
+                    "not_valid_before": "2023-12-13T09:00:00Z",
+                    "not_valid_after": "2029-02-20T14:00:00Z",
+                    "subject_alternative_name": {
+                      "dns_names": [],
+                      "ip_addresses": []
+                    },
+                    "signature_hash_algorithm": {
+                      "name": "sha384",
+                      "digest_size": 48
+                    },
+                    "signature_algorithm_oid": {
+                      "name": "ecdsa-with-SHA384",
+                      "dotted_string": "1.2.840.10045.4.3.3"
+                    },
+                    "subject": {
+                      "rfc4514_string": "CN=WE1,O=Google Trust Services,C=US",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "countryName",
+                            "dotted_string": "2.5.4.6"
+                          },
+                          "value": "US",
+                          "rfc4514_string": "C=US"
+                        },
+                        {
+                          "oid": {
+                            "name": "organizationName",
+                            "dotted_string": "2.5.4.10"
+                          },
+                          "value": "Google Trust Services",
+                          "rfc4514_string": "O=Google Trust Services"
+                        },
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "WE1",
+                          "rfc4514_string": "CN=WE1"
+                        }
+                      ]
+                    },
+                    "issuer": {
+                      "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "countryName",
+                            "dotted_string": "2.5.4.6"
+                          },
+                          "value": "US",
+                          "rfc4514_string": "C=US"
+                        },
+                        {
+                          "oid": {
+                            "name": "organizationName",
+                            "dotted_string": "2.5.4.10"
+                          },
+                          "value": "Google Trust Services LLC",
+                          "rfc4514_string": "O=Google Trust Services LLC"
+                        },
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "GTS Root R4",
+                          "rfc4514_string": "CN=GTS Root R4"
+                        }
+                      ]
+                    },
+                    "public_key": {
+                      "algorithm": "ECPublicKey",
+                      "key_size": 256,
+                      "rsa_e": null,
+                      "rsa_n": null,
+                      "ec_curve_name": "secp256r1",
+                      "ec_x": 50569337001019775542419232413368734004704230189724449705800802116400853085574,
+                      "ec_y": 34198221137025661509654727532611692388189710215628844282750320103361737849430
+                    }
+                  },
+                  {
+                    "as_pem": "-----BEGIN CERTIFICATE-----\nMIICCTCCAY6gAwIBAgINAgPlwGjvYxqccpBQUjAKBggqhkjOPQQDAzBHMQswCQYD\nVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEUMBIG\nA1UEAxMLR1RTIFJvb3QgUjQwHhcNMTYwNjIyMDAwMDAwWhcNMzYwNjIyMDAwMDAw\nWjBHMQswCQYDVQQGEwJVUzEiMCAGA1UEChMZR29vZ2xlIFRydXN0IFNlcnZpY2Vz\nIExMQzEUMBIGA1UEAxMLR1RTIFJvb3QgUjQwdjAQBgcqhkjOPQIBBgUrgQQAIgNi\nAATzdHOnaItgrkO4NcWBMHtLSZ37wWHO5t5GvWvVYRg1rkDdc/eJkTBa6zzuhXyi\nQHY7qca4R9gq55KRanPpsXI5nymfopjTX15YhmUPoYRlBtHci8nHc8iMai/lxKvR\nHYqjQjBAMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW\nBBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D\n9J+uHXqnLrmvT/aDHQ4thQEd0dlq7A/Cr8deVl5c1RxYIigL9zC2L7F8AjEA8GE8\np/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD\n-----END CERTIFICATE-----\n",
+                    "hpkp_pin": "mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=",
+                    "fingerprint_sha1": "d9MDZ7XgDBX2DDhh33zhO5JGTUc=",
+                    "fingerprint_sha256": "NJ36QFjF4mMSOzmK55VXPE4TE8g/5o+TVWzV6AMbPH0=",
+                    "serial_number": 159662532700760215368942768210,
+                    "not_valid_before": "2016-06-22T00:00:00Z",
+                    "not_valid_after": "2036-06-22T00:00:00Z",
+                    "subject_alternative_name": {
+                      "dns_names": [],
+                      "ip_addresses": []
+                    },
+                    "signature_hash_algorithm": {
+                      "name": "sha384",
+                      "digest_size": 48
+                    },
+                    "signature_algorithm_oid": {
+                      "name": "ecdsa-with-SHA384",
+                      "dotted_string": "1.2.840.10045.4.3.3"
+                    },
+                    "subject": {
+                      "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "countryName",
+                            "dotted_string": "2.5.4.6"
+                          },
+                          "value": "US",
+                          "rfc4514_string": "C=US"
+                        },
+                        {
+                          "oid": {
+                            "name": "organizationName",
+                            "dotted_string": "2.5.4.10"
+                          },
+                          "value": "Google Trust Services LLC",
+                          "rfc4514_string": "O=Google Trust Services LLC"
+                        },
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "GTS Root R4",
+                          "rfc4514_string": "CN=GTS Root R4"
+                        }
+                      ]
+                    },
+                    "issuer": {
+                      "rfc4514_string": "CN=GTS Root R4,O=Google Trust Services LLC,C=US",
+                      "attributes": [
+                        {
+                          "oid": {
+                            "name": "countryName",
+                            "dotted_string": "2.5.4.6"
+                          },
+                          "value": "US",
+                          "rfc4514_string": "C=US"
+                        },
+                        {
+                          "oid": {
+                            "name": "organizationName",
+                            "dotted_string": "2.5.4.10"
+                          },
+                          "value": "Google Trust Services LLC",
+                          "rfc4514_string": "O=Google Trust Services LLC"
+                        },
+                        {
+                          "oid": {
+                            "name": "commonName",
+                            "dotted_string": "2.5.4.3"
+                          },
+                          "value": "GTS Root R4",
+                          "rfc4514_string": "CN=GTS Root R4"
+                        }
+                      ]
+                    },
+                    "public_key": {
+                      "algorithm": "ECPublicKey",
+                      "key_size": 384,
+                      "rsa_e": null,
+                      "rsa_n": null,
+                      "ec_curve_name": "secp384r1",
+                      "ec_x": 37471137007972414188180584817005857701594611622436499579709175026540926241259029249891351931980308501383755467997302,
+                      "ec_y": 9183005163897397881300021216631269301828759039006067320487338515525388614843808427732645382476107253937965649436042
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "ssl_2_0_cipher_suites": {
+          "status": "NOT_SCHEDULED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": null
+        },
+        "ssl_3_0_cipher_suites": {
+          "status": "NOT_SCHEDULED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": null
+        },
+        "tls_1_0_cipher_suites": {
+          "status": "NOT_SCHEDULED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": null
+        },
+        "tls_1_2_cipher_suites": {
+          "status": "COMPLETED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": {
+            "tls_version_used": "TLS_1_2",
+            "is_tls_version_supported": true,
+            "accepted_cipher_suites": [
+              {
+                "cipher_suite": {
+                  "name": "TLS_RSA_WITH_AES_256_GCM_SHA384",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "AES256-GCM-SHA384"
+                },
+                "ephemeral_key": null
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_RSA_WITH_AES_256_CBC_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "AES256-SHA256"
+                },
+                "ephemeral_key": null
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_RSA_WITH_AES_256_CBC_SHA",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "AES256-SHA"
+                },
+                "ephemeral_key": null
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_RSA_WITH_AES_128_GCM_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "AES128-GCM-SHA256"
+                },
+                "ephemeral_key": null
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_RSA_WITH_AES_128_CBC_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "AES128-SHA256"
+                },
+                "ephemeral_key": null
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_RSA_WITH_AES_128_CBC_SHA",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "AES128-SHA"
+                },
+                "ephemeral_key": null
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-RSA-CHACHA20-POLY1305"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 253,
+                  "public_bytes": "qiI0a/jd9f7jGDpIUqVxAlr4DAJsWNm3VfyIjumfCl0=",
+                  "curve_name": "X25519",
+                  "x": null,
+                  "y": null,
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-RSA-AES256-GCM-SHA384"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BN0qO8uLX1GsWqZvNyL/3rfIzkZOgIbcfnsPIljZ/QXO2r+24gIgWaezZggdAJKge0nKgeSdSdGTxbyu3bILv4Q=",
+                  "curve_name": "secp256r1",
+                  "x": "3So7y4tfUaxapm83Iv/et8jORk6Ahtx+ew8iWNn9Bc4=",
+                  "y": "2r+24gIgWaezZggdAJKge0nKgeSdSdGTxbyu3bILv4Q=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-RSA-AES256-SHA384"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BEO87ikFBdDfcETGAqsImqqp4R0WPiiI7PFKo+1Fhf1zY39BN2XdurnV+JKa9yIHyX06pEz1PTTZ/l7GjnrNSgM=",
+                  "curve_name": "secp256r1",
+                  "x": "Q7zuKQUF0N9wRMYCqwiaqqnhHRY+KIjs8Uqj7UWF/XM=",
+                  "y": "Y39BN2XdurnV+JKa9yIHyX06pEz1PTTZ/l7GjnrNSgM=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-RSA-AES256-SHA"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BK4fVLXQKN4yo+D3vnMNex2HOOIbvpRPKyowd7s874ORQq8w2dhAWUfGKQZ2CFLhpOuECVk/jG3JVwTE5wVrRaE=",
+                  "curve_name": "secp256r1",
+                  "x": "rh9UtdAo3jKj4Pe+cw17HYc44hu+lE8rKjB3uzzvg5E=",
+                  "y": "Qq8w2dhAWUfGKQZ2CFLhpOuECVk/jG3JVwTE5wVrRaE=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "ECDHE-RSA-AES128-GCM-SHA256"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BLjcwDEc5yRr+ZyiMAIa9aYB7dyKwQaikMxGQsZ5yHhST5tivPSCReJkJDuQO1pQfwd4DKOGUxHczQ/ap4Nix1I=",
+                  "curve_name": "secp256r1",
+                  "x": "uNzAMRznJGv5nKIwAhr1pgHt3IrBBqKQzEZCxnnIeFI=",
+                  "y": "T5tivPSCReJkJDuQO1pQfwd4DKOGUxHczQ/ap4Nix1I=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "ECDHE-RSA-AES128-SHA256"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BPcHbq3lsnHTO0Ofr9fOj68fMhtdo09rK+riUU0tQUZshPT/7bk+imrsYD/iq8hVnM7a9kHJCj1OZFE1rCO1H18=",
+                  "curve_name": "secp256r1",
+                  "x": "9wdureWycdM7Q5+v186Prx8yG12jT2sr6uJRTS1BRmw=",
+                  "y": "hPT/7bk+imrsYD/iq8hVnM7a9kHJCj1OZFE1rCO1H18=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "ECDHE-RSA-AES128-SHA"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BLrOAS7F8Oyku2F2iNMrSvfG+W13WDUMg5Ijgdn7ke04oqAlj209tPilvmgWRiITjowfZ5olv4eCmR3YJqUOXDs=",
+                  "curve_name": "secp256r1",
+                  "x": "us4BLsXw7KS7YXaI0ytK98b5bXdYNQyDkiOB2fuR7Tg=",
+                  "y": "oqAlj209tPilvmgWRiITjowfZ5olv4eCmR3YJqUOXDs=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-ECDSA-CHACHA20-POLY1305"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 253,
+                  "public_bytes": "xcuV/K/wNPDG2ho3F9ovTVqfMx6s1hg570yvJ3XhbSw=",
+                  "curve_name": "X25519",
+                  "x": null,
+                  "y": null,
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-ECDSA-AES256-GCM-SHA384"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BFuEoB23/BCaCRBASkMxrwDJhtgvS4vlDpY9iozwW4vPibGlB//P17NjuUiXJ9kbwoQlPBpK4cb0qt3gBHFCL2E=",
+                  "curve_name": "secp256r1",
+                  "x": "W4SgHbf8EJoJEEBKQzGvAMmG2C9Li+UOlj2KjPBbi88=",
+                  "y": "ibGlB//P17NjuUiXJ9kbwoQlPBpK4cb0qt3gBHFCL2E=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-ECDSA-AES256-SHA384"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BExgY/HIxISqUGINss7LKidBtae4mA+bjxVyL1qGp7kneRYArMtzlg3snxrooan+mkVn1s8RKse2EE4jIMZomfM=",
+                  "curve_name": "secp256r1",
+                  "x": "TGBj8cjEhKpQYg2yzssqJ0G1p7iYD5uPFXIvWoanuSc=",
+                  "y": "eRYArMtzlg3snxrooan+mkVn1s8RKse2EE4jIMZomfM=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "ECDHE-ECDSA-AES256-SHA"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BAvhGdPDFFI6JrKdl0AW37YEBe7lGap/FlXXekmDDVULyddPewlX26DAsX7bvCiZe/AzWOlWNJ8U1fp5SvODgKQ=",
+                  "curve_name": "secp256r1",
+                  "x": "C+EZ08MUUjomsp2XQBbftgQF7uUZqn8WVdd6SYMNVQs=",
+                  "y": "yddPewlX26DAsX7bvCiZe/AzWOlWNJ8U1fp5SvODgKQ=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "ECDHE-ECDSA-AES128-GCM-SHA256"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BAQZ2E+vKGUxONssNvQ38m3qr3yxDvwh4j89RBejyL3kYp35mik1GpY0ig6u9oePA/WqXeHfFVu84ehpAXwAEGg=",
+                  "curve_name": "secp256r1",
+                  "x": "BBnYT68oZTE42yw29DfybeqvfLEO/CHiPz1EF6PIveQ=",
+                  "y": "Yp35mik1GpY0ig6u9oePA/WqXeHfFVu84ehpAXwAEGg=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "ECDHE-ECDSA-AES128-SHA256"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BCUe7zGch7Rn2dHtjSbptvtmycD/YA5SW9saK7ISy8kIhhOBRh0s3Pa5EF6fxfC0tuy/ftDeHEjTSYN7AwA1gL0=",
+                  "curve_name": "secp256r1",
+                  "x": "JR7vMZyHtGfZ0e2NJum2+2bJwP9gDlJb2xorshLLyQg=",
+                  "y": "hhOBRh0s3Pa5EF6fxfC0tuy/ftDeHEjTSYN7AwA1gL0=",
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "ECDHE-ECDSA-AES128-SHA"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 256,
+                  "public_bytes": "BP3NIAlYmmbXhxq/RC3Ul8TUK2SUvykm46c+LxcPvqBKn0d4DaZearGzUHUv5s/+kpVH7+v0s9VS8D+qU3CfUD0=",
+                  "curve_name": "secp256r1",
+                  "x": "/c0gCViaZteHGr9ELdSXxNQrZJS/KSbjpz4vFw++oEo=",
+                  "y": "n0d4DaZearGzUHUv5s/+kpVH7+v0s9VS8D+qU3CfUD0=",
+                  "prime": null,
+                  "generator": null
+                }
+              }
+            ],
+            "rejected_cipher_suites": []
+          }
+        },
+        "tls_1_3_cipher_suites": {
+          "status": "COMPLETED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": {
+            "tls_version_used": "TLS_1_3",
+            "is_tls_version_supported": true,
+            "accepted_cipher_suites": [
+              {
+                "cipher_suite": {
+                  "name": "TLS_CHACHA20_POLY1305_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "TLS_CHACHA20_POLY1305_SHA256"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 253,
+                  "public_bytes": "e8nOCP73Gmamp5In0/caHbgxD95ljJTG6Z7IcFuGa20=",
+                  "curve_name": "X25519",
+                  "x": null,
+                  "y": null,
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_AES_256_GCM_SHA384",
+                  "is_anonymous": false,
+                  "key_size": 256,
+                  "openssl_name": "TLS_AES_256_GCM_SHA384"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 253,
+                  "public_bytes": "1WJfkV9NuK2lfr4T1vPnugm3OEdaZsq7NQBih9fGaQE=",
+                  "curve_name": "X25519",
+                  "x": null,
+                  "y": null,
+                  "prime": null,
+                  "generator": null
+                }
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_AES_128_GCM_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "TLS_AES_128_GCM_SHA256"
+                },
+                "ephemeral_key": {
+                  "type_name": "ECDH",
+                  "size": 253,
+                  "public_bytes": "UobDIL84ZHnohOu5S6AlaCsW5Pj7dGkcsM60H5UjPEE=",
+                  "curve_name": "X25519",
+                  "x": null,
+                  "y": null,
+                  "prime": null,
+                  "generator": null
+                }
+              }
+            ],
+            "rejected_cipher_suites": [
+              {
+                "cipher_suite": {
+                  "name": "TLS_AES_128_CCM_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "TLS_AES_128_CCM_SHA256"
+                },
+                "error_message": "TLS alert: handshake failure"
+              },
+              {
+                "cipher_suite": {
+                  "name": "TLS_AES_128_CCM_8_SHA256",
+                  "is_anonymous": false,
+                  "key_size": 128,
+                  "openssl_name": "TLS_AES_128_CCM_8_SHA256"
+                },
+                "error_message": "TLS alert: handshake failure"
+              }
+            ]
+          }
+        },
+        "elliptic_curves": {
+          "status": "COMPLETED",
+          "error_reason": null,
+          "error_trace": null,
+          "result": {
+            "supports_ecdh_key_exchange": true,
+            "supported_curves": [
+              {
+                "name": "X25519",
+                "openssl_nid": 1034
+              },
+              {
+                "name": "secp256r1",
+                "openssl_nid": 415
+              },
+              {
+                "name": "secp384r1",
+                "openssl_nid": 715
+              },
+              {
+                "name": "secp521r1",
+                "openssl_nid": 716
+              }
+            ],
+            "rejected_curves": [
+              {
+                "name": "X448",
+                "openssl_nid": 1035
+              },
+              {
+                "name": "brainpoolP256r1",
+                "openssl_nid": 927
+              },
+              {
+                "name": "brainpoolP384r1",
+                "openssl_nid": 931
+              },
+              {
+                "name": "brainpoolP512r1",
+                "openssl_nid": 933
+              },
+              {
+                "name": "secp160k1",
+                "openssl_nid": 708
+              },
+              {
+                "name": "secp160r1",
+                "openssl_nid": 709
+              },
+              {
+                "name": "secp160r2",
+                "openssl_nid": 710
+              },
+              {
+                "name": "secp192k1",
+                "openssl_nid": 711
+              },
+              {
+                "name": "secp192r1",
+                "openssl_nid": 409
+              },
+              {
+                "name": "secp224k1",
+                "openssl_nid": 712
+              },
+              {
+                "name": "secp224r1",
+                "openssl_nid": 713
+              },
+              {
+                "name": "secp256k1",
+                "openssl_nid": 714
+              },
+              {
+                "name": "sect163k1",
+                "openssl_nid": 721
+              },
+              {
+                "name": "sect163r1",
+                "openssl_nid": 722
+              },
+              {
+                "name": "sect163r2",
+                "openssl_nid": 723
+              },
+              {
+                "name": "sect193r1",
+                "openssl_nid": 724
+              },
+              {
+                "name": "sect193r2",
+                "openssl_nid": 725
+              },
+              {
+                "name": "sect233k1",
+                "openssl_nid": 726
+              },
+              {
+                "name": "sect233r1",
+                "openssl_nid": 727
+              },
+              {
+                "name": "sect239k1",
+                "openssl_nid": 728
+              },
+              {
+                "name": "sect283k1",
+                "openssl_nid": 729
+              },
+              {
+                "name": "sect283r1",
+                "openssl_nid": 730
+              },
+              {
+                "name": "sect409k1",
+                "openssl_nid": 731
+              },
+              {
+                "name": "sect409r1",
+                "openssl_nid": 732
+              },
+              {
+                "name": "sect571k1",
+                "openssl_nid": 733
+              },
+              {
+                "name": "sect571r1",
+                "openssl_nid": 734
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "date_scans_started": "2026-10-15T10:09:22.292941Z",
+  "date_scans_completed": "2026-10-15T10:09:24.198645Z",
+  "sslyze_version": "6.3.1",
+  "sslyze_url": "https://github.com/nabla-c0d3/sslyze"
+}
