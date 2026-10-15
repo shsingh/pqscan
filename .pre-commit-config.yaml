@@ -1,0 +1,28 @@
+# See https://pre-commit.com for more information
+# pre-commit.ci runs this on every PR; run locally with
+# `pre-commit run --all-files` (hooks are installed per clone; see CONTRIBUTING)
+default_stages: [pre-commit]
+ci:
+  autofix_prs: false
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '.*\.(pem|crt|key)$'   # never rewrite cert/key material
+      - id: end-of-file-fixer
+        exclude: '.*\.(pem|crt|key)$'
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  # shell scripts (probe harness helpers); keep them shellcheck-clean
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1-1
+    hooks:
+      - id: shellcheck
+        files: '\.sh$'

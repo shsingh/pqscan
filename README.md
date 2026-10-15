@@ -1,1 +1,89 @@
 # pqscan
+
+A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
+readiness scanner. One static binary that enumerates protocol versions, cipher
+suites, key-exchange groups, signature algorithms and certificate properties —
+scores every observation on a PQC-readiness rubric — and speaks the
+Project Discovery dialect (stdin → stdout, streaming JSONL, chainable with
+`subfinder` → `httpx` → `naabu` → `nuclei`).
+
+**Status:** pre-alpha. The product specification
+([`docs/spec.md`](docs/spec.md)) is under review on
+[issue #1](https://github.com/shsingh/pqscan/issues/1); the M0 measurement
+gate (engine spike + Go/Rust re-scoring) has not started.
+
+## What it does
+
+- **fast mode** — one engineered handshake per target (browser-grade hello,
+  hybrid ML-KEM key share preferred): negotiated parameters, certificate
+  chain, ALPN, features.
+- **deep mode** — exhaustive suite-by-suite, version-by-version, group and
+  signature-algorithm probing (offer-one / observe-accept), HRR detection,
+  resumption and 0-RTT checks.
+- **pq mode** — forced-group PQ ladder, PQ signature and certificate
+  classification, estate-wide readiness verdicts with an HNDL risk flag.
+- **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443;
+  HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
+- **Chainable** — hosts, `ip:port`, CIDR, subfinder/httpx/naabu/masscan
+  output in; JSONL/CSV/text/URLs out.
+
+## Quick examples
+
+```bash
+# subfinder output feeds pqscan directly
+subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
+
+# naabu's port truth feeds the cipher pass
+naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
+
+# estate PQ calendar job; jq triage of everything not PQC-ready
+pqscan -l estate.txt -mode pq -jsonl \
+  | jq -r 'select(.pq.verdict != "A+" and .pq.verdict != "A") | [.target.host,.pq.verdict] | @tsv'
+```
+
+## Specification and roadmap
+
+The canonical specification is
+[`docs/spec.md`](docs/spec.md); every issue links the sections it implements
+via heading anchors.
+
+| Section | Anchor |
+|---|---|
+| Problem statement | [`docs/spec.md#1-problem-statement`](docs/spec.md#1-problem-statement) |
+| Goals and non-goals | [`docs/spec.md#2-goals-and-non-goals`](docs/spec.md#2-goals-and-non-goals) |
+| Related work | [`docs/spec.md#3-related-work--honest-survey`](docs/spec.md#3-related-work--honest-survey) |
+| Language decision | [`docs/spec.md#4-language-decision-go-or-rust`](docs/spec.md#4-language-decision-go-or-rust) |
+| Feature set | [`docs/spec.md#5-feature-set`](docs/spec.md#5-feature-set) |
+| Chaining recipes | [`docs/spec.md#6-chaining-reference-implementations`](docs/spec.md#6-chaining-reference-implementations) |
+| Async architecture and throughput | [`docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class`](docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class) |
+| CLI surface | [`docs/spec.md#8-cli-surface`](docs/spec.md#8-cli-surface) |
+| Milestones | [`docs/spec.md#9-milestones`](docs/spec.md#9-milestones) |
+| Test and verification | [`docs/spec.md#10-test-and-verification-strategy`](docs/spec.md#10-test-and-verification-strategy) |
+| PQC codepoints (registry snapshot) | [`docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot`](docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot) |
+
+Roadmap milestones (no time claims — acceptance-criteria driven):
+
+- **M0** — engine spike + measurement report (Go/Rust decision gate)
+- **M1** — fast mode + the output dialect
+- **M2** — PQC classification + deep mode
+- **M3** — scale hardening (budgets, breakers, WAL resume, SLO suite)
+- **M4** — QUIC plane + PTR enrichment
+- **M5** — release packaging
+
+## Contributing
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the working agreement
+  (Conventional Commits, signed commits, one logical change per PR).
+- [`AGENTS.md`](AGENTS.md) — the single source of truth for contributors and
+  coding agents.
+- [`SECURITY.md`](SECURITY.md) — vulnerability reporting
+  ([private advisory](https://github.com/shsingh/pqscan/security/advisories/new)).
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
+Only scan systems you own or are authorised to test; the tool's etiquette
+defaults (rate caps, per-subnet concurrency, circuit breakers) are published
+defaults and security-relevant.
+
+## Licence
+
+[MIT](LICENSE).
