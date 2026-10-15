@@ -246,7 +246,9 @@ func TestResolvePTR_MalformedPTR(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			dns := &fakeDNS{table: map[string][]string{target.String(): tc.ptrs}}
-			p := New(Options{Workers: 1, LookupAddr: dns.lookup})
+			// CacheSize>0: the row's second attempt distinguishes a cached
+			// positive (1 injected lookup) from an uncached miss (2).
+			p := New(Options{Workers: 1, CacheSize: 4, LookupAddr: dns.lookup})
 			got, ok := p.ResolvePTR(context.Background(), target)
 			if got != tc.want || ok != tc.wantOK {
 				t.Errorf("ResolvePTR: got (%q, %v), want (%q, %v)", got, ok, tc.want, tc.wantOK)
