@@ -47,8 +47,14 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Build pqscan
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
         # NOTE: main.version is currently declared const in cmd/pqscan/main.go,
         # so the linker -X stamp is inert until it becomes a var (follow-up).
+        # GOOS/GOARCH must be set from the matrix: without them go build emits
+        # the runner-native binary (found in the PR-56 dispatch test: all
+        # three artifacts were ELF x86-64).
         run: |
           CGO_ENABLED=0 go build -trimpath \
             -ldflags "-s -w -X main.version=${{ inputs.version }}" \

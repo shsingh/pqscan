@@ -29,16 +29,20 @@ together with the tooling needed to verify it. Artifacts are verifiable
   schema-1 machine report via `-debug-out diag.json`
   ([USAGE.md](https://github.com/shsingh/pqscan/blob/main/USAGE.md),
   [issue #29](https://github.com/shsingh/pqscan/issues/29)).
-- **Single-target fast mode.** The fast path the run pipeline will
-  drive at M1 is engine-proven end to end on the loopback fixture:
-  **2,952 handshakes/s at W=8** (re-run 3,026) against the
-  ≥ 2,500 target
-  ([issue #10](https://github.com/shsingh/pqscan/issues/10)).
-- **Measured benchmarks.** The latency decomposition holds on live
-  hosts: connect ≈ 1 RTT (18.94 ms), handshake 23.44 ms, total ≈
-  2 RTT + server compute (42.4 ms, cloudflare seq×20); QUIC per-conn
-  cost 22.5 ms avg handshake, goroutine delta 3, heap 665 KB. Full SLO
-  cells in [docs/m0-report.md](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md).
+- **Single-target fast mode (`-u`).** The binary scans a single target
+  (`host`, `host:port`, `ip:port`) in fast mode: both planes probed
+  (QUIC skippable via `-quic-off`), jsonl/text output via `-jsonl` /
+  `-o` — live on the proven engines (PQ-30,
+  [PR #55](https://github.com/shsingh/pqscan/pull/55)).
+- **Measured benchmarks.** The M0 gate measured the single-target fast
+  path end to end on the loopback fixture: **2,952 handshakes/s at
+  W=8** (re-run 3,026) against the ≥ 2,500 target
+  ([issue #10](https://github.com/shsingh/pqscan/issues/10)). The
+  latency decomposition holds on live hosts: connect ≈ 1 RTT
+  (18.94 ms), handshake 23.44 ms, total ≈ 2 RTT + server compute
+  (42.4 ms, cloudflare seq×20); QUIC per-conn cost 22.5 ms avg
+  handshake, goroutine delta 3, heap 665 KB. Full SLO cells in
+  [docs/m0-report.md](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md).
 - **SLSA provenance on every artifact.** Every binary in this release
   is built in Actions and attested in the same job that produces it
   (`actions/attest-build-provenance`, no post-hoc wrapping):
@@ -55,9 +59,16 @@ must match the artifacts for this repository. With the `gh` CLI:
 gh attestation verify <artifact> -R shsingh/pqscan
 ```
 
-A verified run exits `0` with a verified/attested summary line for the
-artifact's digest. The per-run bundle is also uploaded as an artifact
-(`*.intoto.jsonl`) and ships as a release asset for offline checks.
+A verified run exits `0`; a non-TTY invocation of the CLI may print
+nothing on success — for the structured proof (subject digest, signer
+identity, Rekor timestamp, build invocation) use:
+
+```
+gh attestation verify <artifact> -R shsingh/pqscan --format json
+```
+
+The Sigstore bundle is also retrievable offline per artifact with
+`gh attestation download <artifact> -R shsingh/pqscan`.
 
 Each release also carries `CHECKSUMS-sha256.txt` (sha256 over every
 binary). From the directory holding the artifacts:
@@ -76,8 +87,9 @@ surface:
   ([#38](https://github.com/shsingh/pqscan/issues/38)), output encoders
   and the WAL ([#39](https://github.com/shsingh/pqscan/issues/39)).
   Until then the rc1 binary's scan surface is intentionally minimal —
-  the live-proven engines are demonstrated through the M0 gate runs
-  (#8, #9, #10) and the diagnostics path is fully functional.
+  single targets via the fast mode (`-u`) on the live-proven engines
+  and the diagnostics path fully functional; targets-as-grammar
+  (CIDRs, ranges, lists) are rejected until PQ-15 lands.
 - **Deep- and pq-mode ladders** land with M2: the deep-mode plan
   executor (offer-one matrix, pruned DAG)
   ([#43](https://github.com/shsingh/pqscan/issues/43)), PQC readiness
