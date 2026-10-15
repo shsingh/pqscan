@@ -82,6 +82,14 @@ type Options struct {
 	// at aimd's floor and moves with the run (successes grow, probe
 	// timeouts halve); MaxWindow is only its ceiling.
 	MaxWindow int
+	// Mode is the per-target scan mode (-mode, PQ-20): fast (the single
+	// profile handshake, "" = fast for zero-value callers), deep (the
+	// executed deepplan offer-one plan) or pq (the forced PQ ladder).
+	Mode string
+	// DeepPlan selects the -mode deep plan cap (-deep): deepplan standard
+	// (default, <=24 probes per target) or full (the complete matrix).
+	// It never affects the fast/pq modes.
+	DeepPlan string
 }
 
 // stdin is the process stdin seam: run() reads composed "--" specs from it.
@@ -271,7 +279,22 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 	return recs, nil
 }
 
-// scanTarget is the per-target fast-mode probe path (rc1 scanSingle,
+// scanTarget dispatches the per-target scan by run mode (PQ-20, issue
+// #43): fast is the shipped single-handshake probe; pq appends the forced
+// PQ ladder; deep consumes the deepplan.Build plan. Callers that leave
+// Mode unset get the fast engine (zero-value compatibility).
+func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
+	switch opts.Mode {
+	case modeDeep:
+		return scanTargetDeep(t, opts)
+	case modePQ:
+		return scanTargetPQ(t, opts)
+	default:
+		return scanTargetFast(t, opts)
+	}
+}
+
+// scanTargetFast is the per-target fast-mode probe path (rc1 scanSingle,
 // grammar-driven: the parsed Target already carries its canonical host,
 // port and class, so no ad-hoc host:port splitting happens here). It
 // reports the TCP plane's probe outcome beside the record — failing = the
@@ -280,7 +303,7 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 // throttle signal; plain refusals are rejections, not congestion). A
 // scan-error record from the rubric is NOT a probe failure: the handshake
 // itself succeeded.
-func scanTarget(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
+func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, failing, timedOut bool) {
 	timeout := opts.ProbeTimeout
 	if timeout <= 0 {
 		timeout = defaultProbeTimeout
