@@ -60,10 +60,17 @@ subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 # naabu's port truth feeds the cipher pass
 naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
 
+# deep: the offer-one matrix on one asset (versions, suites, groups, HRR)
+pqscan -u cloudflare.com -mode deep -deep full -jsonl
+
 # estate PQ calendar job; jq triage of everything not PQC-ready
-pqscan -l estate.txt -mode pq -jsonl \
-  | jq -r 'select(.pq.verdict != "A+" and .pq.verdict != "A") | [.target.host,.pq.verdict] | @tsv'
+pqscan -l estate.txt -jsonl \
+  | jq -r 'select(.pq.score < 60) | [.target.host,.pq.label,(.pq.hndl|tostring)] | @tsv'
 ```
+
+Found a bug? Re-run with `-debug -debug-out diag.json <your-original-arguments>` and
+[open an issue](https://github.com/shsingh/pqscan/issues/new?template=bug_report.yml) —
+the templates require the diagnostics attached.
 
 ## Specification and roadmap
 

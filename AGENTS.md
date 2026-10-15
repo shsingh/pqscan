@@ -40,22 +40,24 @@ run it, verify it, no other context required.
 go build -o pqscan ./cmd/pqscan && ./pqscan -version
 ```
 
-- **Execute a scan** (engines land per the [register](https://github.com/shsingh/pqscan/issues/4);
-  `run()` refuses with exit 64 until a plane is live):
+- **Execute a scan** (all three modes live — fast, deep and the PQ ladder; exit 64 now means flag misuse only; the [register](https://github.com/shsingh/pqscan/issues/4) tracks the lane map):
 
 ```bash
 ./pqscan -u example.com                          # fast mode, text out
-subfinder -d example.com -silent | ./pqscan -mode fast -jsonl -o assets.jsonl
-naabu -l domains.txt -p 443,8443,993 -silent | ./pqscan -from-naabu -mode fast -jsonl
+subfinder -d example.com -silent | ./pqscan -jsonl -o assets.jsonl
+naabu -l domains.txt -p 443,8443,993 -silent | ./pqscan -from-naabu -jsonl
 ./pqscan -l estate.txt -mode pq -jsonl           # PQ ladder + readiness verdicts
-./pqscan -cidr 198.51.100.0/24 -ptr -sni ptr-then-ip -mode fast -jsonl
+./pqscan -u cloudflare.com -mode deep -deep full -jsonl   # offer-one matrix (deep findings)
+./pqscan -cidr 198.51.100.0/24 -ptr -sni ptr-then-ip -jsonl
 ```
 
 - **Read the output**: streaming JSONL, one record per target —
   `.target` (host/ip/ptr/sni_used), `.handshake` (version, group +
   `group_class`, suite, sig scheme, ALPN), `.cert` (key/sig alg classes,
-  PQ flag), `.pq` (`score`, `verdict` A+…D, `flags` incl. `hndl_risk`,
-  `reasons[]`), `.error`. Non-negotiated states (`hrr`, `alert`,
+  PQ flag), `.pq` (`score`, `label` — bands pq-ready ≥ 80 / pq-ready-hybrid ≥ 60 /
+  pq-partial ≥ 40 / pq-missing ≥ 1, `hndl` — the harvest-now-decrypt-later
+  flag on an obsolete-draft acceptance, `summary`), and in deep mode
+  `.deep` (`mode`, `attempted`, `ok`, `rejected`, `findings[]`), `.error`. Non-negotiated states (`hrr`, `alert`,
   `skipped`, `error`) are recorded facts with reasons. The full schema
   example is in [`docs/spec.md` §5.7](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set);
   recipes live on the [site](https://shsingh.github.io/pqscan/) and in
@@ -199,11 +201,11 @@ contract, not decoration.
 | Label | Meaning |
 | --- | --- |
 | `PQ-XXn — <summary>` (issue titles carry it in the title, PR titles in the conventional subject) | issue/PR identity |
-| `area:probe` / `area:quic` / `area:classify` / `area:resolver` / `area:target` / `area:out` / `area:legacy` / `area:cli` / `area:docs` / `area:ci` / `area:release` | component |
-| `type:task` | a leaf-sized roadmap slice — the only `type:*` label today |
-| `target:m0` … `target:m5`, `target:backlog` | milestone |
-| `s:xs` / `s:s` / `s:m` / `s:l` | effort |
-| `bug`, `documentation`, `ci` | maintenance |
+| area:* (probe, quic, classify, resolver, target, out, legacy, cli, docs, ci, release) | component — one prefix per package area |
+| type:task | a leaf-sized roadmap slice — the only type:* label today |
+| target:m0 … target:m5, target:backlog | milestone |
+| s:xs / s:s / s:m / s:l | effort |
+| bug, documentation, ci | maintenance |
 
 Board status (`Todo` / `In Progress` / `Done`) is a project-field, not a
 label: labels never encode progress. Never invent new `area:*`/`type:*`
