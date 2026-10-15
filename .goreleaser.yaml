@@ -1,0 +1,48 @@
+# pqscan build/release matrix (PQ-27).
+# goreleaser builds and checksums; the release OBJECT is created by the
+# release-rc1 workflow's publish job so the release gate
+# (scripts/check_release_consistency.sh, PQ-34) stays the sole pre-flight.
+# Validate: goreleaser check; local proof: goreleaser release --snapshot
+#   --clean --skip=validate --skip=publish (produces dist/ binaries +
+#   CHECKSUMS-sha256.txt without touching anything remote).
+version: 2
+
+project_name: pqscan
+
+builds:
+  - id: pqscan
+    main: ./cmd/pqscan
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    targets:
+      - linux_amd64
+      - linux_arm64
+      - darwin_amd64
+      - darwin_arm64
+      - windows_amd64
+    binary: pqscan-{{ .Os }}-{{ .Arch }}
+
+# raw binaries ship (no tar/zip): INSTALL.md downloads the binary directly,
+# so archives are a no-op layer here
+archives:
+  - formats:
+      - binary
+    # keep the bare contract names the INSTALL steps, the checksum greps and
+    # the attestability story reference (pqscan-<os>-<arch>[.exe]) — the
+    # default binary-archive name adds _<version>_<os>_<arch> suffixes
+    name_template: "{{ .Binary }}"
+
+checksum:
+  name_template: CHECKSUMS-sha256.txt
+  algorithm: sha256
+
+release:
+  # the workflow's publish job owns the GitHub release object
+  disable: true
+
+changelog:
+  disable: true

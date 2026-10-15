@@ -31,11 +31,20 @@ fail=0
 echo "== release gate: $TAG =="
 
 # ---- 1. signed tag -----------------------------------------------------------
-if git -C "$root" tag -v "$TAG" >/tmp/gate_tag.log 2>&1; then
-  echo "1. tag signature: verified ($(grep -m1 -E 'Good signature' /tmp/gate_tag.log || echo 'ok'))"
+# Runner mode (PQSCAN_GATE_SKIP_TAG_VERIFY=1): the CI runner holds no release
+# key, so the GPG verification is skipped — precondition for any publish=true
+# dispatch is a FULL gate run (this section included) at the key-holding cut
+# machine, recorded in the release issue. Default remains strict: local runs
+# verify the signature or fail.
+if [ "${PQSCAN_GATE_SKIP_TAG_VERIFY:-0}" = "1" ]; then
+  echo "1. tag signature: SKIPPED (runner mode — the full gate verified it at the cut machine)"
 else
-  echo "1. tag signature: FAILED ($(head -2 /tmp/gate_tag.log | tr '\n' ' '))"
-  fail=1
+  if git -C "$root" tag -v "$TAG" >/tmp/gate_tag.log 2>&1; then
+    echo "1. tag signature: verified ($(grep -m1 -E 'Good signature' /tmp/gate_tag.log || echo 'ok'))"
+  else
+    echo "1. tag signature: FAILED ($(head -2 /tmp/gate_tag.log | tr '\n' ' '))"
+    fail=1
+  fi
 fi
 
 # ---- 2. stale-reference sweep ------------------------------------------------

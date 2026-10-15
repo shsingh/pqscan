@@ -2,12 +2,12 @@
 
 Install one static binary; verify it before the first scan. The
 [release page](https://github.com/shsingh/pqscan/releases) carries three
-platforms (linux/amd64, linux/arm64, darwin/arm64) plus
+platforms (linux/amd64+arm64, darwin/amd64+arm64, windows/amd64) plus
 `CHECKSUMS-sha256.txt`; every binary carries SLSA build provenance
 ([ADR-0003](docs/adr/0003-slsa-provenance-attestations.md)).
 
 The tagged version used in the examples below is always the current
-release: substitute `v0.0.2-alpha` with the latest tag from the release
+release: substitute `2026.01-rc1` with the latest tag from the release
 page.
 
 ## Verify before you run
@@ -33,7 +33,7 @@ Manual install without Homebrew (Apple Silicon):
 
 ```bash
 curl -fsSL -o pqscan \
-  https://github.com/shsingh/pqscan/releases/download/v0.0.2-alpha/pqscan-darwin-arm64
+  https://github.com/shsingh/pqscan/releases/download/2026.01-rc1/pqscan-darwin-arm64
 chmod +x pqscan && sudo mv pqscan /usr/local/bin/
 ```
 
@@ -42,7 +42,7 @@ chmod +x pqscan && sudo mv pqscan /usr/local/bin/
 ```bash
 ARCH=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)
 curl -fsSL -o pqscan \
-  "https://github.com/shsingh/pqscan/releases/download/v0.0.2-alpha/pqscan-linux-${ARCH}"
+  "https://github.com/shsingh/pqscan/releases/download/2026.01-rc1/pqscan-linux-${ARCH}"
 sha256sum -c <(grep "pqscan-linux-${ARCH}" CHECKSUMS-sha256.txt)   # after fetching CHECKSUMS-sha256.txt
 gh attestation verify "pqscan-linux-${ARCH}" -R shsingh/pqscan
 chmod +x pqscan && sudo mv pqscan /usr/local/bin/
@@ -50,13 +50,13 @@ chmod +x pqscan && sudo mv pqscan /usr/local/bin/
 
 ## Windows
 
-Pre-built windows/amd64 artifacts land with the next versioned cut
-([PQ-29](https://github.com/shsingh/pqscan/issues/52); the release
-matrix currently covers linux and darwin). Until then, build from
-source in a Go environment:
-
 ```powershell
-go install github.com/shsingh/pqscan/cmd/pqscan@v0.0.2-alpha
+curl.exe -L -o pqscan.exe `
+  "https://github.com/shsingh/pqscan/releases/download/2026.01-rc1/pqscan-windows-amd64.exe"
+# verify: sha256 against CHECKSUMS-sha256.txt, then
+#   gh attestation verify pqscan-windows-amd64.exe -R shsingh/pqscan
+
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc1   # from source instead
 ```
 
 ## From source (all platforms)
@@ -65,7 +65,7 @@ The module path is `github.com/shsingh/pqscan`; installing by tag pins
 the version (recommended over `@latest` until v1):
 
 ```bash
-go install github.com/shsingh/pqscan/cmd/pqscan@v0.0.2-alpha
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc1
 ```
 
 Requirements: Go 1.25+ (the toolchain floor in `go.mod`). The binary is

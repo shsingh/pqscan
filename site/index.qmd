@@ -55,7 +55,7 @@ verification steps, Windows — lives in
 
 ```bash
 brew tap shsingh/tap && brew install pqscan        # macOS
-go install github.com/shsingh/pqscan/cmd/pqscan@v0.0.2-alpha   # any platform with Go
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc1   # any platform with Go
 gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
 ```
 
