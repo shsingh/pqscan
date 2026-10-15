@@ -20,27 +20,35 @@ M1 is complete and the M2 cores have landed — every record carries the
 live PQC verdict and certificate analytics
 ([register](https://github.com/shsingh/pqscan/issues/4)).
 
-## What it does
-
-- **[fast](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set)** — one engineered handshake per target: negotiated parameters, certificate chain, ALPN, features.
-- **deep** — exhaustive suite-by-suite, version-by-version, group and signature-algorithm probing (offer-one / observe-accept), HRR detection, resumption and 0-RTT checks.
-- **pq** — forced-group PQ ladder, PQ signature and certificate classification, estate-wide readiness verdicts with an HNDL risk flag.
-- **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443; HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
-
 ## Performance
 
-M0-gate measurements; the SLO suite re-runs on every perf-suite merge and
-this table tracks the current evidence. Measured performance beyond these
-cells — the obsolete-Kyber compat oracle — is tracked in the repository
-[README](https://github.com/shsingh/pqscan#measured-performance). Verbatim
-run transcripts: issue comments on the linked evidence. Latency model and
-budget decomposition: [Design](design.qmd).
+```{=html}
+<div class="pstats">
+  <div class="pstat">
+    <div class="pnum">2,952<span class="punit">/s</span></div>
+    <div class="pcap">handshakes per core — fast mode, W=8 (SLO ≥ 2,500, CI-enforced)</div>
+  </div>
+  <div class="pstat">
+    <div class="pnum">42.4<span class="punit">ms</span></div>
+    <div class="pcap">full fast scan of one external host — connect + handshake, forced hybrid</div>
+  </div>
+  <div class="pstat">
+    <div class="pnum">27.6<span class="punit">ms</span></div>
+    <div class="pcap">QUIC v1 / h3 handshake — X25519MLKEM768 (4588) negotiated live</div>
+  </div>
+  <div class="pstat">
+    <div class="pnum">&lt;8<span class="punit">MB</span></div>
+    <div class="pcap">one static binary — size SLO enforced on every change</div>
+  </div>
+</div>
+```
 
-| Metric | Target | Measured | Run |
-|---|---|---|---|
-| fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,952 (re-run 3,026) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
-| external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
-| QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
+Measured on this repo's own gates; the release gate re-runs SLO + size at
+every cut, so these numbers are never stale on a published artifact.
+Verbatim run transcripts: [evidence #10](https://github.com/shsingh/pqscan/issues/10)
+(throughput + decomposition) and
+[evidence #9](https://github.com/shsingh/pqscan/issues/9) (the QUIC plane).
+Latency model and budget decomposition: [Design](design.qmd).
 
 ## Install
 
@@ -54,16 +62,6 @@ verification steps, Windows — lives in
 brew tap shsingh/tap && brew install pqscan        # macOS
 go install github.com/shsingh/pqscan/cmd/pqscan@v0.0.2-alpha   # any platform with Go
 gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
-```
-
-## Quick start
-
-```bash
-subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
-```
-
-```bash
-naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
 ```
 
 ## Alternative tools
