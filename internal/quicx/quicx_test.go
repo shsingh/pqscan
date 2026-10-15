@@ -111,3 +111,31 @@ func TestQuicUDPRefusedClassifies(t *testing.T) {
 		t.Fatal("negotiated against a dead port; classification broken")
 	}
 }
+
+// integrationOnly gates live-network truth (never in CI).
+func integrationOnly(t *testing.T) {
+	t.Helper()
+	if quicIntegration() == "" {
+		t.Skip("PQSCAN_INTEGRATION not set; live-network probe skipped")
+	}
+}
+
+func quicIntegration() string { return quicIntegrationEnv }
+
+// TestIntegrationQuicCloudflareHybrid: forced 4588 inside QUIC v1 against
+// a hybrid edge — the UDP-plane ground truth (spec §10.1).
+func TestIntegrationQuicCloudflareHybrid(t *testing.T) {
+	integrationOnly(t)
+
+	r, err := ProbeQUIC("cloudflare.com:443", "cloudflare.com", []uint32{4588}, 8*time.Second)
+	if err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	t.Logf("cloudflare quic 4588-forced: %+v", r)
+	if r.State != "negotiated" {
+		t.Fatalf("state = %q blocked=%v; want negotiated", r.State, r.UDPBlocked)
+	}
+	if r.Group != 4588 {
+		t.Fatalf("negotiated group = %d, want 4588", r.Group)
+	}
+}

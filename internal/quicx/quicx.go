@@ -28,3 +28,9 @@ type CostStats struct {
 }
 
 var errNotImplemented = errors.New("quicx engine: not implemented (watched-RED stub)")
+
+// quicIntegrationEnv gates live-network probes (ADR-0002 evidence runs; never set in CI).
+const quicIntegrationEnv = "PQSCAN_INTEGRATION"
+
+// errNotImplementedShortRun guards MeasureCost's degenerate input.
+var errNotImplementedShortRun = errors.New("quicx: sessions must be >= 1")
