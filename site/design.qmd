@@ -27,7 +27,7 @@ flowchart TB
   D0 --> E0["5 classify + score + WAL + encoders"]
   D2 --> E0
   E0 --> OUT[jsonl / csv / text / urls - streamed]
-  C0 -.AIMD + circuit breakers.-> C0
+  C0 -.- FC[AIMD + circuit breakers]
 ```
 
 Design rules: no stage waits on a slow item (backpressure via bounded

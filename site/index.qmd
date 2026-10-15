@@ -20,19 +20,30 @@ live PQC verdict and certificate analytics
 
 ## Performance
 
-| Metric | Measured | Target / provenance |
-|---|---|---|
-| fast-mode handshakes per core (W=8) | **2,952** (re-run 3,026) | SLO ≥ 2,500 — CI-enforced ([#10](https://github.com/shsingh/pqscan/issues/10)) |
-| fast scan of one external host | **42.4 ms** total | connect + handshake, forced hybrid ([#10](https://github.com/shsingh/pqscan/issues/10)) |
-| QUIC v1 / h3 handshake | **27.6 ms** | X25519MLKEM768 (4588) negotiated live ([#9](https://github.com/shsingh/pqscan/issues/9)) |
-| one static binary | **< 8 MB** | size SLO enforced in CI ([size ledger](https://github.com/shsingh/pqscan/blob/main/docs/size-ledger.md)) |
+```{=html}
+<div class="pstats">
+  <div class="pstat">
+    <div class="pnum">2,952<span class="punit">/s per core</span></div>
+    <div class="pcap">fast mode, W=8 loopback fixture — SLO ≥ 2,500 h/s/core, CI-enforced · <a href="https://github.com/shsingh/pqscan/issues/10">runs #10</a></div>
+  </div>
+  <div class="pstat">
+    <div class="pnum">42.4<span class="punit">ms</span></div>
+    <div class="pcap">full fast scan, one external host — connect + handshake, forced hybrid · <a href="https://github.com/shsingh/pqscan/issues/10">runs #10</a></div>
+  </div>
+  <div class="pstat">
+    <div class="pnum">27.6<span class="punit">ms</span></div>
+    <div class="pcap">QUIC v1 / h3 handshake — X25519MLKEM768 (4588) negotiated live · <a href="https://github.com/shsingh/pqscan/issues/9">runs #9</a></div>
+  </div>
+  <div class="pstat">
+    <div class="pnum">&lt;8<span class="punit">MB</span></div>
+    <div class="pcap">one static binary — the size SLO enforced on every change · <a href="https://github.com/shsingh/pqscan/blob/main/docs/size-ledger.md">the ledger</a></div>
+  </div>
+</div>
+```
 
-Measured on this repo's own gates; the release gate re-runs SLO + size at
-every cut, so these numbers are never stale on a published artifact.
-Verbatim run transcripts: [evidence #10](https://github.com/shsingh/pqscan/issues/10)
-(throughput + decomposition) and
-[evidence #9](https://github.com/shsingh/pqscan/issues/9) (the QUIC plane).
-Latency model and budget decomposition: [Design](design.qmd).
+The release gate re-runs SLO + size at every cut — published numbers are
+never stale. Verbatim transcripts live on the linked evidence issues; the
+latency model + budget decomposition: [Design](design.qmd).
 
 ## Install
 
