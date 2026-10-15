@@ -31,6 +31,18 @@ type ProbeResult struct {
 	ALPN           string `json:"alpn_neg"` // negotiated ALPN protocol
 	AlertDesc      uint8  `json:"alert"`
 	Error          string `json:"error"`
+
+	// PQ-21 certificate analytics, computed from the peer chain delivered
+	// by the same handshake that fills ConnectionState (stdlib path only;
+	// a raw-path row or an unanalyzable chain leaves the zero values:
+	// CertificatePQ=false, CertificateSigAlg=""). CertificatePQ is true
+	// when the leaf's signature or key algorithm carries a PQ component
+	// (pure PQ or composite hybrid per certinfo's owned OID table);
+	// CertificateSigAlg carries the leaf's signature-algorithm name, with
+	// an "unknown-signature-algorithm(<oid>)" note for OIDs outside the
+	// table.
+	CertificatePQ     bool   `json:"cert_pq"`
+	CertificateSigAlg string `json:"cert_sig_alg"`
 }
 
 // stdlibGroups are the codepoints the Go stack can construct a real share
