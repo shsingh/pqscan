@@ -35,16 +35,14 @@ const (
 	quicRespPlain  = "HTTP/1.1 200 OK\r\nServer: pqscan-fixture\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
 )
 
-// startHintedQUICFixture binds BOTH lane halves on one loopback port: a
-// TCP TLS+h1 listener answering resp, and the QUIC h3 listener the quicx
-// fixture spins on UDP's independent namespace of the same port number.
-// respWithHint=false omits the alt-svc header (the hint never asserts).
+// startHintedQUICFixture spins the coupled lane fixture (the discovery
+// package's FixtureH3AndHint): BOTH halves of one loopback port bound and
+// held, retried as a pair under concurrent package binaries. resp carries
+// the crafted HTTP/1.1 answer — the h3-hint or the plain (no-alt-svc)
+// response.
 func startHintedQUICFixture(t *testing.T, resp string) string {
 	t.Helper()
-	addr := quicx.FixtureH3(t, nil)
-	port := discovery.PortOf(t, addr)
-	discovery.FixtureHintHTTP(t, port, []byte(resp))
-	return "127.0.0.1:" + fmt.Sprint(port)
+	return discovery.FixtureH3AndHint(t, []byte(resp))
 }
 
 // quicRecordOf decodes the first record's quic block.
@@ -188,8 +186,7 @@ func TestQUICHintGateMatrix(t *testing.T) {
 func TestQUICMismatchIsAFinding(t *testing.T) {
 	t.Run("hint=yes truth=no: the hint lied", func(t *testing.T) {
 		// TCP speaks the h3 hint; the UDP plane answers nothing.
-		port := discovery.FreeTCPPort(t)
-		discovery.FixtureHintHTTP(t, port, []byte(quicRespH3Hint))
+		port := discovery.FixtureHintHTTP(t, 0, []byte(quicRespH3Hint)) // binds and holds its own number
 		rec, err := singleScan(t, "127.0.0.1:"+fmt.Sprint(port), Options{ProbeTimeout: 500 * time.Millisecond})
 		if err != nil {
 			t.Fatalf("Run: %v", err)
@@ -232,8 +229,7 @@ func TestQUICMismatchIsAFinding(t *testing.T) {
 		}
 	})
 	t.Run("exit code unaffected by either mismatch direction (run level)", func(t *testing.T) {
-		port := discovery.FreeTCPPort(t)
-		discovery.FixtureHintHTTP(t, port, []byte(quicRespH3Hint))
+		port := discovery.FixtureHintHTTP(t, 0, []byte(quicRespH3Hint)) // binds and holds its own number
 		var stdout, stderr bytes.Buffer
 		code := run([]string{"-u", "127.0.0.1:" + fmt.Sprint(port), "-jsonl",
 			"-o", filepath.Join(t.TempDir(), "quic.jsonl")}, &stdout, &stderr)
@@ -253,8 +249,7 @@ func TestQUICMismatchEmitsDiagnosticRow(t *testing.T) {
 	diag.SetDefault(sink)
 	defer diag.SetDefault(nil)
 
-	port := discovery.FreeTCPPort(t)
-	discovery.FixtureHintHTTP(t, port, []byte(quicRespH3Hint))
+	port := discovery.FixtureHintHTTP(t, 0, []byte(quicRespH3Hint)) // binds and holds its own number
 	if _, err := singleScan(t, "127.0.0.1:"+fmt.Sprint(port), Options{ProbeTimeout: 500 * time.Millisecond}); err != nil {
 		t.Fatalf("Run: %v", err)
 	}

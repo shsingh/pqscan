@@ -20,6 +20,16 @@ import (
 // are verified against (spec §10.1). Exported so sibling packages' test
 // fixtures reuse the same listener (discovery's h3-direct half, PQ-25)
 // instead of duplicating cert + accept plumbing.
+//
+// The listener binds the ephemeral :0 (UDP): it is safe ALONE — no
+// process, test or fixture collides a listener on it. A lane that pairs
+// BOTH transports on one port number (the QUIC lane dials the target's
+// port on TCP for the hint and UDP for the direct probe) must NOT assume
+// a fresh UDP number's TCP side is free: `go test ./...` runs package
+// binaries concurrently and the port space is machine-wide across
+// processes. discovery.FixtureH3AndHint is the coupled contract: both
+// halves bind and are HELD, the pair retried while a number is held in
+// either namespace.
 func FixtureH3(t *testing.T, curvePrefs []tls.CurveID) string {
 	t.Helper()
 

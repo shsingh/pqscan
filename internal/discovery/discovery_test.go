@@ -81,9 +81,8 @@ func TestDiscoverFixtures(t *testing.T) {
 			name:    "alt-svc hint and direct h3 agree",
 			timeout: 5 * time.Second,
 			build: func(t *testing.T) buildResult {
-				addr := quicx.FixtureH3(t, nil) // binds UDP 127.0.0.1:P
+				addr := FixtureH3AndHint(t, []byte(respH3Hint)) // the coupled pair on both transports
 				port := PortOf(t, addr)
-				FixtureHintHTTP(t, port, []byte(respH3Hint)) // TCP on the same P
 				return buildResult{"127.0.0.1", uint16(port)}
 			},
 			want: Hints{AltSvcH3: true, H3Direct: true, AltSvcValue: `h3=":8443"; ma=86400`},
@@ -91,8 +90,7 @@ func TestDiscoverFixtures(t *testing.T) {
 		{
 			name: "no alt-svc header = no hint",
 			build: func(t *testing.T) buildResult {
-				port := FreeTCPPort(t)
-				FixtureHintHTTP(t, port, []byte(respNoAltSvc))
+				port := FixtureHintHTTP(t, 0, []byte(respNoAltSvc)) // TCP only: the direct half is answered by nothing
 				return buildResult{"127.0.0.1", uint16(port)}
 			},
 			want: Hints{},
@@ -100,8 +98,7 @@ func TestDiscoverFixtures(t *testing.T) {
 		{
 			name: "alt-svc without h3 token = no hint",
 			build: func(t *testing.T) buildResult {
-				port := FreeTCPPort(t)
-				FixtureHintHTTP(t, port, []byte(respH2OnlyHint))
+				port := FixtureHintHTTP(t, 0, []byte(respH2OnlyHint))
 				return buildResult{"127.0.0.1", uint16(port)}
 			},
 			want: Hints{},
@@ -174,9 +171,8 @@ func TestDiscoverEmitsDiagnostics(t *testing.T) {
 	diag.SetDefault(sink)
 	defer diag.SetDefault(nil)
 
-	addr := quicx.FixtureH3(t, nil)
+	addr := FixtureH3AndHint(t, []byte(respH3Hint))
 	port := PortOf(t, addr)
-	FixtureHintHTTP(t, port, []byte(respH3Hint))
 	if _, err := Discover(context.Background(), "127.0.0.1", uint16(port), Options{Timeout: 5 * time.Second}); err != nil {
 		t.Fatalf("discover: %v", err)
 	}
@@ -240,9 +236,7 @@ func TestProbeHintFixtures(t *testing.T) {
 		{
 			name: "alt-svc h3 hint found, raw value kept",
 			build: func(t *testing.T) (string, uint16) {
-				addr := quicx.FixtureH3(t, nil)
-				port := PortOf(t, addr)
-				FixtureHintHTTP(t, port, []byte(respH3Hint))
+				port := FixtureHintHTTP(t, 0, []byte(respH3Hint)) // the hint half binds and holds its own number
 				return "127.0.0.1", uint16(port)
 			},
 			wantHint: true,
@@ -251,17 +245,13 @@ func TestProbeHintFixtures(t *testing.T) {
 		{
 			name: "no alt-svc header = no hint",
 			build: func(t *testing.T) (string, uint16) {
-				port := FreeTCPPort(t)
-				FixtureHintHTTP(t, port, []byte(respNoAltSvc))
-				return "127.0.0.1", uint16(port)
+				return "127.0.0.1", uint16(FixtureHintHTTP(t, 0, []byte(respNoAltSvc)))
 			},
 		},
 		{
 			name: "h2-only alt-svc = no h3 hint",
 			build: func(t *testing.T) (string, uint16) {
-				port := FreeTCPPort(t)
-				FixtureHintHTTP(t, port, []byte(respH2OnlyHint))
-				return "127.0.0.1", uint16(port)
+				return "127.0.0.1", uint16(FixtureHintHTTP(t, 0, []byte(respH2OnlyHint)))
 			},
 		},
 		{
