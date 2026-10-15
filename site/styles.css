@@ -3,3 +3,47 @@ body { hyphens: none; }
 nav .navbar-brand img { max-height: 36px; }
 code { font-family: "Pragmata Pro", "JetBrains Mono", Consolas, monospace; }
 pre code { font-size: 0.86em; }
+
+/* mermaid: grouping (cluster/subgraph) boxes = purple dotted, no fill;
+   everything else (nodes) = solid black lines, no fill — the trishula standard */
+svg.mermaid-js { background: transparent; }
+svg.mermaid-js g.cluster rect {
+  fill: transparent !important;
+  stroke: #712cf9 !important;
+  stroke-width: 2px !important;
+  stroke-dasharray: 5 4 !important;
+}
+svg.mermaid-js g.node rect.basic.label-container,
+svg.mermaid-js g.node rect,
+svg.mermaid-js g.node circle,
+svg.mermaid-js g.node polygon,
+svg.mermaid-js g.node path {
+  fill: transparent !important;
+  stroke: #111111 !important;
+  stroke-width: 1.6px !important;
+}
+svg.mermaid-js g.edgeLabel rect,
+svg.mermaid-js g.edgeLabel polygon,
+svg.mermaid-js g.edgeLabel .labelBkg {
+  fill: #ffffff !important;
+  fill-opacity: 1 !important;
+  background: #ffffff !important;
+  border: none !important;
+}
+
+/* performance stat cards (index) — number + metric + the target/link line */
+.pstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1.4rem 0 0.6rem 0; }
+.pstat { background: rgba(127,127,127,0.05); border: 1px solid rgba(127,127,127,0.22);
+         border-radius: 10px; padding: 1rem 1.1rem; }
+.pstat:hover { border-color: rgba(113,44,249,0.55); }
+.pnum { font-size: 2.15rem; font-weight: 800; line-height: 1.06;
+        background: linear-gradient(100deg, #2780e3 0%, #6f42c1 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+.punit { font-size: 0.95rem; font-weight: 700; margin-left: 0.2rem; opacity: 0.8; }
+.pcap { margin-top: 0.5rem; font-size: 0.82rem; opacity: 0.78; line-height: 1.4; }
+.pcap a { white-space: nowrap; }
+@media (max-width: 900px) { .pstats { grid-template-columns: repeat(2, 1fr); } }
+
+/* the alternative-tools table: stop the wrappy squeeze on narrow columns */
+main table td:first-child, main table th:first-child { white-space: nowrap; }
+.table > :not(caption) > * > * { padding: 0.45rem 0.7rem; }

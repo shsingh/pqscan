@@ -1,4 +1,4 @@
-pqscan(1)                       pqscan manual                       pqscan(1)
+pqscan                       pqscan manual
 
 NAME
     pqscan - TLS / QUIC cipher-configuration and post-quantum readiness
@@ -271,8 +271,8 @@ DIAGNOSTICS
     bugs; feature requests touching scans attach them too.
 
 SEE ALSO
-    docs/spec.md (canonical specification), naabu(1), subfinder(1),
-    httpx(1), nuclei(1), masscan(8).
+    docs/spec.md (canonical specification), naabu, subfinder, httpx,
+    nuclei, masscan.
 
 AUTHOR
     Shain Singh <shain.singh@owasp.org>
