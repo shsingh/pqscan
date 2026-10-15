@@ -154,22 +154,62 @@ OPTIONS
                       Environment overrides: PQSCAN_*.
 
 EXAMPLES
-    subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
+    Scan one host; the default text form (both planes probed):
 
-    naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
+        $ pqscan -u cloudflare.com
+        cloudflare.com:443 group=X25519MLKEM768 class=pq_hybrid \
+            suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 \
+            quic_neg=X25519MLKEM768 quic_class=pq_hybrid
 
-    masscan -p 443 -iL cidrs.txt --rate=100000 --open-only -oX - \
-        | pqscan -shard 1/4 -mode fast -ptr -rate 20000 -jsonl -o shard1.jsonl
+    One schema-1 record per line, chain-ready (the verdict and the
+    certificate analytics ride every record):
 
-    pqscan -l estate.txt -mode pq -jsonl \
-        | jq -r 'select(.pq.verdict != "A+" and .pq.verdict != "A") | [.target.host, .pq.verdict] | @tsv'
+        $ pqscan -u cloudflare.com -jsonl
+        {"schema":1,"mode":"fast","target":{"input":"cloudflare.com","host":"cloudflare.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 
-    cat targets.txt | pqscan -l known.txt -jsonl -o scan.jsonl --
+    Endpoint list for a downstream scanner:
 
-    pqscan -l assets.txt -mode fast -urls | nuclei -silent -tags tls
+        $ pqscan -u cloudflare.com -urls 2>/dev/null
+        https://cloudflare.com:443
 
-    Full chaining walk-throughs: see the Recipes page on the site and
-    docs/spec.md#6-chaining-reference-implementations.
+    CSV with the full 25-column contract (first row = the header):
+
+        $ pqscan -u cloudflare.com -csv -o assets.csv
+        target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts
+        cloudflare.com,cloudflare.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,ecdsa-with-SHA256,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-15T10:07:39.971835Z
+
+    Input composition: a target, a file, and the bare -- stdin marker;
+    duplicates dedupe by host:port, first occurrence wins. The bare --
+    token must follow the options:
+
+        $ echo http://example.org:8443 | pqscan -u cloudflare.com -l known.txt -- -jsonl
+
+    Interruption is a resume point, not a loss. The WAL journal sits
+    beside -o; a resume replays completed targets into the output and
+    probes only the rest. A SIGKILL loses nothing but the socket:
+
+        $ pqscan -l estate.txt -o scan.jsonl              # interrupted mid-run
+        $ pqscan -l estate.txt -o scan.jsonl -resume
+        pqscan: resume: WAL scan.wal: 1 of 3 targets already complete; scanning 2
+        pqscan: progress: 2/2 targets scanned
+
+    Rejections are results, not errors. An unreachable endpoint emits a
+    schema-1 record with the error set; the exit stays 0 (the scan saw
+    the target). Nonzero exit = a runtime failure only:
+
+        $ pqscan -u 203.0.113.9:443
+        203.0.113.9:443 group=- class=- suite=- version=- error=dial tcp 203.0.113.9:443: i/o timeout
+
+    Diagnostics arm the human stream on stderr and optionally write the
+    machine report; bug reports and scan-touching feature requests
+    attach both:
+
+        $ pqscan -u cloudflare.com -debug -debug-out diag.json
+        $ jq -c '.summary' diag.json
+        {"events":8,"errors":0,"warnings":0}
+
+    The chained walk-throughs with real tool output: the site's Recipes
+    page; the pipeline contract: docs/spec.md (the chaining sections).
 
 EXIT STATUS
     0     Scan completed (empty or not; results in the output stream).
