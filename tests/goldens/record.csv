@@ -1,0 +1,2 @@
+target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,error,ts
+example.com,example.com,443,example.com.,example.com,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,handshaked,X25519MLKEM768,false,,2026-10-15T09:30:12Z
