@@ -30,6 +30,15 @@ pre-BinaryOptim bound, the corrected gate passed at 6,840,480 < 8,000,000
 (verbatim runs on issue #62 and the PQ-32 PR). Headroom at baseline:
 1,159,520 bytes (~14.5%) below the linux/amd64 SLO.
 
+Sizes are toolchain-dependent. The CI `size-gate` job builds linux/amd64 with
+the go.mod-pinned toolchain (`go-version-file`, GOTOOLCHAIN=local):
+go1.26.0 measures **6,230,178 bytes** (`size OK: 6230178 < 8000000` — check
+run [38706131466](https://github.com/shsingh/pqscan/actions/runs/38706131466)),
+while the go1.27.2 baseline row above measures 6,840,480 bytes. Both sit under
+the 8 MB SLO; the gate binds the toolchain in CI (go-version-file), so the CI
+number is the enforcement number. The t.Logf helper carries the test-run
+number too, and the dedicated job's log lines carry the CI number.
+
 ## Levers — priority order
 
 1. **`-s -w -trimpath` with `CGO_ENABLED=0` — IN PLACE.** Applied to the
