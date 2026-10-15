@@ -15,8 +15,10 @@ speaks the Project Discovery dialect (stdin → stdout, streaming JSONL).
 
 **Status:** pre-alpha. The canonical specification lives at
 [`docs/spec.md`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md);
-the M0 measurement gate ([PQ-01 register](https://github.com/shsingh/pqscan/issues/4))
-is in progress.
+the M0 measurement gate is closed
+([report](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md));
+the M1–M5 leaves are open on the
+[register](https://github.com/shsingh/pqscan/issues/4).
 
 ## What it does
 
