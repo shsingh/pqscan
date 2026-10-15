@@ -31,7 +31,7 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 
 	tlsCfg := &tls.Config{
 		ServerName:         host,
-		NextProtos:         []string{"h3"},
+		NextProtos:         []string{H3ALPN},
 		InsecureSkipVerify: true, // negotiation is the assertion; cert analytics is a separate probe
 		CurvePreferences:   conv(groups),
 		MinVersion:         tls.VersionTLS13,
@@ -49,6 +49,7 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 	res.DialMs = float64(time.Since(start).Microseconds()) / 1000
 	if err != nil {
 		res.State, res.UDPBlocked = classifyUDP(err.Error())
+		res.Err = err.Error()
 		level := diag.Warn
 		if res.State == "error" {
 			level = diag.Error

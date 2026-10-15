@@ -62,16 +62,27 @@ type ProbeResult struct {
 	LeafRaw []byte `json:"-"`
 }
 
+// StdlibGroup reports whether ONE codepoint takes the stdlib share path
+// (the Go stack can construct a real key share for it, 1.26+ toolchain
+// floor) versus the raw share-less oracle path. This is the SINGLE
+// routing table: GroupLadder dispatches on it, and the QUIC plane's
+// wiring reuses it (PQ-25) — the UDP plane offers NO raw path, so a
+// non-stdlib codepoint there is not-offerable (an honest refused finding,
+// never a dial).
+func StdlibGroup(g uint32) bool {
+	switch g {
+	case 4585, 4586, 4590, 25497, 25498:
+		return false
+	}
+	return g <= 65535
+}
+
 // stdlibGroups are the codepoints the Go stack can construct a real share
 // for (1.26+/toolchain floor; anything else is offered share-less via the
 // raw path — the oracle probes).
 func stdlibGroups(groups []uint32) bool {
 	for _, g := range groups {
-		switch g {
-		case 4585, 4586, 4590, 25497, 25498:
-			return false
-		}
-		if g > 65535 {
+		if !StdlibGroup(g) {
 			return false
 		}
 	}

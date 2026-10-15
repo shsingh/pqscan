@@ -12,8 +12,10 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -278,15 +280,16 @@ func TestQUICMismatchEmitsDiagnosticRow(t *testing.T) {
 func TestQuicAlwaysFlagRegistration(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	addr := startHintedQUICFixture(t, quicRespPlain) // no hint: the flag is the only way the probe runs
+	dir := t.TempDir()
 	code := run([]string{"-u", addr, "-quic-always", "-jsonl",
-		"-o", filepath.Join(t.TempDir(), "always.jsonl")}, &stdout, &stderr)
-	if code != 64 {
+		"-o", filepath.Join(dir, "always.jsonl")}, &stdout, &stderr)
+	if code != 0 {
 		if strings.Contains(stderr.String(), "flag provided but not defined") {
 			t.Fatalf("-quic-always did not register: %q", stderr.String())
 		}
 		t.Fatalf("exit = %d (stderr: %s)", code, stderr.String())
 	}
-	data, err := os.ReadFile(filepath.Join(t.TempDir(), "always.jsonl"))
+	data, err := os.ReadFile(filepath.Join(dir, "always.jsonl"))
 	if err != nil {
 		t.Fatalf("read back: %v (stderr: %s)", err, stderr.String())
 	}
@@ -300,6 +303,10 @@ func TestQuicAlwaysFlagRegistration(t *testing.T) {
 	line := string(data)
 	if !strings.Contains(line, `"discovered":{"alt_svc_h3":false,"h3_direct":true}`) {
 		t.Fatalf("the quic block carries no discovered halves: %s", line)
+	}
+	// The unhinted truth answering = the mismatch finding's state.
+	if rec.Quic.State != "mismatch: hint=no truth=yes" || !rec.Quic.Mismatch {
+		t.Fatalf("quic state = %q mismatch = %v, want the unhinted-h3 mismatch", rec.Quic.State, rec.Quic.Mismatch)
 	}
 }
 
@@ -419,5 +426,26 @@ func TestQUICGateGrammarTargetsNeverBlocks(t *testing.T) {
 	}
 	if _, err := os.Stat(outFile); err != nil {
 		t.Fatalf("stat: %v", err)
+	}
+}
+
+// TestDeepQUICRemoteRejectionIsARow: a shareable rung the SERVER
+// refuses (an x25519-only listener cannot honor a forced 4589 share)
+// answers with a remote crypto alert — the finding is REJECTED (the
+// server's decision, the alert verbatim), not an error (a probe-path
+// failure would misrecord a real handshake verdict), and never refused
+// (the plane could offer the rung; the server said no).
+func TestDeepQUICRemoteRejectionIsARow(t *testing.T) {
+	addr := quicx.FixtureH3(t, []tls.CurveID{tls.X25519})
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatalf("fixture addr: %v", err)
+	}
+	f := deepQuicFinding("quic/4589-rejected", addr, host, 4589, 2*time.Second)
+	if f.Result != tlsx.SuiteRejected {
+		t.Fatalf("result = %q (%s), want the server's rejected verdict (detail %q)", f.Result, f.Detail, f.Detail)
+	}
+	if !strings.Contains(f.Detail, "remote") {
+		t.Fatalf("detail = %q, want the remote side of the alert verbatim", f.Detail)
 	}
 }

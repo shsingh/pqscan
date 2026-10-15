@@ -22,6 +22,7 @@ import (
 	"github.com/shsingh/pqscan/internal/diag"
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
+	"github.com/shsingh/pqscan/internal/quicx"
 	"github.com/shsingh/pqscan/internal/tlsx"
 )
 
@@ -111,6 +112,9 @@ func scanTargetDeep(t grammar.Target, opts Options) (*scanRecord, bool, bool) {
 // observedFromProfile maps the profile handshake's facts onto the plan
 // builder's Observed (spec §7.4 phase 1): the negotiated group/suite/
 // version and whether the same handshake delivered an analyzable chain.
+// PQ-25: the QUIC lane's own facts ride beside them — the lane's gate
+// (the hint-gated profile probe ran) plans the deep-QUIC rungs and the
+// group the QUIC plane already negotiated never re-probes.
 func observedFromProfile(rec *scanRecord, res *tlsx.ProbeResult) *deepplan.Observed {
 	obs := &deepplan.Observed{
 		NegotiatedGroup: rec.Handshake.Negotiated,
@@ -119,6 +123,10 @@ func observedFromProfile(rec *scanRecord, res *tlsx.ProbeResult) *deepplan.Obser
 	if res != nil {
 		obs.Version = res.Version
 		obs.HasCert = res.CertificateInfo != nil
+	}
+	if q := rec.Quic; q != nil {
+		obs.QuicAttempted = q.Attempted
+		obs.QuicNegotiated = q.Negotiated
 	}
 	return obs
 }
@@ -309,6 +317,8 @@ func deepFindingFor(p deepplan.Probe, t grammar.Target, opts Options) out.DeepFi
 			Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)"}
 	case deepplan.KindHRR:
 		return deepHRRFinding(p.Name, addr, t.Host, timeout)
+	case deepplan.KindQuic:
+		return deepQuicFinding(p.Name, addr, t.Host, p.Payload.(uint32), timeout)
 	default:
 		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError, Detail: "unknown probe kind " + p.Kind}
 	}
@@ -406,6 +416,59 @@ func deepHRRFinding(name, addr, host string, timeout time.Duration) out.DeepFind
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError,
 			Detail: "read-error: the server closed without a TLS answer"}
 	}
+}
+
+// deepQuicFinding is the deep-QUIC dispatch (PQ-25, issue #48; spec §5.3
+// "deep-quic group enumeration limited to stdlib-supported groups"): one
+// rung = one forced QUIC handshake through quicx (real TLS 1.3-inside-
+// QUIC shares from the same stdlib table the TCP lane routes on —
+// tlsx.StdlibGroup). The UDP plane offers NO raw share-less path, so a
+// non-stdlib rung is the honest not-offerable refusal (the #101
+// discipline — v1 defers forked-stack exotic construction), never a dial
+// and never a fabricated verdict; a shareable rung's transport outcomes
+// map verbatim (refused/blocked = the endpoint's answer, error = a
+// probe-path failure, negotiated = the acceptance).
+func deepQuicFinding(name, addr, host string, group uint32, timeout time.Duration) out.DeepFinding {
+	if !tlsx.StdlibGroup(group) {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+			Detail: "not-offerable on quic: no stdlib share for " + groupDetailToken(group) +
+				" (the UDP plane offers no share-less raw path; exotic construction deferred to v2, spec §5.3)"}
+	}
+	qr, err := quicx.ProbeQUIC(addr, host, []uint32{group}, timeout)
+	if err != nil {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: err.Error()}
+	}
+	detail := "quic state " + qr.State
+	switch qr.State {
+	case "negotiated":
+		gname := groupName(group)
+		if gname == "" {
+			gname = strconv.FormatUint(uint64(group), 10)
+		}
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteAccepted,
+			Detail: "negotiated " + gname + " on quic (alpn " + qr.ALPN + ", quic-v" +
+				strconv.FormatUint(uint64(qr.Version), 10) + ")"}
+	case "refused":
+		detail = "udp refused: the QUIC dial was refused"
+	case "blocked":
+		detail = "udp blocked: the endpoint stayed silent (policy-filtered or unreachable)"
+	default: // "error": a transport failure — or a server verdict in
+		// transport clothing. The verdicts are separated by the
+		// quic-go error's side marker: a "(remote)" CRYPTO_ERROR is
+		// the server's decision on the offer (the TLS alert's QUIC
+		// frame) — a rejected row; the client stack's own
+		// construction refusals are the honest local refusals; the
+		// rest is the probe path's failure.
+		if isLocalStackOfferFailure(qr.Err) {
+			return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+				Detail: "not-offerable locally: " + qr.Err}
+		}
+		if strings.Contains(qr.Err, "(remote)") {
+			return out.DeepFinding{Probe: name, Result: tlsx.SuiteRejected, Detail: qr.Err}
+		}
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: detail + ": " + qr.Err}
+	}
+	return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused, Detail: detail}
 }
 
 // isLocalStackOfferFailure reports the client-side construction

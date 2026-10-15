@@ -24,6 +24,7 @@ import (
 	"github.com/shsingh/pqscan/internal/classify"
 	"github.com/shsingh/pqscan/internal/congestion"
 	"github.com/shsingh/pqscan/internal/diag"
+	"github.com/shsingh/pqscan/internal/discovery"
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
 	"github.com/shsingh/pqscan/internal/quicx"
@@ -480,21 +481,62 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 		}
 	}
 
-	// QUIC plane: hostname targets only (IP targets need SNI-less QUIC, M4).
-	if !opts.QuicOff && t.Class != "ip" {
-		qr, qerr := quicx.ProbeQUIC(addr, t.Host, nil, timeout)
-		if qerr == nil {
-			rec.Quic = &quicRecord{Attempted: true, State: qr.State,
-				Negotiated: qr.Group, GroupName: groupName(qr.Group),
-				GroupClass: qr.GroupClass, UDPBlocked: qr.UDPBlocked}
-			diag.Emit(diag.Info, diag.DomQuic, "scan", t.Host, "QUIC probe recorded", nil,
-				map[string]string{"state": qr.State, "negotiated": u32str(qr.Group), "udp_blocked": fmt.Sprint(qr.UDPBlocked)})
-		} else {
-			rec.Quic = &quicRecord{Attempted: false}
-			diag.Emit(diag.Warn, diag.DomQuic, "scan", t.Host, "QUIC probe omitted", qerr, nil)
+	// PQ-25 QUIC lane (spec §5.3/§5.7; issue #48): hint-gated — the
+	// alt-svc h3 hint the fast pass's discovery probe collected DECIDES
+	// the direct QUIC probe (hint present → attempt); an unhinted target
+	// records the honest informational skip (a state token, not an error
+	// — the exit code never moves on a QUIC fact); -quic-always forces
+	// the direct probe regardless of the hint; -quic-off skips the plane
+	// outright (highest precedence, the shipped pre-PQ-25 shape). A
+	// hint/truth disagreement is a FINDING: the mismatch state + flag on
+	// the record + a diagnostics finding row — the direct handshake is
+	// the truth, the hint only ever a hint.
+	rec.Quic = &quicRecord{Attempted: false}
+	if !opts.QuicOff {
+		hint, altSvcValue, herr := discovery.ProbeHint(context.Background(), t.Host,
+			uint16(t.Port), discovery.Options{Timeout: timeout})
+		if herr != nil {
+			// The hint's only errors are caller aborts; the lane falls
+			// through to the honest skip and the diagnostics carry the
+			// cause — never a run failure.
+			diag.Emit(diag.Warn, diag.DomQuic, "scan", t.Host, "h3 hint collection aborted", herr, nil)
 		}
-	} else {
-		rec.Quic = &quicRecord{Attempted: false}
+		switch {
+		case !hint && !opts.QuicAlways:
+			rec.Quic = &quicRecord{
+				Attempted:  false,
+				State:      discovery.SkipStateNoHint,
+				Discovered: &out.H3Discovery{AltSvcH3: hint, H3Direct: false},
+			}
+			diag.Emit(diag.Info, diag.DomQuic, "scan", t.Host, "QUIC lane skipped on the alt-svc gate", nil,
+				map[string]string{"state": discovery.SkipStateNoHint})
+		default:
+			if qr, qerr := quicx.ProbeQUIC(addr, t.Host, nil, timeout); qerr == nil {
+				truth := qr.H3Negotiated()
+				rec.Quic = &quicRecord{
+					Attempted: true, State: qr.State,
+					Negotiated: qr.Group, GroupName: groupName(qr.Group),
+					GroupClass: qr.GroupClass, UDPBlocked: qr.UDPBlocked,
+					Discovered: &out.H3Discovery{AltSvcH3: hint, H3Direct: truth},
+				}
+				if state, mismatched := discovery.MismatchState(hint, truth); mismatched {
+					rec.Quic.State = state
+					rec.Quic.Mismatch = true
+					// The mismatch finding row: the diagnostics record
+					// carries the direction and the raw alt-svc value
+					// (the classifier input) — never a run error.
+					diag.Emit(diag.Warn, diag.DomQuic, "h3-mismatch", addr,
+						"alt-svc hint vs direct QUIC truth mismatch", nil,
+						map[string]string{"hint": yn(hint), "truth": yn(truth), "alt_svc": altSvcValue})
+				} else {
+					diag.Emit(diag.Info, diag.DomQuic, "scan", t.Host, "QUIC probe recorded", nil,
+						map[string]string{"state": qr.State, "negotiated": u32str(qr.Group),
+							"udp_blocked": fmt.Sprint(qr.UDPBlocked), "alt_svc_h3": yn(hint)})
+				}
+			} else {
+				diag.Emit(diag.Warn, diag.DomQuic, "scan", t.Host, "QUIC probe omitted", qerr, nil)
+			}
+		}
 	}
 	return rec, res, false, false
 }
@@ -736,4 +778,13 @@ func readSpecs(r io.Reader) []string {
 		}
 	}
 	return specs
+}
+
+// yn renders a yes/no fact for the diagnostics fields (the hint/truth
+// grammar the h3-mismatch finding row speaks; PQ-25).
+func yn(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
 }

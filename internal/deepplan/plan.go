@@ -253,7 +253,27 @@ func candidateMatrix(obs Observed) []Probe {
 // the non-stdlib rungs as honest refused findings (the UDP plane has no
 // share-less raw path — the #101 discipline, spec §5.3's v1 deferral).
 func quicProbes(obs Observed) []Probe {
-	return nil // PQ-25 watched-RED stub
+	if !obs.QuicAttempted {
+		return nil
+	}
+	var rungs []uint32
+	if obs.NegotiatedGroup != 0 {
+		rungs = append(rungs, obs.NegotiatedGroup) // the anchor rides first
+	}
+	for _, g := range quicGroups {
+		if g != obs.NegotiatedGroup {
+			rungs = append(rungs, g)
+		}
+	}
+	probes := make([]Probe, 0, len(rungs))
+	for _, g := range rungs {
+		name := "quic/" + strconv.FormatUint(uint64(g), 10)
+		if g == obs.NegotiatedGroup {
+			name = "quic/negotiated-" + strconv.FormatUint(uint64(g), 10)
+		}
+		probes = append(probes, Probe{Name: name, Kind: KindQuic, Payload: g})
+	}
+	return probes
 }
 
 // stdlibSuites is the complete suite vocabulary the handshake plane can
@@ -306,7 +326,7 @@ func pruneStandard(in []Probe, observed Observed, budget int) ([]Probe, error) {
 	}
 	if len(probes) > budget {
 		return nil, fmt.Errorf(
-			"deepplan: standard candidate exceeds budget %d even after the documented prune classes: %d remain (the group ladder, mldsa sigalgs, 0-RTT, hrr and cert probes must not be silently cut)",
+			"deepplan: standard candidate exceeds budget %d even after the documented prune classes: %d remain (the group ladder, the QUIC-plane rungs, mldsa sigalgs, 0-RTT, hrr and cert probes must not be silently cut)",
 			budget, len(probes))
 	}
 	return probes, nil
@@ -337,6 +357,15 @@ func factPrune(in []Probe, obs Observed) []Probe {
 		}
 		if obs.HasCert && p.Kind == KindCert {
 			continue
+		}
+		if obs.QuicNegotiated != 0 && p.Kind == KindQuic {
+			// The QUIC plane already answered this rung in the
+			// profile's own probe (spec §7.4 phase 1 — the group the
+			// profile handshake answered is never re-run, on either
+			// plane).
+			if g, ok := p.Payload.(uint32); ok && g == obs.QuicNegotiated {
+				continue
+			}
 		}
 		probes = append(probes, p)
 	}

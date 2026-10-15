@@ -64,10 +64,6 @@ const altSvcH3ID = "h3"
 // is silent, and the run's exit code never moves on it.
 const SkipStateNoHint = "skipped: no alt-svc h3 hint"
 
-// errNotImplemented gate-guards the PQ-25 wiring stub the watched-RED
-// commit carries; the engines replace it in the GREEN pair.
-var errNotImplemented = errors.New("discovery: PQ-25 engine not implemented (watched-RED stub)")
-
 // MismatchState classifies a PROBED lane's hint/truth pairing (PQ-25,
 // spec §5.3: "Alt-Svc used as a hint only — direct probe is truth", and a
 // hint-vs-direct mismatch is a finding, not an error). It returns the
@@ -81,7 +77,20 @@ var errNotImplemented = errors.New("discovery: PQ-25 engine not implemented (wat
 //	                     to find it)
 //	agreements         → "" (the QUIC state vocabulary stands)
 func MismatchState(hint, truth bool) (string, bool) {
-	return "", false // PQ-25 watched-RED stub
+	switch {
+	case hint && !truth:
+		// The endpoint advertised h3 its direct QUIC plane never
+		// answered — the hint lied (stale alt-svc cache entry, a
+		// policy-filtered UDP plane); the finding says which way.
+		return "mismatch: hint=yes truth=no", true
+	case !hint && truth:
+		// h3 speaks with no alt-svc hint ever sent — the
+		// -quic-always way to find a deployment the hint layer
+		// undersells.
+		return "mismatch: hint=no truth=yes", true
+	default:
+		return "", false
+	}
 }
 
 // ProbeHint runs the hint half alone (the PQ-25 wiring seam): the fast
@@ -93,7 +102,21 @@ func MismatchState(hint, truth bool) (string, bool) {
 // result carrying a false hint. Discover composes ProbeHint with its
 // direct half; the fast pass composes ProbeHint with the QUIC gate.
 func ProbeHint(ctx context.Context, host string, port uint16, opts Options) (bool, string, error) {
-	return false, "", errNotImplemented // PQ-25 watched-RED stub
+	if host == "" {
+		return false, "", errHostRequired
+	}
+	if opts.Timeout <= 0 {
+		opts.Timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
+	hint, kept, err := probeAltSvc(ctx, host, port, opts.Timeout)
+	if err != nil {
+		return false, "", err // caller abort, not a target result
+	}
+	diag.Emit(diag.Info, diag.DomQuic, "h3-hint", net.JoinHostPort(host, strconv.Itoa(int(port))),
+		"alt-svc hint collected", nil, map[string]string{"h3": strconv.FormatBool(hint), "alt_svc": kept})
+	return hint, kept, nil
 }
 
 // Discover runs the h3-discovery contract against host:port (PQ-25):
@@ -136,7 +159,7 @@ func Discover(ctx context.Context, host string, port uint16, opts Options) (*Hin
 		// error is only a transport-level defect — refusals and silence
 		// reach here as classified results, never errors — so the truth
 		// falls back to unknown (= false) and the defect is recorded.
-		hints.H3Direct = qr.State == "negotiated" && qr.ALPN == altSvcH3ID
+		hints.H3Direct = qr.H3Negotiated()
 	} else {
 		diag.Emit(diag.Warn, diag.DomQuic, "h3-discovery", target, "QUIC probe errored", qerr, nil)
 	}

@@ -17,7 +17,6 @@ probe-sigalgs
 probe-suite
 probe-version
 quic
-quic-always
 retries
 silent
 sorted
