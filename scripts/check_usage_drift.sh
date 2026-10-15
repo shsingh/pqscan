@@ -37,25 +37,19 @@ awk '
     line = $0
     gsub(/^[ \t]+/, "", line)
     if (line ~ /^--([ \t]|$)/) { print "stdin"; next }
-    # leading flag tokens: single ("-u target") or comma-listed
-    # ("-json, -jsonl, -csv, -urls, -text")
+    if (line !~ /^-/) next            # continuation/prose lines are not rows
     n = split(line, toks, /[ \t]+/)
-    i = 1
-    while (i <= n && toks[i] !~ /^-/) { i++ }
-    while (i <= n && toks[i] ~ /^-/) {
-      piece = toks[i]
-      # advance to the next flag-like token for comma-list rows
-      if (piece ~ /,$/) {
-        gsub(/,$/, "", piece); if (piece ~ /^-/) print piece
-        i++
-        while (i <= n && toks[i] ~ /^-/) {
-          p2 = toks[i]; gsub(/,$/, "", p2); if (p2 ~ /^-/) print p2
-          if (toks[i] ~ /,$/) { i++ } else { break }
-        }
-        break
+    first = toks[1]
+    if (first ~ /,$/) {               # comma-list row: "-json, -jsonl, -csv..."
+      gsub(/,$/, "", first); if (first ~ /^-/) print first
+      j = 2
+      while (j <= n && toks[j] ~ /^-/) {
+        gsub(/,$/, "", toks[j]); if (toks[j] ~ /^-/) print toks[j]
+        if (toks[j] !~ /,$/) break
+        j++
       }
-      print piece
-      break
+    } else {
+      print first
     }
   }
 ' "$usage" > "$tmp/usage_raw" || true
