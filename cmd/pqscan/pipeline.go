@@ -17,11 +17,22 @@ import (
 	"time"
 
 	"github.com/shsingh/pqscan/internal/classify"
+	"github.com/shsingh/pqscan/internal/congestion"
 	"github.com/shsingh/pqscan/internal/diag"
 	"github.com/shsingh/pqscan/internal/grammar"
 	"github.com/shsingh/pqscan/internal/out"
 	"github.com/shsingh/pqscan/internal/quicx"
 	"github.com/shsingh/pqscan/internal/tlsx"
+)
+
+// breakerThreshold is the consecutive per-host probe failures that open a
+// host's breaker; breakerCooldown is how long an open host refuses dials
+// before its half-open probe. The state is in-memory and never outlives a
+// run (PQ-23); the §7.3 tuned budgets and per-/24 scoping ride the
+// shard/perf-suite lanes.
+const (
+	breakerThreshold = 3
+	breakerCooldown  = 15 * time.Second
 )
 
 // errNoTargets reports an empty composed target list to the caller.
@@ -58,6 +69,17 @@ type Options struct {
 	// (the WAL sink appends there, so a crash keeps each completed
 	// target); nil = no sink.
 	Record func(*scanRecord)
+	// Rate paces probe launches per second through the congestion token
+	// bucket (-rate; 0 = no limit, the pre-PQ-23 engine pace). The bucket
+	// starts with a single token — burst 1 — so the pace is the launch
+	// cadence: one launch per 1/Rate with no burst credit.
+	Rate float64
+	// MaxWindow is the AIMD window's ceiling (-threads): the launch count
+	// the dispatch may keep in flight. Zero (or negative) selects 1 — the
+	// sequential engine, the pre-PQ-23 dispatch. The window itself starts
+	// at aimd's floor and moves with the run (successes grow, probe
+	// timeouts halve); MaxWindow is only its ceiling.
+	MaxWindow int
 }
 
 // stdin is the process stdin seam: run() reads composed "--" specs from it.
@@ -65,12 +87,20 @@ type Options struct {
 // stable for every existing test.
 var stdin io.Reader = os.Stdin
 
-// Engine is the multi-target run pipeline: it scans every parsed
-// grammar.Target in order, fast mode, one record per target.
+// Engine is the multi-target run pipeline: it scans the composed
+// grammar.Targets under the PQ-23 control surfaces — the shared AIMD window
+// capping the launches in flight, the launch pace when -rate set it, and the
+// per-host breaker — one record per target, in composed order.
 type Engine struct {
 	// ProgressEvery is the progress-report interval; zero selects
 	// progressEvery. The scan still reports once at completion.
 	ProgressEvery int
+
+	// aimd holds the run's shared AIMD window: re-created per Run (the
+	// congestion state is in-memory and never outlives a run); nil before
+	// the first Run. Package-internal tests read the final window after
+	// Run returns.
+	aimd *congestion.AIMD
 }
 
 // Run scans targets in order and returns one record per target: reachable
@@ -99,6 +129,23 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 	total := len(targets)
 	diag.Emit(diag.Info, diag.DomEngine, "pipeline", "", "multi-target scan started",
 		nil, map[string]string{"total": strconv.Itoa(total), "progress_every": strconv.Itoa(every)})
+
+	// PQ-23 wiring stub: the control surfaces are constructed per run
+	// (rate/token bucket with burst 1 — the pace is the launch cadence —
+	// the AIMD window with the normalized ceiling, the per-host breaker),
+	// but the dispatch loop below is still the sequential scan that
+	// consumes none of them (watched RED: the GREEN commit replaces the
+	// loop with the window-semaphore dispatch; the three wiring tests
+	// fail on the inert surfaces until it does).
+	maxWindow := opts.MaxWindow
+	if maxWindow < 1 {
+		maxWindow = 1
+	}
+	e.aimd = congestion.NewAIMD(maxWindow)
+	if opts.Rate > 0 {
+		_ = congestion.NewLimiter(opts.Rate, 1)
+	}
+	_ = congestion.NewBreaker(breakerThreshold, breakerCooldown)
 
 	recs := make([]*scanRecord, 0, total)
 	for i, t := range targets {

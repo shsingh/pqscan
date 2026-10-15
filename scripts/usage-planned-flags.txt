@@ -24,13 +24,11 @@ probe-version
 ptr
 quic
 quic-always
-rate
 retries
 shard
 silent
 sni
 sorted
 stats
-threads
 timeout
 verify
