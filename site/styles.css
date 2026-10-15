@@ -4,18 +4,6 @@ nav .navbar-brand img { max-height: 36px; }
 code { font-family: "Pragmata Pro", "JetBrains Mono", Consolas, monospace; }
 pre code { font-size: 0.86em; }
 
-/* performance stat strip (index) */
-.pstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1.6rem 0 0.4rem 0; }
-.pstat { background: rgba(127,127,127,0.06); border: 1px solid rgba(127,127,127,0.25);
-         border-radius: 10px; padding: 1.1rem 1.2rem; }
-.pstat:hover { border-color: rgba(59,130,246,0.6); }
-.pnum { font-size: 2.35rem; font-weight: 800; line-height: 1.05;
-        background: linear-gradient(100deg, #2780e3 0%, #6f42c1 100%);
-        -webkit-background-clip: text; background-clip: text; color: transparent; }
-.punit { font-size: 1.05rem; font-weight: 700; margin-left: 0.15rem; opacity: 0.85; }
-.pcap { margin-top: 0.45rem; font-size: 0.85rem; opacity: 0.75; line-height: 1.35; }
-@media (max-width: 900px) { .pstats { grid-template-columns: repeat(2, 1fr); } }
-
 /* mermaid: grouping (cluster/subgraph) boxes = purple dotted, no fill;
    everything else (nodes) = solid black lines, no fill — the trishula standard */
 svg.mermaid-js { background: transparent; }
