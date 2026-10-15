@@ -242,7 +242,10 @@ func composeTargets(uSpec, listFile string, rawArgs []string, stderr io.Writer) 
 		return nil
 	}
 	if err := parseSpecs(specs); err != nil {
-		fmt.Fprintln(stderr, "pqscan:", err)
+		if !errors.Is(err, errCidrTargets) {
+			// the cidr refusal already printed its contextual line
+			fmt.Fprintln(stderr, "pqscan:", err)
+		}
 		return nil, 64
 	}
 	return targets, 0
