@@ -39,6 +39,10 @@ DESCRIPTION
     observation, never swallowed as an error.
 
 OPTIONS
+    GENERAL
+    -version          Print the build's version stamp and exit (the
+                      release stamp; source builds print the default).
+
     TARGETING
     -u target            Single target: hostname, host:port, ip, ip:port,
                          or scheme://host[:port].
@@ -64,6 +68,8 @@ OPTIONS
                           full unlocks the complete matrix (~120).
     -quic                 QUIC/h3 probing on domain workloads.
     -quic-always          QUIC probing regardless of Alt-Svc hints.
+    -quic-off             Skip the QUIC plane probe entirely (TCP-only
+                          runs; IP targets).
     -http                 One HTTP probe after the handshake (status,
                           hsts, Alt-Svc; default off for raw IP sweeps).
     -probe-suite suites   Force cipher-suite candidate list.
