@@ -7,8 +7,7 @@
 package main
 
 import (
-	"flag"
-	"fmt"
+	"io"
 	"os"
 )
 
@@ -16,14 +15,12 @@ import (
 const version = "0.0.1"
 
 func main() {
-	showVersion := flag.Bool("version", false, "print pqscan version and exit")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
 
-	if *showVersion {
-		fmt.Printf("pqscan %s (pre-alpha; specification: docs/spec.md)\n", version)
-		os.Exit(0)
-	}
-
-	fmt.Fprintln(os.Stderr, "pqscan: probe engines not implemented (M0 spike in progress; see issue PQ-01 register)")
-	os.Exit(64) // EX_USAGE — nothing to do yet
+// run executes the CLI and returns the process exit code. PQ-10 watched
+// RED: the tests land first; this stub always fails them until the
+// extraction commit.
+func run(args []string, stdout, stderr io.Writer) int {
+	return -1
 }
