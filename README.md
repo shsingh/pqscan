@@ -38,6 +38,8 @@ the `2026.01-rc1` cut are the remainder
 
 ## Measured performance
 
+(Rows tagged *historical* were captured at their evidence run; google.com is the live reference target for re-measurement.)
+
 M0-gate measurements (spec
 [`§7.8`](docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class)):
 the SLO suite is re-run on every perf-suite merge and this table tracks the
@@ -48,6 +50,7 @@ run transcripts.
 |---|---|---|---|
 | fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,952 (re-run 3,026) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
 | external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| external control decomposition (google.com:443, the reference live target) | — | connect 20.7 ms / handshake 140.3 ms / total 161.0 ms | `go run ./cmd/bench -target google.com:443 -host google.com -n 20 -mode seq` |
 | QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
 | obsolete-Kyber compat oracle (live) | — | share-less offer of group 25497 answered by an HRR demanding the draft group | `PQSCAN_INTEGRATION=1 go test ./internal/tlsx/ -run Integration -v` — [evidence #8](https://github.com/shsingh/pqscan/issues/8) |
 
@@ -61,7 +64,7 @@ subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
 
 # deep: the offer-one matrix on one asset (versions, suites, groups, HRR)
-pqscan -u cloudflare.com -mode deep -deep full -jsonl
+pqscan -u google.com -mode deep -deep full -jsonl
 
 # estate PQ calendar job; jq triage of everything not PQC-ready
 pqscan -l estate.txt -jsonl \

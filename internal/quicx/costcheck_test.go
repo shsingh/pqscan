@@ -10,7 +10,7 @@ import (
 // PR evidence.
 func TestCostMeasurement(t *testing.T) {
 	integrationOnly(t)
-	addr := "cloudflare.com:443"
+	addr := "google.com:443"
 	stats, err := MeasureCost(addr, "cloudflare.com", 15, 8*time.Second)
 	if err != nil {
 		t.Fatalf("measure: %v", err)
