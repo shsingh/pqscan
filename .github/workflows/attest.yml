@@ -37,6 +37,16 @@ jobs:
           CGO_ENABLED=0 go build -trimpath \
             -ldflags="-s -w -X main.version=${GITHUB_SHA::7}" \
             -o pqscan-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/pqscan
+      # attested subjects must ALSO be uploaded as run artifacts:
+      # gh attestation verify resolves against the run's artifact list —
+      # the governance contract (verify before running) is untestable
+      # without this upload (PQ-13, found in the ADR-0003 verification pass)
+      - name: Upload attested artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: pqscan-${{ matrix.goos }}-${{ matrix.goarch }}
+          retention-days: 7
       - name: Attest build provenance (SLSA)
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
