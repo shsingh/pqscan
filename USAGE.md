@@ -221,33 +221,33 @@ OPTIONS
 EXAMPLES
     Scan one host; the default text form (both planes probed):
 
-        $ pqscan -u cloudflare.com
-        cloudflare.com:443 group=X25519MLKEM768 class=pq_hybrid \
+        $ pqscan -u google.com
+        google.com:443 group=X25519MLKEM768 class=pq_hybrid \
             suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 \
             quic_neg=X25519MLKEM768 quic_class=pq_hybrid
 
     One schema-1 record per line, chain-ready (the verdict and the
     certificate analytics ride every record):
 
-        $ pqscan -u cloudflare.com -jsonl
-        {"schema":1,"mode":"fast","target":{"input":"cloudflare.com","host":"cloudflare.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+        $ pqscan -u google.com -jsonl
+        {"schema":1,"mode":"fast","target":{"input":"google.com","host":"google.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 
     Endpoint list for a downstream scanner:
 
-        $ pqscan -u cloudflare.com -urls 2>/dev/null
-        https://cloudflare.com:443
+        $ pqscan -u google.com -urls
+        https://google.com:443
 
     CSV with the full 25-column contract (first row = the header):
 
-        $ pqscan -u cloudflare.com -csv -o assets.csv
+        $ pqscan -u google.com -csv -o assets.csv
         target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts
-        cloudflare.com,cloudflare.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,ecdsa-with-SHA256,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-15T10:07:39.971835Z
+        google.com,google.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,sha256WithRSAEncryption,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-15T12:07:23.013375Z
 
     Input composition: a target, a file, and the bare -- stdin marker;
     duplicates dedupe by host:port, first occurrence wins. The bare --
     token must follow the options:
 
-        $ echo http://example.org:8443 | pqscan -u cloudflare.com -l known.txt -- -jsonl
+        $ echo http://example.org:8443 | pqscan -u google.com -l known.txt -- -jsonl
 
     Interruption is a resume point, not a loss. The WAL journal sits
     beside -o; a resume replays completed targets into the output and
@@ -269,7 +269,7 @@ EXAMPLES
     machine report; bug reports and scan-touching feature requests
     attach both:
 
-        $ pqscan -u cloudflare.com -debug -debug-out diag.json
+        $ pqscan -u google.com -debug -debug-out diag.json
         $ jq -c '.summary' diag.json
         {"events":8,"errors":0,"warnings":0}
 

@@ -72,11 +72,11 @@ func integrationOnly(t *testing.T) {
 func TestIntegrationQuicCloudflareHybrid(t *testing.T) {
 	integrationOnly(t)
 
-	r, err := ProbeQUIC("cloudflare.com:443", "cloudflare.com", []uint32{4588}, 8*time.Second)
+	r, err := ProbeQUIC("google.com:443", "google.com", []uint32{4588}, 8*time.Second)
 	if err != nil {
 		t.Fatalf("probe: %v", err)
 	}
-	t.Logf("cloudflare quic 4588-forced: %+v", r)
+	t.Logf("google quic 4588-forced: %+v", r)
 	if r.State != "negotiated" {
 		t.Fatalf("state = %q blocked=%v; want negotiated", r.State, r.UDPBlocked)
 	}
