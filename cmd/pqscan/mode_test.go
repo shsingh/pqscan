@@ -197,7 +197,7 @@ func TestDeepModeStandardExecutesPlan(t *testing.T) {
 	}
 	for _, id := range []string{"group/26", "group/27", "group/28"} {
 		got := findingsBy(rec, id)
-		if got == nil || got.Result != "refused" || !strings.HasPrefix(got.Detail, "not-offerable locally: tls: no supported key exchange methods") {
+		if got == nil || got.Result != "refused" || !strings.HasPrefix(got.Detail, "not-offerable locally: tls: no supported") {
 			t.Fatalf("%s: %+v, want the honest local-stack refusal (the scanner cannot construct the brainpool share)", id, got)
 		}
 	}

@@ -409,12 +409,19 @@ func deepHRRFinding(name, addr, host string, timeout time.Duration) out.DeepFind
 }
 
 // isLocalStackOfferFailure reports the client-side construction
-// refusals of the stdlib share path (the "no supported key exchange
-// methods" class the stack emits before any dial is possible).
+// refusals of the stdlib share path (the "no supported …" class the
+// stack emits before any dial is possible; the toolchains word it
+// differently — the CurveIDs enumeration and the ECDHE curve pool —
+// and both are the same fact: the share cannot be constructed).
 func isLocalStackOfferFailure(text string) bool {
-	return strings.Contains(text, "no supported key exchange methods") ||
-		strings.Contains(text, "no cipher suites") ||
-		strings.Contains(text, "no common cipher suite")
+	if i := strings.Index(text, "no supported"); i >= 0 {
+		tail := text[i:]
+		return strings.Contains(tail, "key exchange methods") ||
+			strings.Contains(tail, "elliptic curves") ||
+			strings.Contains(tail, "cipher suites") ||
+			strings.Contains(tail, "ciphers")
+	}
+	return strings.Contains(text, "no common cipher suite")
 }
 
 // groupDetailToken renders a requested group in the findings' detail:
