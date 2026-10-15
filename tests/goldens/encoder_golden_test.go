@@ -14,8 +14,18 @@ import (
 )
 
 // goldenRecord is the known record the record.* goldens encode: a fully
-// populated handshake and QUIC block (every optional field present, a
-// negotiated PQ hybrid), fixed scan stamps.
+// populated handshake, QUIC, cert and pq blocks (every optional field
+// present, a negotiated PQ hybrid) and fixed scan stamps.
+//
+// The cert/pq block values are a coherent rubric row for this record's
+// negotiated PQ hybrid — negotiated_pq_hybrid(+40) + cert_pq_sig(+25)
+// (composite-signed leaf) + dual_cert(+20) (classical-signed issuer) = 85
+// → pq-ready — and the leaf analytics carried by certinfo's owned OID
+// table (hybrid signature, classical ECDSA key, classical issuer ⇒
+// dual). The golden pins the BYTE contract (key order incl. the new
+// blocks; every inner field unconditionally encoded, false flags too),
+// not a live scan; the wire-in's rubric consistency is pinned in
+// cmd/pqscan's fixture tests.
 func goldenRecord() *out.Record {
 	return &out.Record{
 		Schema: out.SchemaVersion,
@@ -42,6 +52,19 @@ func goldenRecord() *out.Record {
 			Negotiated: 4588,
 			GroupName:  "X25519MLKEM768",
 			GroupClass: "pq_hybrid",
+		},
+		Cert: &out.CertRecord{
+			SigAlg: "MLDSA65-ECDSA-P256-SHA512",
+			SigPQ:  true,
+			KeyAlg: "ECDSA",
+			KeyPQ:  false,
+			Dual:   true,
+		},
+		Pq: &out.PqRecord{
+			Score:   85,
+			Label:   "pq-ready",
+			HNDL:    false,
+			Summary: "negotiated_pq_hybrid(+40); cert_pq_sig(+25); dual_cert(+20)",
 		},
 		Ts: "2026-10-15T09:30:12Z",
 	}

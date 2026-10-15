@@ -7,11 +7,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shsingh/pqscan/internal/grammar"
+	"github.com/shsingh/pqscan/internal/out"
 	fixtures "github.com/shsingh/pqscan/tests/fixtures/servers"
 )
 
@@ -64,12 +66,17 @@ func mustParse(t *testing.T, specs []string) []grammar.Target {
 	return ts
 }
 
-// wantRec is one expected record. class pins handshake.group_class ("" for
-// an error record, whose handshake must be zero); wantError pins a
-// non-empty record error; every record is pinned to schema 1 / fast mode.
+// wantRec is one expected record. class pins handshake.group_class (""
+// for an error record, whose handshake must be zero); wantError pins a
+// probe-failure record (error, zero handshake, no verdict blocks);
+// wantScanError pins the rubric's zero-PQ-signal scan-error record (the
+// error path carries the rubric's error text, the verdict block is
+// present with the scan-error label). Every record is pinned to schema
+// 1 / fast mode.
 type wantRec struct {
-	class     string
-	wantError bool
+	class         string
+	wantError     bool
+	wantScanError bool
 }
 
 // TestPipelineMultiTarget: Engine.Run scans the composed targets in order,
@@ -95,7 +102,7 @@ func TestPipelineMultiTarget(t *testing.T) {
 			specs:        []string{hybridAddr, classicAddr},
 			every:        0, // default: 50-target cadence
 			probeTimeout: 2 * time.Second,
-			wantRecs:     []wantRec{{class: "pq_hybrid"}, {class: "classic"}},
+			wantRecs:     []wantRec{{class: "pq_hybrid"}, {class: "classic", wantScanError: true}},
 			wantProgress: [][2]int{{2, 2}}, // final report only
 		},
 		{
@@ -103,7 +110,7 @@ func TestPipelineMultiTarget(t *testing.T) {
 			specs:        []string{hybridAddr, deadAddr, classicAddr},
 			every:        0,
 			probeTimeout: 500 * time.Millisecond,
-			wantRecs:     []wantRec{{class: "pq_hybrid"}, {class: "", wantError: true}, {class: "classic"}},
+			wantRecs:     []wantRec{{class: "pq_hybrid"}, {class: "", wantError: true}, {class: "classic", wantScanError: true}},
 			wantProgress: [][2]int{{3, 3}},
 		},
 		{
@@ -111,7 +118,7 @@ func TestPipelineMultiTarget(t *testing.T) {
 			specs:        []string{hybridAddr, classicAddr, deadAddr},
 			every:        2,
 			probeTimeout: 500 * time.Millisecond,
-			wantRecs:     []wantRec{{class: "pq_hybrid"}, {class: "classic"}, {class: "", wantError: true}},
+			wantRecs:     []wantRec{{class: "pq_hybrid"}, {class: "classic", wantScanError: true}, {class: "", wantError: true}},
 			wantProgress: [][2]int{{2, 3}, {3, 3}},
 		},
 		{
@@ -161,7 +168,8 @@ func TestPipelineMultiTarget(t *testing.T) {
 					t.Fatalf("record %d: input = %q, want %q (order)", i, rec.Target.Input, row.specs[i])
 				}
 				want := row.wantRecs[i]
-				if want.wantError {
+				switch {
+				case want.wantError:
 					if rec.Error == "" {
 						t.Fatalf("record %d (%s): error empty, want non-empty", i, rec.Target.Input)
 					}
@@ -169,9 +177,34 @@ func TestPipelineMultiTarget(t *testing.T) {
 						t.Fatalf("record %d (%s): negotiated = %d on an error record, want zero",
 							i, rec.Target.Input, rec.Handshake.Negotiated)
 					}
-				} else {
+					// A failed probe presents no verdict blocks: the
+					// record's error path carries it (score 0 lives in
+					// the zero value, never an invented rubric).
+					if rec.Pq != nil || rec.Cert != nil {
+						t.Fatalf("record %d (%s): probe failure carries verdict blocks (pq=%v cert=%v), want nil",
+							i, rec.Target.Input, rec.Pq, rec.Cert)
+					}
+				case want.wantScanError:
+					if rec.Error == "" || !strings.Contains(rec.Error, "zero PQ signal") {
+						t.Fatalf("record %d (%s): error = %q, want the rubric scan-error text", i, rec.Target.Input, rec.Error)
+					}
+					if rec.Pq == nil {
+						t.Fatalf("record %d (%s): pq block missing on a scanned target", i, rec.Target.Input)
+					}
+					if rec.Pq.Label != "scan-error" || rec.Pq.Score != 0 {
+						t.Fatalf("record %d (%s): pq = {%d %q}, want the scan-error verdict shape",
+							i, rec.Target.Input, rec.Pq.Score, rec.Pq.Label)
+					}
+					if rec.Handshake.GroupClass != want.class {
+						t.Fatalf("record %d (%s): group_class = %q, want %q",
+							i, rec.Target.Input, rec.Handshake.GroupClass, want.class)
+					}
+				default:
 					if rec.Error != "" {
 						t.Fatalf("record %d (%s): unexpected error %q", i, rec.Target.Input, rec.Error)
+					}
+					if rec.Pq == nil {
+						t.Fatalf("record %d (%s): pq block missing on a scanned target", i, rec.Target.Input)
 					}
 					if rec.Handshake.GroupClass != want.class {
 						t.Fatalf("record %d (%s): group_class = %q, want %q",
@@ -190,6 +223,90 @@ func TestPipelineMultiTarget(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestPipelineVerdictWireIn (PQ-19/PQ-21, watched RED): the pipeline maps
+// the observed handshake + certificate facts onto classify's ScoreInput
+// and fills the record's cert/pq blocks from the REAL rubric — the same
+// DefaultRubric the verdict table pins, no rubric stub. The fixture
+// server's leaf is a self-signed ECDSA P-256 certificate (the
+// tlsx surface test's same ground truth): classical, so cert_pq_sig
+// never fires here and the cert block carries the classical names —
+// presence of the block (it was analyzed), not a PQ claim.
+func TestPipelineVerdictWireIn(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	classicAddr := startClassicFixture(t)
+	deadAddr := closedLoopbackPort(t)
+
+	rows := []struct {
+		name     string
+		addr     string
+		timeout  time.Duration
+		wantPq   *out.PqRecord
+		wantCert *out.CertRecord
+	}{
+		{
+			name:    "hybrid fixture: negotiated_pq_hybrid(+40) = 40 pq-partial, classical leaf analyzed",
+			addr:    hybridAddr,
+			timeout: 2 * time.Second,
+			wantPq:  &out.PqRecord{Score: 40, Label: "pq-partial", HNDL: false, Summary: "negotiated_pq_hybrid(+40)"},
+			wantCert: &out.CertRecord{
+				SigAlg: "ecdsa-with-SHA256", SigPQ: false,
+				KeyAlg: "ECDSA", KeyPQ: false, Dual: false,
+			},
+		},
+		{
+			name:    "classic fixture: weak_classical_preferred(-5) floors to 0 = scan-error, summary carried",
+			addr:    classicAddr,
+			timeout: 2 * time.Second,
+			wantPq:  &out.PqRecord{Score: 0, Label: "scan-error", HNDL: false, Summary: "weak_classical_preferred(-5)"},
+			wantCert: &out.CertRecord{
+				SigAlg: "ecdsa-with-SHA256", SigPQ: false,
+				KeyAlg: "ECDSA", KeyPQ: false, Dual: false,
+			},
+		},
+	}
+
+	for _, row := range rows {
+		row := row
+		t.Run(row.name, func(t *testing.T) {
+			recs, err := (&Engine{}).Run(mustParse(t, []string{row.addr}),
+				Options{QuicOff: true, ProbeTimeout: row.timeout}, nil)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if len(recs) != 1 {
+				t.Fatalf("records = %d, want 1", len(recs))
+			}
+			rec := recs[0]
+
+			if !reflect.DeepEqual(rec.Pq, row.wantPq) {
+				t.Fatalf("pq block = %+v, want %+v", rec.Pq, row.wantPq)
+			}
+			if !reflect.DeepEqual(rec.Cert, row.wantCert) {
+				t.Fatalf("cert block = %+v, want %+v", rec.Cert, row.wantCert)
+			}
+		})
+	}
+
+	// The failed probe is the record's error path, not a verdict: no
+	// cert/pq block (score 0 stays the zero value — the rubric never
+	// ran), the error field carries the failure.
+	recs, err := (&Engine{}).Run(mustParse(t, []string{deadAddr}),
+		Options{QuicOff: true, ProbeTimeout: 500 * time.Millisecond}, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	rec := recs[0]
+	if rec.Error == "" {
+		t.Fatal("failed probe: record error empty, want the error path")
+	}
+	if rec.Handshake.Negotiated != 0 {
+		t.Fatalf("failed probe: negotiated = %d, want zero", rec.Handshake.Negotiated)
+	}
+	if rec.Pq != nil || rec.Cert != nil {
+		t.Fatalf("failed probe: pq/cert blocks invented (%v/%v), want nil", rec.Pq, rec.Cert)
 	}
 }
 

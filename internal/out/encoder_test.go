@@ -43,6 +43,15 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 			r.Quic.State = "blocked"
 			r.Quic.UDPBlocked = true
 		}},
+		{"pq + cert blocks", func(r *Record) {
+			r.Cert = &CertRecord{SigAlg: "MLDSA65-ECDSA-P256-SHA512", SigPQ: true, KeyAlg: "ECDSA", KeyPQ: false, Dual: true}
+			r.Pq = &PqRecord{Score: 85, Label: "pq-ready", HNDL: false,
+				Summary: "negotiated_pq_hybrid(+40); cert_pq_sig(+25); dual_cert(+20)"}
+		}},
+		{"zero pq block, classical cert block", func(r *Record) {
+			r.Pq = &PqRecord{} // score 0 / empty label: no omitempty inside a present block
+			r.Cert = &CertRecord{SigAlg: "ecdsa-with-SHA256", KeyAlg: "ECDSA"}
+		}},
 		{"html bytes in error", func(r *Record) { r.Error = "alert <ssl3> & \"bad\\path\"\nsecond line	tab" }},
 		{"unicode separators in host", func(r *Record) { r.Target.Host = "h\u2028o\u2029st"; r.Target.Input = "2028\u2028 20\u2029 29" }},
 		{"invalid utf-8 in error", func(r *Record) { r.Error = "dial \xff tcp: refused" }},
@@ -151,13 +160,16 @@ func TestCSVHeaderOnceAndCells(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("lines = %d, want 3 (header + 2 rows)", len(lines))
 	}
-	if lines[0] != "target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,error,ts" {
+	if lines[0] != "target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts" {
 		t.Fatalf("bad header: %s", lines[0])
 	}
-	if lines[1] != "example.com,example.com,443,example.com.,example.com,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,handshaked,X25519MLKEM768,false,,2026-10-15T09:30:12Z" {
+	// Both rows carry nil cert/pq blocks: the nine cells between the QUIC
+	// block and error stay empty (the populated-block row is pinned by the
+	// tests/goldens record.csv).
+	if lines[1] != "example.com,example.com,443,example.com.,example.com,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,handshaked,X25519MLKEM768,false,,,,,,,,,,,2026-10-15T09:30:12Z" {
 		t.Fatalf("row 1: %s", lines[1])
 	}
-	if lines[2] != "203.0.113.10:8443,203.0.113.10,8443,,,,,,,,,,,,\"connect: no route to host, retry 2\",2026-10-15T09:30:13Z" {
+	if lines[2] != "203.0.113.10:8443,203.0.113.10,8443,,,,,,,,,,,,,,,,,,,,,\"connect: no route to host, retry 2\",2026-10-15T09:30:13Z" {
 		t.Fatalf("row 2 (quoting + empty cells): %s", lines[2])
 	}
 }
