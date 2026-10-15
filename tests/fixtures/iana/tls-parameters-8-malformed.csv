@@ -1,0 +1,15 @@
+Value,Description,DTLS-OK,Recommended,Reference
+# pqscan PQ-18 malformed-row fixture: Load must abort with a line number.
+# Good rows first; then one row per defect class. Load aborts at line 11
+# (non-numeric value "bad-value"); the later classes are exercised
+# table-driven in internal/registry/registry_test.go.
+
+29,x25519,Y,Y,[RFC 9846]; [RFC 8422]
+4588,X25519MLKEM768,Y,Y,[RFC 10024]
+25497,X25519Kyber768Draft00,Y,D,[draft-tls-westerbaan-xyber768d00-02]
+4589,SecP384r1MLKEM1024,Y,N,[RFC 10024]
+bad-value,x25519,Y,Y,[RFC 9846]
+23,secp256r1,Y,Unexpected,[RFC 8422]
+24,secp384r1,Unsure,Y,[RFC 8422]
+4585,SecP256r1MLKEM512,Y,Y
+21,"SecP160K1,Y,N,[RFC 8422]
