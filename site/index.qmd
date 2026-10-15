@@ -25,6 +25,21 @@ is in progress.
 - **pq** — forced-group PQ ladder, PQ signature and certificate classification, estate-wide readiness verdicts with an HNDL risk flag.
 - **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443; HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
 
+## Performance
+
+M0-gate measurements; the SLO suite re-runs on every perf-suite merge and
+this table tracks the current evidence. Measured performance beyond these
+cells — the obsolete-Kyber compat oracle — is tracked in the repository
+[README](https://github.com/shsingh/pqscan#measured-performance). Verbatim
+run transcripts: issue comments on the linked evidence. Latency model and
+budget decomposition: [Design](design.qmd).
+
+| Metric | Target | Measured | Run |
+|---|---|---|---|
+| fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,952 (re-run 3,026) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
+
 ## Quick start
 
 ```bash
@@ -35,36 +50,25 @@ subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
 ```
 
-## Prior art — what pqscan learned from
+## Alternative and comparable tools
 
-The cipher-configuration space is well-trodden; pqscan exists because the
-existing tools each stop one step short of the intersection this project
-needs. Credit where the ideas came from, honestly recorded:
-
-| Tool | What pqscan learned from it | Where it stops short for this project |
+| Tool | Capability in common with pqscan | Divergence from pqscan's scope |
 |---|---|---|
-| [cryptonice](https://github.com/F5-Labs/cryptonice) | The scan-menu model (TLS + HTTP + DNS + fingerprint in one report) and the readable-JSON reporting shape | Python's per-target loop doesn't reach the throughput this contract wants, and PQC groups/signatures sit outside its view |
-| [gnutls-cli-debug](https://man7.org/linux/man-pages/man1/gnutls-cli-debug.1.html) | The gold standard of exhaustive probing: version-by-version, suite-by-suite, offer-and-observe | One interactive target at a time; groups and signatures aren't scriptable as a matrix |
-| [testssl.sh](https://github.com/testssl/testssl.sh) | Broad protocol coverage, including legacy versions, in one portable file | Shell's ceiling on concurrency makes estate-scale runs impractical; PQC handling stays opaque |
-| [sslyze](https://github.com/nabla-c0d3/sslyze) | A clean probing library design that many Python scanners (incl. cryptonice) build on | Same per-target serialism; no pipe-first output |
-| [zgrab2](https://github.com/zmap/zgrab2) | The scale architecture: modular scanners measured in handshakes/s, feeding zmap | One-or-few handshakes per host by design — the depth (suite/group ladder) is the missing altitude |
-| [masscan / zmap](https://github.com/robertdavidgraham/masscan) | Proof that disciplined rates make internet-scale port discovery possible | They are port scanners, deliberately; they feed pqscan rather than doing its job |
-| [TLS-Scanner](https://github.com/tls-attacker/TLS-Scanner) | Research-grade exhaustive protocol analysis done right | Academic packaging; not an ops-chain citizen |
-| [httpx / nuclei / naabu](https://github.com/projectdiscovery) | The dialect this tool speaks: pipe-first input, streaming JSONL, silent output, resume, shard | Their focus is HTTP content, not the cipher-configuration plane — a deliberate division of labour |
-| [Censys / Shodan](https://search.censys.io) | The value of PQ observations at scale | Remote datasets cannot probe your target list or a new IP range on demand |
+| [cryptonice](https://github.com/F5-Labs/cryptonice) | Multi-surface scan menu (TLS, HTTP, DNS, fingerprint) with structured JSON reporting | Python execution model without the throughput contract (spec §7); PQC group and signature assessment out of scope |
+| [gnutls-cli-debug](https://man7.org/linux/man-pages/man1/gnutls-cli-debug.1.html) | Exhaustive offer-and-observe protocol and suite probing | Interactive single-target scope; group and signature matrices are not scriptable |
+| [testssl.sh](https://github.com/testssl/testssl.sh) | Wide protocol coverage including legacy versions, single-file portability | Serial execution model bounds estate-scale runs; PQC codepoints not classified |
+| [sslyze](https://github.com/nabla-c0d3/sslyze) | Structured TLS probing library; base for several Python scanners | Per-target serial execution; no pipe-first interface |
+| [zgrab2](https://github.com/zmap/zgrab2) | Modular scanner architecture designed for handshake rates at scale | One or few handshakes per host by design; no suite/group enumeration depth |
+| [masscan / zmap](https://github.com/robertdavidgraham/masscan) | Rate-disciplined mass port discovery | Port discovery only, by design; composes with pqscan as input |
+| [TLS-Scanner](https://github.com/tls-attacker/TLS-Scanner) | Exhaustive protocol analysis | Academic toolchain packaging; not an operations-chain component |
+| [httpx / nuclei / naabu](https://github.com/projectdiscovery) | Pipe-first dialect: streaming JSONL, silent output, resume, sharding | Scope centred on HTTP content and port enumeration; cipher configuration delegated to pqscan |
+| [Censys / Shodan](https://search.censys.io) | Large-scale PQC observation datasets | Remote datasets only; no on-demand probing of arbitrary target lists |
 
-The synthesis: port and host discovery stay with the neighbours
-([compose, don't rebuild](recipes.qmd)); pqscan owns the
-cipher-configuration plane — TLS + QUIC handshake parameters, certificates
-and PQC classification — at chain-compatible speeds.
-
-## Navigate
-
-- [Design](design.qmd) — the two handshake planes, the bounded pipeline, budgets.
-- [Usage](usage.qmd) — the man page (flags, exit codes, diagnostics).
-- [Recipes](recipes.qmd) — chaining with subfinder / httpx / naabu / masscan / nuclei.
-- [Roadmap](roadmap.qmd) — milestones M0–M5, live gate state.
-- [Specification](https://github.com/shsingh/pqscan/blob/main/docs/spec.md) — the normative document.
+Port and host discovery compose with the adjacent tools
+([Recipes](recipes.qmd)); pqscan covers the cipher-configuration plane:
+TLS and QUIC handshake parameters, certificates, and PQC classification
+(spec
+[`§3`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#3-related-work--honest-survey)).
 
 Only scan systems you own or are authorised to test — see
 [Security](https://github.com/shsingh/pqscan/security/advisories/new) and
