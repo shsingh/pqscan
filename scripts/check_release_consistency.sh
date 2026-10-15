@@ -110,12 +110,26 @@ if command -v go >/dev/null; then
   perf_log="/tmp/gate_perf.log"
   if go test ./internal/microbench/ -run 'SLO|TestSizeSLO|Benchmark' -v > "$perf_log" 2>&1; then
     echo "5. SLO/size suite: PASS"
-    fresh="$(printf '%s' "$(cat "$perf_log")" | grep -oE 'h/s[ =:][0-9]+|([0-9]{4,6}) h/s' | grep -oE '[0-9]+' | head -1 || true)"
-    [ -n "$fresh" ] || fresh="$(grep -oE '[0-9]{4,6}' "$perf_log" | sort -rn | head -1 || true)"
+    # parse the canonical bench line ("-: N negotiated in X.XXs = RATE h/s")
+    # for ANY digit count: the previous two patterns assumed a 4+ digit rate
+    # (the M0-era machine) — a filtered/taxed host prints a 3-digit rate,
+    # both primaries miss, and the old final fallback (the largest 4-6 digit
+    # number anywhere in the log) then handed back a size-test byte count
+    # (756547) as the "fresh h/s" — demonstrated verbatim in this commit's
+    # catch run. No junk fallback: an absent canonical line refuses honestly.
+    fresh="$(grep -aoE 'negotiated in [0-9.]+s = [0-9,]+ h/s' "$perf_log" | head -1 | sed -E 's/.*= ([0-9,]+) h\/s/\1/' | tr -d ',' || true)"
     # documented = the SLO row's MEASURED cell (3rd column) in README + site;
     # both surfaces must carry the same number
     readme_perf="$(awk -F'|' '/^\|/ && /handshakes\/s/ {print $4; exit}' README.md | grep -oE '[0-9]([0-9,]+)?[0-9]' | head -1 | tr -d ',' || true)"
+    # the site surface carries the measured cell in EITHER of two shapes:
+    # the perf TABLE row (the #99 shape) or the info-rich pstat CARD (the
+    # #100 shape — the .pnum div whose unit names per-core handshakes).
+    # Site-shape PRs silently break the extractor until the next cut (the
+    # gate only runs at publish) — so both shapes are understood.
     site_perf="$(awk -F'|' '/^\|/ && /handshakes\/s/ {print $4; exit}' site/index.qmd | grep -oE '[0-9]([0-9,]+)?[0-9]' | head -1 | tr -d ',' || true)"
+    if [ -z "${site_perf:-}" ]; then
+      site_perf="$(awk '/class="pnum"/ && (/\/s/ || /per core/) { if (match($0, /[0-9][0-9,]*[0-9]/)) { print substr($0, RSTART, RLENGTH); exit } }' site/index.qmd | tr -d ',' || true)"
+    fi
     if [ -n "$readme_perf" ] && [ -n "$fresh" ]; then
       lo=$(( readme_perf / 2 )); hi=$(( readme_perf * 2 ))
       if [ "$fresh" -lt "$lo" ] || [ "$fresh" -gt "$hi" ]; then
