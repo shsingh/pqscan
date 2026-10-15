@@ -13,11 +13,13 @@ import (
 // the SLO reference target (linux/amd64) and asserts the measured byte size
 // against the gate. Build output goes to $TMPDIR only — never the repo tree.
 //
-// sizeSLOBytes is the placeholder PRE-BinaryOptim bound for this lane's
-// watched-RED run: it deliberately asserts a bound no honest build (6.5 MB
-// measured baseline) can meet, so the gate is seen failing before it is fixed
-// to the real 8 MB SLO in the GREEN commit of this pair. Evidence: issue #62.
-const sizeSLOBytes = 1_000_000
+// Watched-RED history: this lane's RED run asserted a deliberately wrong
+// pre-BinaryOptim bound (< 1,000,000) so the gate was seen failing against the
+// 6.5 MB measured baseline before it was corrected here. Evidence: issue #62.
+//
+// SLO: linux/amd64 release build < 8,000,000 bytes (8 MB); 7 MB for
+// darwin/arm64. Levers and measured sizes: docs/size-ledger.md.
+const sizeSLOBytes = 8_000_000
 
 // buildReleaseBinary is the size-gate helper: release-flags build of
 // ./cmd/pqscan for linux/amd64, byte size stat, and the measured number
@@ -45,7 +47,7 @@ func buildReleaseBinary(t *testing.T) int64 {
 func TestSizeSLO(t *testing.T) {
 	size := buildReleaseBinary(t)
 	if size >= sizeSLOBytes {
-		t.Fatalf("size gate: linux/amd64 release build = %d bytes, want < %d", size, sizeSLOBytes)
+		t.Fatalf("size gate: linux/amd64 release build = %d bytes, want < %d (8 MB SLO)", size, sizeSLOBytes)
 	}
 }
 

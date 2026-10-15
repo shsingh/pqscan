@@ -43,3 +43,23 @@ jobs:
           go-version-file: go.mod
       - name: Test
         run: go test ./...
+
+  size-gate:
+    needs: [build, test]
+    name: size-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Build linux/amd64 release (size-gate SLO target)
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o pqscan ./cmd/pqscan
+      - name: Assert binary size SLO
+        run: |
+          b=$(stat -c %s pqscan)
+          echo "linux/amd64 release build: ${b} bytes"
+          awk -v b="$b" 'BEGIN { if (b < 8000000) { print "size OK: " b " < 8000000"; } else { print "::error::linux/amd64 release build " b " bytes >= 8000000 SLO"; exit 1 } }'
