@@ -9,10 +9,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/quic-go/quic-go"
+	"github.com/shsingh/pqscan/internal/diag"
 )
 
 // quicFixture spins a local QUIC v1 listener (ALPN h3, self-signed cert,
@@ -112,15 +114,17 @@ func TestQuicUDPRefusedClassifies(t *testing.T) {
 	}
 }
 
-// integrationOnly gates live-network truth (never in CI).
+// integrationOnly gates live-network truth (never in CI): the gate reads
+// the ENVIRONMENT, not the const name — the const merely names the var
+// (PQ-13: this helper previously returned the const itself, so the gate
+// was always open and quic integration probes ran live in offline runs;
+// regression-proven by the offline suite skipping them).
 func integrationOnly(t *testing.T) {
 	t.Helper()
-	if quicIntegration() == "" {
+	if os.Getenv(quicIntegrationEnv) == "" {
 		t.Skip("PQSCAN_INTEGRATION not set; live-network probe skipped")
 	}
 }
-
-func quicIntegration() string { return quicIntegrationEnv }
 
 // TestIntegrationQuicCloudflareHybrid: forced 4588 inside QUIC v1 against
 // a hybrid edge — the UDP-plane ground truth (spec §10.1).
@@ -137,5 +141,32 @@ func TestIntegrationQuicCloudflareHybrid(t *testing.T) {
 	}
 	if r.Group != 4588 {
 		t.Fatalf("negotiated group = %d, want 4588", r.Group)
+	}
+}
+
+// TestQuicEmitsDiagnostics: the QUIC probe emits the same decision events
+// the TCP ladder does — the debug record covers both planes (PQ-13, the
+// PQ-11 acceptance leftover).
+func TestQuicEmitsDiagnostics(t *testing.T) {
+	sink, _ := diag.NewSink(nil, 0)
+	diag.SetDefault(sink)
+	defer diag.SetDefault(nil)
+
+	addr := quicFixture(t, []tls.CurveID{tls.X25519MLKEM768, tls.X25519})
+	if _, err := ProbeQUIC(addr, "pqscan.fixture", []uint32{4588}, 3*time.Second); err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	rep, err := sink.Report()
+	if err != nil {
+		t.Fatalf("report: %v", err)
+	}
+	found := false
+	for _, e := range rep.Events {
+		if e.Domain == diag.DomQuic && e.Fields["negotiated"] == "4588" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no quic diagnostics carrying negotiated=4588; events=%d", rep.Summary.Events)
 	}
 }
