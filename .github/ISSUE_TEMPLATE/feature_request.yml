@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a probe, output, or behavior change. Debug context helps when a scan is involved.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **If your feature touches scanning behaviour or engine output, include
+        diagnostics** — `-debug` gives the run's full decision log (machine-parsable
+        via `-debug-out`), which shows exactly where the proposed change plugs in:
+
+        ```bash
+        pqscan -debug -debug-out diag.json <the-scan-you-want-improved>
+        ```
+
+        Feature requests without diagnostics still welcome where no scan is
+        involved (docs, packaging, CLI shape) — the debug option exists for
+        everything engine-adjacent.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The need
+      description: What you are trying to achieve, and what blocks it today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The behavior/flag/output you propose. Name the spec section it extends if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: Diagnostics (if a scan is involved)
+      description: "The -debug stderr block and/or diag.json from the relevant scan."
+  - type: checkboxes
+    id: gate
+    attributes:
+      label: Implementation note
+      description: Accepted features land as watched-RED→GREEN pairs (ADR-0002) unless docs-only.
+      options:
+        - label: I understand the change lands test-first if accepted

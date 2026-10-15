@@ -87,6 +87,16 @@ OPTIONS
     -dns-threads n    DNS resolver pool size.
     -stats            Live progress + rate/error view.
 
+    DIAGNOSTICS
+    -debug            Full diagnostics: live human stream on STDERR
+                      (engine ladder steps, QUIC handshakes, refusals,
+                      classifications, timeouts) + a final readable
+                      block; stdout (results) stays clean for pipes.
+    -debug-out file   Machine-parsable diagnostics report (schema 1,
+                      JSON): run metadata, effective flags, every event.
+                      Bug reports and feature requests touching scans
+                      REQUIRE this attachment (see the issue templates).
+
     OUTPUT
     -json, -jsonl, -csv, -urls, -text
                       Output formats (default text, single line per
@@ -147,6 +157,15 @@ DIAGNOSTICS
     taxonomy (timeouts / rejections / alerts), DNS-pool health, breaker
     states (cooled subnets with reasons). A cooled bucket's targets emit
     skipped records with reason - never silent.
+
+    -debug prints the complete decision log: every probe (ladder step,
+    QUIC handshake, refusal, classification, timeout, alert) as a line on
+    stderr, then a human-readable summary block. -debug-out writes the
+    same run as schema-1 JSON (machine triage: jq '.summary', jq '.events'
+    filters). Anything wrong with a run - engine errors, odd server
+    behaviour, packets/ciphers you did not expect - is IN that record.
+    Issue templates REQUIRE `-debug -debug-out diag.json` attachments for
+    bugs; feature requests touching scans attach them too.
 
 SEE ALSO
     docs/spec.md (canonical specification), naabu(1), subfinder(1),

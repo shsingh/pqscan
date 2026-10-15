@@ -89,7 +89,7 @@ func TestDebugKeepsStdoutClean(t *testing.T) {
 
 // tlsx engine instrumentation: the ladder's decisions are diagnostics.
 func TestLadderEmitsDiagnostics(t *testing.T) {
-	sink, _ := diag.NewSink(false, 0)
+	sink, _ := diag.NewSink(nil, 0)
 	diag.SetDefault(sink)
 	defer diag.SetDefault(nil)
 

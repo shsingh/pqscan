@@ -3,8 +3,14 @@ package tlsx
 import (
 	"crypto/tls"
 	"net"
+	"strconv"
 	"time"
+
+	"github.com/shsingh/pqscan/internal/diag"
 )
+
+// strconvUint keeps diagnostics fields string-typed.
+func strconvUint(u uint32) string { return strconv.FormatUint(uint64(u), 10) }
 
 // ProbeResult is one row of the capability matrix: what was offered, what
 // the server answered, and the observed negotiation (spec §5.4; JSONL
@@ -83,17 +89,31 @@ func GroupLadder(addr, host string, groups []uint32, timeout time.Duration) []Pr
 		if stdlibGroups([]uint32{g}) {
 			r, err := ProbeNegotiated(addr, host, []uint32{g}, timeout)
 			if err != nil {
+				diag.Emit(diag.Error, diag.DomTLS, "ladder", addr, "stdlib probe errored", err,
+					map[string]string{"offered_group": strconvUint(g)})
 				out = append(out, ProbeResult{Offered: g, Path: "stdlib", State: "error", Error: err.Error()})
 				continue
 			}
+			diag.Emit(diag.Info, diag.DomTLS, "ladder", addr, "forced-group probe", nil,
+				map[string]string{"offered_group": strconvUint(g), "shared": "true", "state": r.State,
+					"negotiated": strconvUint(r.Negotiated), "suite": r.Suite})
 			out = append(out, *r)
 			continue
 		}
 		obs, err := SendHelloProbe(addr, host, []uint32{g}, 0)
 		if err != nil {
+			diag.Emit(diag.Error, diag.DomTLS, "ladder", addr, "raw oracle probe errored", err,
+				map[string]string{"offered_group": strconvUint(g), "shared": "false"})
 			out = append(out, ProbeResult{Offered: g, Shared: false, Path: "raw", State: "error", Error: err.Error()})
 			continue
 		}
+		level := diag.Info
+		if obs.State == StateAlert {
+			level = diag.Warn
+		}
+		diag.Emit(level, diag.DomTLS, "ladder", addr, "raw oracle probe", nil,
+			map[string]string{"offered_group": strconvUint(g), "shared": "false", "state": obs.State,
+				"requested_group": strconvUint(obs.RequestedGroup), "alert": strconvUint(uint32(obs.AlertDesc))})
 		out = append(out, ProbeResult{
 			Offered:        g,
 			Shared:         false,

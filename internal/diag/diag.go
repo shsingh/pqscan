@@ -7,7 +7,7 @@ package diag
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"runtime"
 	"sort"
 	"strings"
@@ -71,7 +71,7 @@ type Report struct {
 type Sink struct {
 	mu      sync.Mutex
 	limit   int // 0 = unbounded
-	human   bool
+	human   io.Writer
 	flags   map[string]string
 	started time.Time
 	ended   time.Time
@@ -90,10 +90,10 @@ func SetDefault(s *Sink) {
 // Default returns the armed sink or nil.
 func Default() *Sink { return defaultSink }
 
-// NewSink creates the run's sink; human=true streams events live to
-// stderr. limit <= 0 means unbounded.
-func NewSink(human bool, limit int) (*Sink, error) {
-	return &Sink{limit: limit, human: human, started: time.Now()}, nil
+// NewSink creates the run's sink; a non-nil humanWriter receives the
+// live streaming render (nil = off). limit <= 0 means unbounded.
+func NewSink(humanWriter io.Writer, limit int) (*Sink, error) {
+	return &Sink{limit: limit, started: time.Now(), human: humanWriter}, nil
 }
 
 // SetFlags records the effective configuration on the sink (appears in
@@ -125,8 +125,8 @@ func Emit(level, domain, op, target, msg string, err error, fields map[string]st
 	human := s.human
 	s.mu.Unlock()
 
-	if human {
-		fmt.Fprintf(os.Stderr, "  %s [%s][%s] %s %s: %s%s %s\n",
+	if human != nil {
+		fmt.Fprintf(s.human, "  %s [%s][%s] %s %s: %s%s %s\n",
 			ev.Ts.Format("15:04:05.000"), ev.Level, ev.Domain, ev.Op, ev.Target,
 			ev.Msg, errSuffix(ev.Err), fieldsSuffix(ev.Fields))
 	}

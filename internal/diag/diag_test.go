@@ -9,7 +9,7 @@ import (
 // TestSinkRecordsAndCaps: the ring keeps the LAST events under the cap;
 // counts match what was emitted (watched RED — fails on the stub sink).
 func TestSinkRecordsAndCaps(t *testing.T) {
-	s, err := NewSink(false, 100)
+	s, err := NewSink(nil, 100)
 	if err != nil {
 		t.Fatalf("sink: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestSinkRecordsAndCaps(t *testing.T) {
 // TestHumanizeReadable: the human render carries domain/op/err per line
 // and the summary; nothing looks like a stack trace.
 func TestHumanizeReadable(t *testing.T) {
-	s, _ := NewSink(false, 50)
+	s, _ := NewSink(nil, 50)
 	SetDefault(s)
 	Emit(Warn, DomQuic, "probe", "example.com:443", "server silent; recorded as blocked", nil, map[string]string{"udp_blocked": "true"})
 	r, err := s.Report()
@@ -60,7 +60,7 @@ func TestHumanizeReadable(t *testing.T) {
 
 // TestMachineJSONParses: the Report encodes to schema:1 JSON cleanly.
 func TestMachineJSONParses(t *testing.T) {
-	s, _ := NewSink(false, 10)
+	s, _ := NewSink(nil, 10)
 	SetDefault(s)
 	Emit(Info, DomNet, "dial", "example.com:443", "connect", nil, nil)
 	b, err := json.Marshal(mustReport(t, s))

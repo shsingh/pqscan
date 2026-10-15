@@ -1,0 +1,67 @@
+name: Bug report
+description: A scan, engine or output misbehaves. Debug-output attachments are REQUIRED.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Attach debug output — it is required.** A bug report without diagnostics
+        cannot be triaged. Generate it by re-running your scan with:
+
+        ```bash
+        pqscan -debug -debug-out diag.json <your-original-arguments>
+        ```
+
+        `diag.json` (machine report, schema 1) plus the human diagnostics block on
+        stderr (copy it too) carry the run's engine decisions: probe states,
+        rejections, alerts, classifications, timeouts and effective flags.
+        Redact anything the output may expose that you cannot share.
+  - type: input
+    id: version
+    attributes:
+      label: pqscan version
+      description: "Output of pqscan -version"
+      placeholder: "pqscan 0.0.1 (pre-alpha; specification: docs/spec.md)"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and target description
+      description: The exact invocation (redact sensitive targets) and what you were scanning.
+      placeholder: |
+        pqscan -mode fast -jsonl example.com
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behaviour
+      description: What happened that should not have (or the reverse).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: Debug output (REQUIRED)
+      description: |
+        Paste the human diagnostics block (stderr footer) and/or the machine
+        report JSON (`-debug-out`). Generated with:
+        pqscan -debug -debug-out diag.json <your-original-arguments>
+        Minimum: the `summary:` + the events around the failure.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/arch (the diagnostics report carries it), network posture if relevant.
+      placeholder: "darwin/arm64, Go 1.27, behind NAT, UDP/443 filtered…"
+    validations:
+      required: true
