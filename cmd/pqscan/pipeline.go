@@ -35,6 +35,15 @@ var errCidrTargets = errors.New("cidr expansion lands with PQ-16")
 // targets processed (standing user convention), plus one final report.
 const progressEvery = 50
 
+// The schema-1 record shape lives in internal/out (PQ-16); these aliases
+// keep the pipeline's per-target vocabulary (scanRecord / handshake /
+// quic) readable while pointing at the shape the encoders + WAL pin.
+type scanRecord = out.Record
+
+type handshakeRecord = out.HandshakeRecord
+
+type quicRecord = out.QuicRecord
+
 // defaultProbeTimeout is the per-plane probe budget (single-target rc1
 // value, unchanged).
 const defaultProbeTimeout = 8 * time.Second
@@ -45,6 +54,10 @@ type Options struct {
 	QuicOff bool
 	// ProbeTimeout caps each plane probe; zero selects defaultProbeTimeout.
 	ProbeTimeout time.Duration
+	// Record receives every completed record as it leaves the pipeline
+	// (the WAL sink appends there, so a crash keeps each completed
+	// target); nil = no sink.
+	Record func(*scanRecord)
 }
 
 // stdin is the process stdin seam: run() reads composed "--" specs from it.
@@ -89,7 +102,11 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 
 	recs := make([]*scanRecord, 0, total)
 	for i, t := range targets {
-		recs = append(recs, scanTarget(t, opts))
+		rec := scanTarget(t, opts)
+		if opts.Record != nil {
+			opts.Record(rec)
+		}
+		recs = append(recs, rec)
 		if done := i + 1; progress != nil && (done%every == 0 || done == total) {
 			diag.Emit(diag.Info, diag.DomEngine, "pipeline", t.Input, "progress reported",
 				nil, map[string]string{"done": strconv.Itoa(done), "total": strconv.Itoa(total)})
@@ -112,6 +129,10 @@ func scanTarget(t grammar.Target, opts Options) *scanRecord {
 		Mode:   "fast",
 		Target: out.TargetRecord{Input: t.Input, Host: t.Host, Port: uint16(t.Port)},
 	}
+	// The record stamp is the scan's start wall clock (RFC 3339 with
+	// nanoseconds, UTC — resume replay's not-rescanned proof reads it):
+	// CSV rows and journal entries carry it; the JSONL line does not.
+	rec.Ts = time.Now().UTC().Format(time.RFC3339Nano)
 
 	// TCP plane: browser-grade defaults (stdlib CurvePreferences = MLKEM
 	// hybrid preferred) — the negotiation is the real-world posture.

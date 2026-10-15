@@ -7,8 +7,10 @@ coverage.txt
 *.prof
 
 # Scan output artefacts (fixtures ship their own expectation files under tests/)
-out/
-results/
+# anchored to the repo root — an unanchored `out/` silently swallows the
+# internal/out package dir (same class as the internal/wal land in PQ-16).
+/out/
+/results/
 *.scan.jsonl
 
 # OS / editor
