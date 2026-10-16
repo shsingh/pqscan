@@ -30,8 +30,10 @@ import (
 // PQ-20: this record also carries the deep block (--mode deep): the
 // executed plan's counts — attempted = ok + rejected (+ refusals/errors
 // riding findings only) — and the findings vector in plan order, one row
-// per verdict class. Mode is "deep": the deep block only ever encodes on
-// a deep-mode record; the error record below pins the nil-omitted shape.
+// per verdict class. Mode is "deep" on this record (the deep plan); the
+// PQ-47 pq lane fills the SAME block with the forced ladder's rows (mode
+// "pq") — the encoder renders either identically. The error record below
+// pins the nil-omitted shape.
 //
 // PQ-25: the QUIC block grows the h3-discovery facts ADDITIVELY (the
 // discovered block {alt_svc_h3, h3_direct}; the mismatch flag is

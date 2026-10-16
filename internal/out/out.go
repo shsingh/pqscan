@@ -28,11 +28,15 @@ type Record struct {
 	// failed before their step: the Error field is that record's
 	// verdict path.
 	//
-	// Deep (PQ-20) is the deep-mode executor block (-mode deep only):
-	// the executed plan's counts + findings. Nil on fast/pq records and
-	// on deep records whose profile handshake failed (phase 1 gates
-	// phase 2); the CSV projection carries no deep columns — the
-	// findings vector lives in the JSONL line alone.
+	//	Deep (PQ-20) is the deep-mode executor block (-mode deep):
+	//	the executed plan's counts + findings. Nil on fast records
+	//	and on deep records whose profile handshake failed (phase 1
+	//	gates phase 2); the CSV projection carries no deep columns —
+	//	the findings vector lives in the JSONL line alone.
+	//	PQ-47 (issue #129): the SAME block carries the -mode pq
+	//	ladder — the forced PQ lane's per-probe observations with
+	//	Mode "pq" mirroring the deep executor's shape; the -text
+	//	counts tail (deep=pq:<N>p/<N>ok/<N>rej) rides it unchanged.
 	Quic  *QuicRecord `json:"quic,omitempty"`
 	Cert  *CertRecord `json:"cert,omitempty"`
 	Pq    *PqRecord   `json:"pq,omitempty"`
@@ -151,12 +155,16 @@ type DeepFinding struct {
 
 // DeepRecord is the deep-mode executor block (PQ-20): the executed plan's
 // summary and the per-probe findings, one per attempted probe (the plan
-// order). Mode is the executed -deep plan (standard | full). Attempted,
+// order). Mode is the executed -deep plan (standard | full), or "pq" —
+// PQ-47 (issue #129) fills the SAME block with the -mode pq forced
+// ladder's per-probe observations (the lattice mirrors the deep shape;
+// the findings ride the lane's row vocabulary verbatim). Attempted,
 // OK and Rejected count the executed probes (Attempted = the executed
 // count; OK the accepted; Rejected the server-rejected — refusals and
-// errors ride Findings only). Nil for every record that did not execute a
-// deep plan (-mode fast/pq, and the deep runs that short-circuited on a
-// failed profile handshake — spec §7.4 phase 1 gates phase 2).
+// errors ride Findings only). Nil for every record that did not execute
+// a deep plan or the forced PQ ladder (-mode fast, and the deep runs
+// that short-circuited on a failed profile handshake — spec §7.4 phase 1
+// gates phase 2).
 type DeepRecord struct {
 	Mode      string        `json:"mode"`
 	Attempted int           `json:"attempted"`
