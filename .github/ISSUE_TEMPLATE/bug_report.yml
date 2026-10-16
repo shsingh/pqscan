@@ -21,7 +21,7 @@ body:
     attributes:
       label: pqscan version
       description: "Output of pqscan -version"
-      placeholder: "pqscan 0.0.1 (pre-alpha; specification: docs/spec.md)"
+      placeholder: "pqscan 2026.01-rc1"
     validations:
       required: true
   - type: textarea
