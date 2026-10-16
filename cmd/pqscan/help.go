@@ -63,6 +63,13 @@ the record: which layers survive a quantum attacker and the
 harvest-now-decrypt-later exposure that remains. Rejections are results: a
 server that refuses a probe is an observation, never an error.
 
+THE DOUBLED DASH
+  Every flag also parses under two dashes: --word spells the same as -word
+  everywhere; both parse — the flag parser reads one and two dashes alike.
+  The flag rows below write the single-dash form: --mode, --jsonl, --u,
+  --l, --o work wherever those rows write -mode, -jsonl, -u, -l, -o, and
+  the shell completions offer both spellings.
+
 TARGETS
   Targets arrive by flag, by file, by stdin, or by the pipe:
 

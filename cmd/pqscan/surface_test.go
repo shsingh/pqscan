@@ -325,6 +325,45 @@ func TestCLISurfaceContract(t *testing.T) {
 			t.Errorf("gate %s failed: %s", script, out)
 		}
 	}
+
+	// ---- 8. the doubled dash spellings (PQ-48): one assertion row per
+	// family — the family's lead flag surfaces with BOTH dash forms in
+	// both completion generators, and the help renders the equivalence
+	// note (--word spells the same as -word everywhere; both parse).
+	t.Logf("── doubled dash spellings, one assertion row per family ──")
+	for _, shell := range []string{"bash", "zsh"} {
+		var cOut, cErr bytes.Buffer
+		if code := run([]string{"-completion", shell}, &cOut, &cErr); code != 0 {
+			t.Fatalf("-completion %s: rc=%d (stderr: %q)", shell, code, cErr.String())
+		}
+		script := cOut.String()
+		for _, grp := range helpGroups {
+			lead := ""
+			for _, n := range grp.flags {
+				if n != "--" { // the synthetic stdin row leads no family
+					lead = n
+					break
+				}
+			}
+			if lead == "" {
+				continue
+			}
+			missing := []string{}
+			for _, form := range []string{"-" + lead, "--" + lead} {
+				if !strings.Contains(script, form) {
+					missing = append(missing, form)
+					t.Errorf("-completion %s misses %s (the %q family's lead flag must surface with both dash spellings)", shell, form, grp.name)
+				}
+			}
+			if len(missing) == 0 {
+				t.Logf("-%-12s family=%-24s both dash forms complete in %s ✓", lead, grp.name, shell)
+			}
+		}
+	}
+	if !strings.Contains(help.String(), "--word spells the same as -word") {
+		t.Errorf("-h misses the doubled-dash equivalence note: the doubled spellings parse, the help must say so")
+	}
+	t.Logf("── -h carries the --word ≡ -word equivalence note ──")
 }
 
 // fsLookup is the flag-set lookup shaped for the map-driven row check.
