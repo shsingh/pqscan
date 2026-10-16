@@ -48,62 +48,25 @@ func main() {
 // choose the encoder (PQ-16); -resume replays the run journal beside -o
 // and scans only the pending targets.
 func run(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("pqscan", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	showVersion := fs.Bool("version", false, "print pqscan version and exit")
-	debug := fs.Bool("debug", false, "full diagnostics: human stream on stderr + machine report")
-	debugOut := fs.String("debug-out", "", "write the machine-parsable diagnostics report (schema 1) to this JSON file")
-	target := fs.String("u", "", "single target: host, host:port, or ip:port (composes with -l and --)")
-	listFile := fs.String("l", "", "read newline-separated target specs from this file (composes with -u and --; deduped by host:port)")
-	// PD-dialect input adapters (PQ-35/issue #80): the files' lines are
-	// httpx/naabu output; internal/target strips the dialect decoration
-	// and feeds the same grammar, so ONE composition — one dedupe —
-	// serves every input source.
-	httpxFile := fs.String("from-httpx", "", "read httpx-format input lines from this file (scheme://host:port with an optional URL path; composes with -u/-l/--; deduped by host:port)")
-	naabuFile := fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines, or a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)")
-	// Multi-box partition (PQ-24/issue #47): -shard i/n names this box's
-	// slice of the composed list — the deterministic fnv1a64(host:port)
-	// % n == i-1 rule, so the n boxes' shards are disjoint and complete.
-	shardSpec := fs.String("shard", "", `scan only shard i of n (spec "i/n"; the composed targets filter to the shard's membership: a multi-box pass = disjoint, complete)`)
-	// Output format selectors (spec §5.7): the LAST selector on the
-	// command line wins and text is the absent-flag default —
-	// chooseFormat resolves it. The five spellings register as real flags
-	// (the USAGE <-> source drift gate reads them back from the flag set).
-	_ = fs.Bool("json", false, "emit one schema-1 JSON record per line (alias of -jsonl)")
-	_ = fs.Bool("jsonl", false, "emit one schema-1 JSON record per line")
-	_ = fs.Bool("csv", false, "emit CSV rows (header line first)")
-	_ = fs.Bool("urls", false, "emit scheme://host:port lines, one per target")
-	_ = fs.Bool("text", false, "one human line per target (default format)")
-	// PQ-38: -explain appends a plain-language reading under each -text
-	// line (the line's verdict in words, group class, certificate layer,
-	// QUIC plane, error classes); the machine formats refuse it.
-	explain := fs.Bool("explain", false, "under each -text line, a plain-language reading of the record: the verdict in words, what the negotiated group/class means, the certificate and QUIC planes, an error-class hint when nothing negotiated (-text output only)")
-	outFile := fs.String("o", "", "write results to file (default stdout)")
-	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
-	// PQ-25/-quic-always (issue #48, spec §5.3): the additive hint-gate
-	// override — force the direct QUIC probe regardless of the alt-svc
-	// hint; -quic-off keeps the highest precedence.
-	quicAlways := fs.Bool("quic-always", false, "run the direct QUIC probe regardless of Alt-Svc h3 hints (the hint gate's override)")
-	resume := fs.Bool("resume", false, "resume an interrupted run from the WAL (<output basename>.wal next to -o)")
-	// Congestion wiring (PQ-23): the §7.3 control surfaces reach the
-	// pipeline through two flags — the token-bucket launch pace and the
-	// AIMD window ceiling. Both defaults stay the pre-PQ-23 engine: rate
-	// 0 = uncapped, window 1 = the sequential dispatch.
-	rate := fs.Float64("rate", 0, "probe launches per second through the token-bucket limiter (0 = uncapped: the pre-congestion pace)")
-	threads := fs.Int("threads", 1, "AIMD window ceiling: max target probes in flight (default 1 = the sequential engine)")
-	// Mode wiring (PQ-20/issue #43): -mode selects the per-target scan
-	// mode and -deep the deep plan cap; the deep-mode record carries the
-	// executed plan's deep block.
-	mode := fs.String("mode", "fast", "scan mode: fast (default) | deep (the executed deep plan) | pq (the forced PQ ladder)")
-	deepPlan := fs.String("deep", "standard", "deep-mode plan cap (-mode deep only): standard (default, <=24 probes/target) | full (the complete matrix)")
-	// Enrichment surfaces (PQ-26/issue #49): -ptr builds the run's
-	// resolver pool (the system resolver, bounded: 4 workers, a 2s
-	// budget, a 1024-entry LRU of positives) for IP targets' reverse
-	// DNS; -sni selects the pool's strategy; -certs-dir names the PEM
-	// export directory.
-	ptr := fs.Bool("ptr", false, "PTR enrichment for IP targets: resolve reverse DNS pre-probe, SNI per -sni; the record carries ptr/sni_used")
-	sni := fs.String("sni", "auto", "SNI strategy for IP targets: auto (default) | ptr-then-ip | ip-only")
-	certsDir := fs.String("certs-dir", "", "write each scanned host's end-entity certificate as PEM to <dir>/<host>.pem")
+	// -h/-help is the help path (PQ-38): stdout, exit 0, decided from
+	// the raw argv before the flag set parses (the scan stops at the
+	// bare `--`, past which tokens are target data).
+	if helpRequested(args) {
+		printHelp(stdout)
+		return 0
+	}
+
+	// One registration surface (flags.go): run() parses it, -help and
+	// the completions render from it. The locals bind the same names
+	// the body has always read.
+	fs, vals := newFlagSet()
+	wireFlagSetOutput(fs, stderr)
+	showVersion, debug, debugOut := vals.ShowVersion, vals.Debug, vals.DebugOut
+	target, listFile, httpxFile, naabuFile := vals.Target, vals.ListFile, vals.HTTPX, vals.Naabu
+	shardSpec, outFile := vals.ShardSpec, vals.OutFile
+	quicOff, quicAlways, resume := vals.QuicOff, vals.QuicAlways, vals.Resume
+	rate, threads := vals.Rate, vals.Threads
+	mode, deepPlan, ptr, sni, certsDir, explain := vals.Mode, vals.DeepPlan, vals.Ptr, vals.SNI, vals.CertsDir, vals.Explain
 	if err := fs.Parse(args); err != nil {
 		return 64
 	}
