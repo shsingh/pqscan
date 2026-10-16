@@ -17,7 +17,7 @@ flowchart LR
   end
   subgraph PQ["pqscan — cipher-configuration plane"]
     P1["fast — 1 handshake"]
-    P2["deep — 24–120 probes"]
+    P2["deep — the offer-one matrix (≤24 standard, 80 full)"]
     P3["pq — PQ ladder + verdicts"]
   end
   subgraph SINK["Downstream"]
@@ -47,20 +47,22 @@ administrator configured, what the wire accepts.
 **Solution.**
 
 ```bash
-subfinder -d example.com -silent \
+subfinder -d shain.io -silent \
   | httpx -silent -no-color \
   | pqscan -jsonl -o assets.jsonl
 ```
 
-**Observation.** One schema-1 record per endpoint; this run's:
+**Observation.** One schema-1 record per endpoint; this run's chain found
+4 alive endpoints and the first record:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"google.com","host":"google.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"oi.shain.io","host":"oi.shain.io","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"RSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
-**Discussion.** subfinder streams bare domains; httpx resolves them and
-answers `host:port` lines, which is a target spec pqscan accepts
-unflagged. The probe is browser-grade: the ClientHello offers the
+**Discussion.** subfinder streams bare domains; httpx resolves and probes
+them and answers `scheme://host` lines, which the spec grammar strips to
+host specs natively — the chain needs no flag or adapter. The probe is
+browser-grade: the ClientHello offers the
 stdlib default group preference order (MLKEM hybrid first), offers ALPN
 `h2,http/1.1`, and records what the server SELECTED — negotiation is
 the assertion, no configuration parsing. Each upstream tool stays in
@@ -78,7 +80,7 @@ skews latency math.
 **Solution.**
 
 ```bash
-naabu -host -p 443,8443,465,993 -silent -iL domains.txt \
+naabu -l domains.txt -p 443,8443,465,993 -silent \
   | pqscan -jsonl
 ```
 
@@ -117,7 +119,7 @@ upstream were verbatim, the records from the pqscan legs — the httpx
 render's scheme/URI lines strip to host:port specs:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"example.com","host":"example.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"example.org","host":"example.org","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 and the naabu render's doubled `host:port` lines (`example.com:8443`,
@@ -125,7 +127,7 @@ and the naabu render's doubled `host:port` lines (`example.com:8443`,
 dedupe to one record per socket:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid"},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 **Discussion.** The adapters feed the SAME composition -u/-l/-- use
@@ -184,31 +186,52 @@ target specs, not mis-scan.
 ```bash
 pqscan -u example.com:8443 -jsonl      # host:port
 pqscan -u 2001:db8::1 -jsonl           # v6 literal
-echo http://example.org:8443 | pqscan -jsonl -
+echo http://example.org:8443 | pqscan -jsonl -   # scheme:// strips on the stdin alias
+echo 'https://example.org:443/api' | pqscan -jsonl   # refused: a URL path suffix
+printf '198.51.100.0/24\n' | pqscan -jsonl           # refused: CIDR spec
 ```
 
-**Observation.** A scheme-prefixed target refuses with the reason on
-stderr and a non-zero exit:
+**Observation.** The first three run — the scheme strips off every spec
+line (`-u`, `-l` lines, the piped stdin), leaving one schema-1 record
+per target; `example.com:8443` negotiates and the unreachable v6
+literal is a record with `error` set, never a refusal:
+
+```json
+{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+```
+
+What refuses (exit 64, nothing scanned) — a URL path suffix on the
+spec path (path stripping stays the adapters' business) and a CIDR
+spec line (per-address expansion is planned):
 
 ```text
-pqscan: https://example.com: scheme prefixes are not accepted — pqscan speaks host/port targets
+pqscan: URL path "/api" in target spec "https://example.org:443/api": a URL path is the -from-httpx adapter's decoration (-from-httpx FILE strips scheme and path; the spec path keeps host[:port])
+```
+
+```text
+pqscan: -cidr target "198.51.100.0/24": cidr expansion lands with PQ-16
 ```
 
 **Discussion.** The grammar takes bare hosts (443 default), `host:port`
-forms, IPv4/IPv6 literals (bracketed v6 with port), `i/n` shard specs
-and the `--` stdin marker. Unreachable endpoints are NOT refusals —
+forms, IPv4/IPv6 literals (bracketed v6 with port), `scheme://host[:port]`
+(the scheme strips on every spec line), `i/n` shard specs, and the
+stdin forms: the pipe is the implicit default input (no marker needed),
+`-l -` is the explicit stdin-file alias, `--` composes beside `-u`/`-l`.
+Every flag also parses under two dashes (`--mode` is `-mode`), and the
+completions offer both spellings. Specs dedupe by host:port in input
+order. Unreachable endpoints are NOT refusals —
 they are records with `error` set, which the failure-taxonomy recipe
-below classifies. `-cidr` accepts ranges when the resolver plane is in
-play (the reverse-DNS recipe); the scheme prefixes stay refused by
-design — the tool speaks host:port, the PD ecosystem agrees.
+below classifies. CIDR spec lines refuse with the PQ-16 deferral notice
+until per-address expansion ships.
 
 ## Modes: fast, deep, pq
 
-### Deep standard — the bounded 24-probe profile
+### Deep standard — the bounded ≤24-probe profile
 
-**Problem.** Beyond the one fast handshake: which protocol versions,
-named groups and legacy suites does this server accept — without
-paying the full matrix's cost on every asset.
+**Problem.** Beyond the one fast handshake: which named groups the
+server refuses or accepts rung by rung, what the QUIC plane answers for
+the same rungs, the ML-DSA signature ladder, and the HRR demand — the
+structural ladders without paying the full matrix's cost on every asset.
 
 **Solution.**
 
@@ -216,48 +239,55 @@ paying the full matrix's cost on every asset.
 pqscan -u google.com -mode deep -jsonl
 ```
 
-**Observation.** The record gains a `deep` block; the run's header
-line reads:
+**Observation.** The record gains a `deep` block; this run's counts and
+a finding excerpt (the 22nd finding is the HRR row):
 
 ```text
-deep: mode=standard attempted=24 ok=6 rejected=5 refused=13
-```
-
-with finding rows like:
-
-```text
-version/1.0   accepted   negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.0
-version/1.1   accepted   negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.1
-version/1.2   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls-1.2
+mode=standard attempted=22 ok=2 rejected=8
 group/4585    rejected   alert 40
 group/4586    rejected   alert 40
 group/4587    rejected   remote error: tls: handshake failure
 group/4589    rejected   remote error: tls: handshake failure
 group/4590    rejected   alert 40
-group/25      accepted   negotiated 25, suite TLS_AES_128_GCM_SHA256, tls-1.3
+group/25      rejected   remote error: tls: handshake failure
 group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
+sigalg/mldsa65 refused    not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
 hrr/x25519-shareless  accepted   hrr: the server requested group x25519 (29)
 ```
 
-**Discussion.** The profile handshake runs first and its facts PRUNE
-the plan: the negotiated pair/group/version/certificate never re-probe
-(24 probes attempted, not 76). Per-kind dispatch: a version probe
-offers one version at a time (min=max forced); a group probe offers
-ONE named group — a real share where the toolchain has one,
-a share-less raw offer where it does not (the obsolete-Kyber oracle).
-`refused` rows are locally not-offerable probes: the raw ClientHello
-path pins its signature_algorithms list and the resumption plane is
-not instrumented yet — the finding's detail says exactly that, so a
-`refused` row is a capability boundary, not a server answer. The HRR
-probe extracts the group the server DEMANDED when the client
-withheld a share.
+with the text line carrying the counts tail `deep=standard:22p/2ok/8rej`
+(the remaining 12 of the 22 findings are the `refused` rows: three
+classical groups the stdlib cannot offer, three QUIC rungs ditto, three
+ML-DSA sigalgs, three resumption vectors — each row its own finding).
 
-### Deep full — the ~74-probe offer-one matrix
+**Discussion.** The profile handshake runs first and its facts PRUNE
+the plan (spec §7.4 phase 1): the negotiated group, the negotiated
+(suite, version) pair, the negotiated version, the certificate probe
+and the QUIC rung the profile already answered never re-probe. The
+plan then cuts to the ≤24 budget through the documented prune classes —
+adjacent suites first, then suites on the observed version, then all
+remaining suites, then foreign-version probes, then the classic
+signature algorithms — never touching the forced-group ladder, the
+ML-DSA sigalgs, the cert probe, the 0-RTT and HRR probes. On a modern
+host (the live reference above) that leaves exactly the structural
+ladders: the group and QUIC rungs, the ML-DSA ladder, resumption, HRR
+— the legacy suite and version hunt lives in `-deep full`. Per-kind
+dispatch: a group probe offers ONE named group — a real share where
+the toolchain has one, a share-less raw offer where it does not (the
+obsolete-Kyber oracle). `refused` rows are locally not-offerable
+probes: the raw ClientHello path pins its signature_algorithms list
+and the resumption plane is not instrumented yet — the finding's
+detail says exactly that, so a `refused` row is a capability boundary,
+not a server answer. The HRR probe extracts the group the server
+DEMANDED when the client withheld a share.
+
+### Deep full — the complete offer-one matrix
 
 **Problem.** Exhaustive coverage: every suite × version pair (the
 secure default list AND the legacy/insecure suites), every registry
-group, the signature-algorithm surface, resumption vectors and the HRR
-hop — the complete offer-one matrix, each row one handshake.
+group, the signature-algorithm surface, resumption vectors, the QUIC
+plane's rungs and the HRR hop — the complete offer-one matrix, each row
+one handshake.
 
 **Solution.**
 
@@ -265,29 +295,30 @@ hop — the complete offer-one matrix, each row one handshake.
 pqscan -u google.com -mode deep -deep full -jsonl
 ```
 
-**Observation.** (live)
+**Observation.** (live) The record's `deep` block counts:
 
-```text
-deep: mode=full attempted=74 ok=35 rejected=23 refused=16
+```json
+{"mode":"full","attempted":80,"ok":28,"rejected":33}
 ```
 
-Sample suite findings (the legacy hunt lives here):
+(the remaining 19 findings are the `refused` rows). Sample suite
+findings (the legacy hunt lives here):
 
 ```text
-suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   rejected
-suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted
-suite/TLS_CHACHA20_POLY1305_SHA256@1.3           refused   (the 1.3 set cannot be restricted)
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.0
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.2
+suite/TLS_CHACHA20_POLY1305_SHA256@1.3           refused    not-offerable on tls-1.3: crypto/tls offers the fixed 1.3 suite set (offer-one is not client-restrictable)
+suite/TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA@1.2     rejected   remote error: tls: handshake failure
 ```
 
-**Discussion.** 76 planned probes: 4 versions, 11 registry groups
-(4585–4590 plus the classical and the Kyber drafts), 49 suite×version
+**Discussion.** 80 probes, none pruned by observed facts: 4 versions,
+11 registry groups (4585–4590 plus the classical set), 47 suite×version
 pairs (the list auto-tracks `crypto/tls`, so a Go upgrade that gains a
 suite grows the matrix), 7 signature algorithms (incl. the ML-DSA
-codepoints), 1 certificate, 3 resumption vectors, 1 HRR — with the
-fast-mode facts still pruning what the profile handshake already
-proved. Standard never exceeds its 24-probe budget; `full` trades the
-budget for coverage and is the run you point at ONE asset you care
-about, not an estate.
+codepoints), 1 certificate, 3 resumption vectors, 1 HRR, and the 6
+QUIC-plane rungs. Standard never exceeds its 24-probe budget; `full`
+trades the budget for coverage and is the run you point at ONE asset
+you care about, not an estate.
 
 ### -mode pq — the forced PQ ladder
 
@@ -302,16 +333,28 @@ pqscan -u google.com -mode pq -jsonl
 ```
 
 **Observation.** (live) The record's handshake block carries the
-ladder's first ACCEPTED hybrid; the finding rows carry each rung's
-answer, and the draft rung drives the verdict:
+ladder's first ACCEPTED hybrid; the ladder lands as a deep-mode-shaped
+block — `mode:"pq"` with the counts `8 attempted / 1 ok / 7 rejected`
+and one finding per rung — and the `-text` line rides the same counts
+as the tail `deep=pq:8p/1ok/7rej`:
 
 ```text
-group/4588   accepted    negotiated 4588, suite TLS_AES_128_GCM_SHA256, tls-1.3
-group/25497  ...         obsolete-Kyber draft rung — the HNDL oracle's answer
+group/4588   accepted    negotiated X25519MLKEM768, suite TLS_AES_128_GCM_SHA256, tls-1.3
+group/4590   rejected    alert 40
+group/25497  rejected    alert 40
+group/25498  rejected    alert 40
+```
+
+under `-explain` the ladder's reading names the accepted rung and the
+refusals in operator words:
+
+```text
+  - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.
 ```
 
 **Discussion.** `-mode pq` runs the forced ladder 4585–4590 plus the
-Kyber drafts. The verdict rides the record's `pq` block: a draft-HRR
+Kyber drafts (25497/25498). The verdict rides the record's `pq` block:
+a draft-HRR
 acceptance trips `pq.hndl` — the harvest-now-decrypt-later flag —
 because material intercepted against a draft-group handshake decrypts
 when the draft is broken, regardless of how modern the rest of the
@@ -339,10 +382,10 @@ pqscan -u google.com -mode deep -deep full -jsonl \
 **Observation.** (live, excerpt)
 
 ```text
-suite/TLS_AES_128_GCM_SHA256@1.3            refused   (1.3 = one fixed set; the offer plane cannot restrict it)
-suite/TLS_CHACHA20_POLY1305_SHA256@1.3      refused   (same)
-suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   rejected
-suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted
+suite/TLS_AES_128_GCM_SHA256@1.3            refused   not-offerable on tls-1.3: crypto/tls offers the fixed 1.3 suite set (offer-one is not client-restrictable)
+suite/TLS_CHACHA20_POLY1305_SHA256@1.3      refused   not-offerable on tls-1.3: crypto/tls offers the fixed 1.3 suite set (offer-one is not client-restrictable)
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.0
+suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.2
 ```
 
 **Discussion.** Each suite probe is its OWN handshake offering ONE
@@ -364,21 +407,25 @@ is TLS 1.0/1.1 still on? Which legacy stacks still serve?
 **Solution.**
 
 ```bash
-pqscan -u google.com -mode deep -jsonl \
+pqscan -u google.com -mode deep -deep full -jsonl \
   | jq -r '.deep.findings[] | select(.probe | startswith("version/")) | "\(.probe)\t\(.result): \(.detail)"'
 ```
 
-**Observation.** (live — the finding many operators miss)
+**Observation.** (live)
 
 ```text
-version/1.0    accepted    negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.0
-version/1.1    accepted    negotiated TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, tls-1.1
-version/1.2    accepted    negotiated TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls-1.2
+version/1.0    accepted: negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.0
+version/1.1    accepted: negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.1
+version/1.2    accepted: negotiated TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls-1.2
+version/1.3    accepted: negotiated TLS_AES_128_GCM_SHA256, tls-1.3
 ```
 
-**Discussion.** The prunes keep this to four rows on a facts-known
-target. Pair it with the suite rows: the 1.0/1.1 answers above
-negotiated an RSA-keyed CBC suite — a legacy-only answer the fast
+**Discussion.** The version hunt runs in the `full` matrix: the standard
+plan's documented prune classes drop the foreign-version probes once the
+budget gets tight (the live reference's standard run planned none — its
+structural ladders already filled the 24-probe budget). Pair it with the
+suite rows: the 1.0/1.1 answers above negotiated an ECDSA-keyed CBC
+suite — a legacy-only answer the fast
 plane would never surface, because the browser-grade handshake always
 lands 1.3. THIS is why the deep modes exist: the fast record says
 "modern and hybrid", the deep findings say "and still answering on a
@@ -405,8 +452,10 @@ group/4586    rejected   alert 40
 group/4587    rejected   remote error: tls: handshake failure
 group/4589    rejected   remote error: tls: handshake failure
 group/4590    rejected   alert 40
-group/25      accepted   negotiated 25, suite TLS_AES_128_GCM_SHA256, tls-1.3
+group/25      rejected   remote error: tls: handshake failure
 group/26      refused    not-offerable locally: tls: no supported key exchange methods (CurveIDs)
+group/27      refused    not-offerable locally: tls: no supported key exchange methods (CurveIDs)
+group/28      refused    not-offerable locally: tls: no supported key exchange methods (CurveIDs)
 group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
 ```
 
@@ -434,7 +483,9 @@ pqscan -u google.com -mode deep -jsonl \
 **Observation.** (live; every sigalg row refuses with its reason)
 
 ```text
+sigalg/mldsa44   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
 sigalg/mldsa65   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
+sigalg/mldsa87   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
 ```
 
 **Discussion.** What IS provable today: the certificate analytics in
@@ -459,19 +510,25 @@ needs the full decision trail, human-readable, live.
 pqscan -u 127.0.0.1:64444 -debug
 ```
 
-**Observation.** (live, stderr)
+**Observation.** (live, stderr + the record on stdout)
 
 ```text
-  21:56:46.981 [info][config] run : diagnostics armed  positional_args= version=0.0.1
-  21:56:46.981 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
-  21:56:46.981 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
-  21:56:46.981 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
+  15:37:56.648 [info][config] run : diagnostics armed  positional_args= version=0.0.1
+  15:37:56.648 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
+  15:37:56.648 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
+  15:37:56.648 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
 127.0.0.1:64444 group=- class=- suite=- version=- error=dial tcp 127.0.0.1:64444: connect: connection refused
-  21:56:46.981 [info][output] emit 127.0.0.1: record emitted  format=text
+  15:37:56.648 [info][output] emit 127.0.0.1: record emitted  format=text
 ── pqscan diagnostics ── schema 1 ── 0.0.1 (go1.27.2, darwin/arm64)
-run: 2026-10-15T21:56:46.981+11:00 → 2026-10-15T21:56:46.981+11:00
+run: 2026-10-16T15:37:56.648304+11:00 → 2026-10-16T15:37:56.648564+11:00
 flags: debug=true u=127.0.0.1:64444
-events (5): …
+events (5):
+  15:37:56.648 [info][config] run : diagnostics armed  positional_args= version=0.0.1
+  15:37:56.648 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
+  15:37:56.648 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
+  15:37:56.648 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
+  15:37:56.648 [info][output] emit 127.0.0.1: record emitted  format=text
+summary: 5 events (1 errors, 0 warnings)
 ```
 
 **Discussion.** Every decision point emits: ladder steps, QUIC
@@ -497,16 +554,15 @@ jq -r '.events[] | "\(.level)[\(.domain)] \(.op) \(.target // "-")"' diag.json
 **Observation.** (live)
 
 ```json
-{"events":6,"errors":0,"warnings":0}
+{"events":5,"errors":1,"warnings":0}
 ```
 
 ```text
 info[config] run -
 info[engine] pipeline -
-info[tls] scan google.com
-info[engine] scan google.com
-info[engine] pipeline google.com
-info[output] emit google.com
+error[tls] scan hostile.internal
+info[engine] pipeline hostile.internal
+info[output] emit hostile.internal
 ```
 
 **Discussion.** `-debug-out` writes the full event log as JSONL beside
@@ -560,10 +616,13 @@ pound a struggling host into further misery.
 pqscan -l estate.txt -rate 2000 -threads 64 -jsonl
 ```
 
-**Observation.** (live, `-rate 5` on 3 targets)
+**Observation.** (live, `-rate 5` on 3 closed local ports — `time`
+shows the bucket's launch-cadence floor; the same run uncapped for
+contrast)
 
 ```text
-wall 0.468s  (the 5 rps bucket's floor: 3 launches ≥ 0.4s)
+real    0m0.412s        pqscan -l t3.txt -rate 5   (3 launches ≥ 0.4s at 5 rps: the bucket's floor)
+real    0m0.019s        pqscan -l t3.txt           (uncapped)
 ```
 
 **Discussion.** `-rate` meters launches through a token bucket;
@@ -624,7 +683,7 @@ columns, header on the first line:
 
 ```text
 target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts
-google.com,google.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,sha256WithRSAEncryption,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-15T12:07:23.013375Z
+google.com,google.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,sha256WithRSAEncryption,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-16T04:28:04.197287Z
 ```
 
 **Discussion.** The writers are hand-rolled — no reflection, no
@@ -643,14 +702,17 @@ triage: where is the migration stuck, and what must move first.
 **Solution.**
 
 ```bash
-pqscan -l estate.txt -jsonl -o assets.jsonl \
+pqscan -l estate.txt -jsonl \
   | jq -c '{target:.target.host, group:.handshake.group_name, class:.handshake.group_class, score:.pq.score, label:.pq.label, hndl:.pq.hndl}'
 ```
 
-**Observation.** One compact object per target (live):
+**Observation.** One compact object per target (live; `-o` sends the
+records to the file instead of the pipe, so the triage jq reads stdout
+directly):
 
 ```json
 {"target":"google.com","group":"X25519MLKEM768","class":"pq_hybrid","score":40,"label":"pq-partial","hndl":false}
+{"target":"example.org","group":"X25519MLKEM768","class":"pq_hybrid","score":40,"label":"pq-partial","hndl":false}
 ```
 
 **Discussion.** The record scores itself: `pq.score` is the weighted
@@ -663,6 +725,81 @@ treat the sub-60 bands as the worklist. The rubric feeds on the
 negotiated-plane facts today; the certificate signature analytics ride
 the `cert` block, and `pq.score` rises through the same field as the
 deep findings wire in.
+
+### The verdict in words: -explain
+
+**Problem.** The text line's key=value fields are dense; a ticket or a
+handoff needs the record read in sentences — what the verdict means,
+which layer is the gap, and (when nothing negotiated) what the error
+class suggests.
+
+**Solution.**
+
+```bash
+pqscan -u google.com -explain
+```
+
+**Observation.** (live) Under each text line, one reading block:
+
+```text
+google.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 quic_neg=X25519MLKEM768 quic_class=pq_hybrid cert=sha256WithRSAEncryption/ECDSA pq=pq-partial(40)
+  - verdict: pq-partial 40/100. The negotiated key exchange is post-quantum; the certificate layer is classical — see the lines below.
+  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. Session traffic is protected from later decryption by a quantum computer; the harvest-now-decrypt-later risk does not apply while this group negotiates.
+  - certificate: classical identity (ECDSA key, sha256WithRSAEncryption signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.
+  - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum verdict applies to h3 traffic.
+```
+
+Deep and pq runs get the plan reading — `-mode pq` names the accepted
+rungs and treats the refusal mass as the expected default:
+
+```text
+  - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.
+```
+
+and a refused dial gets the error-class hint:
+
+```text
+  - error: dial tcp 127.0.0.1:64440: connect: connection refused — no handshake was reached: the endpoint is unreachable on this port (closed or filtered); no cipher verdict is possible.
+```
+
+**Discussion.** `-explain` is a `-text`-only selector: the machine
+formats refuse it (exit 64, `pqscan: -explain applies to text output
+only (drop the -jsonl selector)`). Every tail the text line carries
+(`cert=sig/key`, the `deep=` counts, `ptr=`/`sni=` enrichment) has its
+counterpart in the reading — the human format tells the same story the
+machine formats carry.
+
+### Self-explanation: -version and the completion scripts
+
+**Problem.** Support and scripting need the tool's own identity and
+shell integration, generated — not hand-maintained flag lists.
+
+**Solution.**
+
+```bash
+pqscan -version
+source <(pqscan -completion bash)     # zsh: pqscan -completion zsh > .../site-functions/_pqscan
+```
+
+**Observation.** (live) Source builds print the bare stamp; the
+completion registers under the flag's name in bash:
+
+```text
+pqscan 0.0.1
+```
+
+```text
+complete -F _pqscan_completions pqscan
+```
+
+**Discussion.** The scripts are generated from the same flag surface
+the `-h` help renders — every implemented flag, the `-mode`/`-deep`
+`-sni`/`-completion` value lists, file completion where a flag takes a
+path, and BOTH dash spellings (`--word` parses anywhere `-word` does,
+and the completions offer both). Install one-liners and the persisted
+locations live in INSTALL.md; re-run the generator after upgrading so
+the completion matches the binary. The `-version` stamp is the
+release stamp on packaged builds.
 
 ## Downstream
 
@@ -718,7 +855,7 @@ infrastructure.
 **Solution.**
 
 ```bash
-pqscan -u 8.8.8.8:443 -ptr -sni auto -certs-dir /tmp/certs -jsonl
+pqscan -u 8.8.8.8:443 -ptr -sni auto -certs-dir certs/ -jsonl
 ```
 
 **Observation.** The literal is resolved pre-probe and the record carries
@@ -727,7 +864,7 @@ the answer verbatim — the PTR-derived candidate is the SNI, the record's
 behind for downstream tools:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"8.8.8.8:443","host":"8.8.8.8","ip":"","port":443,"ptr":"dns.google","sni_used":"dns.google"},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"8.8.8.8:443","host":"8.8.8.8","ip":"","port":443,"ptr":"dns.google","sni_used":"dns.google"},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 **Discussion.** `-ptr` builds the run's pool (bounded: 4 workers, a 2s
@@ -746,17 +883,20 @@ pre-filter there, hand the FQDNs forward.
 
 | Recipe topic | Flags / mode | State |
 |---|---|---|
-| one handshake, both planes | `-u`, `-l`, `--`, `-jsonl`, `-csv`, `-urls`, `-o`, `-resume`, `-quic-off`, `-debug`, `-debug-out` | **live** |
-| deep modes | `-mode deep`, `-deep standard\|full` | **live** |
-| forced PQ ladder | `-mode pq` | **live** |
-| rate/window/breakers | `-rate`, `-threads` | **live** |
-| PD adapters | `-from-httpx`, `-from-naabu` | **live** |
-| sharding | `-shard i/n` | **live** |
-| identity hooks | `-ptr`, `-sni`, `-certs-dir` | **live** |
-| profile config | `-config`, PQSCAN_* env | planned |
-| legacy module | `-legacy heartbleed,ccs,robot` | planned |
-| probe overrides | `-probe-suite`, `-probe-group`, `-probe-sigalgs`, `-probe-version` | planned |
-| sort/fields/silent/stats | `-sorted`, `-fields`, `-silent`, `-stats` | planned |
+| one handshake, both planes | -u, -l and -l - (the stdin-file alias), the implicit piped stdin, -- (the bare marker), -jsonl or -json, -csv, -urls, -o, -resume, -quic-off, -debug, -debug-out | live |
+| deep modes | -mode deep with -deep standard\|full | live |
+| forced PQ ladder | -mode pq | live |
+| the verdict in words | -explain (under -text; the machine formats refuse it) | live |
+| self-explanation | -version, -completion bash\|zsh | live |
+| rate/window/breakers | -rate, -threads | live |
+| PD adapters | -from-httpx, -from-naabu | live |
+| sharding | -shard i/n | live |
+| identity hooks | -ptr, -sni, -certs-dir | live |
+| profile config | -config, PQSCAN_* env | planned |
+| legacy module | -legacy heartbleed,ccs,robot | planned |
+| probe overrides | -probe-suite, -probe-group, -probe-sigalgs, -probe-version | planned |
+| sort/fields/silent/stats | -sorted, -fields, -silent, -stats | planned |
+| CIDR expansion | -cidr and CIDR spec lines (the PQ-16 deferral notice) | planned |
 
 The usage-drift gate in CI keeps USAGE.md and this map honest: a flag
 without a man-page row, or a row outside the implemented+planned set,
