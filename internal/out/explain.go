@@ -32,8 +32,13 @@ func WithExplain() EncoderOption {
 
 // explainBlock renders one record's reading as full lines (the caller
 // newline-terminates each). Line order: verdict, HNDL warning, key
-// exchange, certificate, QUIC; the error line replaces the verdict
-// lines on a record whose probe failed before one existed.
+// exchange, certificate, QUIC; the error line carries any error the
+// record actually holds — it replaces the verdict lines when the probe
+// failed before one existed (pq == nil) and rides under them on a
+// verdict-carrying record with a leftover error string (PQ-43
+// belt-and-braces: the renderer accounts for the record's fields, and
+// the engine never feeds the rubric's error onto a graded record, so
+// that case is defence in depth).
 func explainBlock(r *Record) []string {
 	lines := []string{}
 	if p := r.Pq; p != nil {
@@ -51,7 +56,7 @@ func explainBlock(r *Record) []string {
 	if q := r.Quic; q != nil {
 		lines = append(lines, quicLine(q))
 	}
-	if r.Pq == nil && r.Error != "" {
+	if r.Error != "" {
 		lines = append(lines, errorLine(r.Error))
 	}
 	return lines

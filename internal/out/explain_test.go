@@ -130,3 +130,30 @@ func TestExplainStaysOffMachineFormats(t *testing.T) {
 		}
 	}
 }
+
+// --- PQ-43 belt-and-braces (issue #119, watched RED) ------------------------
+
+// TestExplainErrorLineRidesAVerdictRecord: the block's error line renders
+// whenever the record actually carries an error, not only under
+// pq == nil. The post-PQ-43 engine never puts the rubric's error on a
+// verdict-carrying record (the state lives in the pq block), so this is
+// defence in depth: a leftover error string on a graded record must
+// still reach the terminal verbatim, beside the verdict lines (issue
+// #119's design: the renderer accounts for the case).
+func TestExplainErrorLineRidesAVerdictRecord(t *testing.T) {
+	rec := &Record{
+		Target:    TargetRecord{Host: "link.shain.io", Port: 443},
+		Handshake: HandshakeRecord{Negotiated: 29, GroupName: "x25519", GroupClass: "classic", Suite: "TLS_AES_256_GCM_SHA384", Version: "tls-1.3"},
+		Pq:        &PqRecord{Score: 0, Label: "scan-error", Summary: "scan-error"},
+		Error:     "rubric: zero PQ signal (score 0) — verdict scan-error",
+	}
+	got := strings.Join(explainBlock(rec), "\n")
+	for _, want := range []string{
+		"  - verdict: scan-error 0/100",
+		"  - error: rubric: zero PQ signal (score 0) — verdict scan-error",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("verdict-carrying record with a leftover error: block missing %q; got\n%s", want, got)
+		}
+	}
+}

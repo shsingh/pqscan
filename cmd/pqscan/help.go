@@ -64,15 +64,20 @@ harvest-now-decrypt-later exposure that remains. Rejections are results: a
 server that refuses a probe is an observation, never an error.
 
 TARGETS
-  Targets arrive by flag only — a single host, a file, or stdin:
+  Targets arrive by flag, by file, by stdin, or by the pipe:
 
-  -u example.com                    one target (host, host:port, ip, ip:port)
+  -u example.com                    one target (host, host:port, ip, ip:port,
+                                    or scheme://host[:port] — the scheme strips)
   -l targets.txt                    one target spec per line
-  cat targets.txt | pqscan --      targets from stdin (the bare marker)
+  -l -                              stdin as the list (the "-" alias, like
+                                    nmap -iL -; one line per spec)
+  cat targets.txt | pqscan          implicit: a piped stdin IS the default input
+  cat targets.txt | pqscan --       explicit stdin marker (composes with -u/-l)
 
-  Target specs compose (-u + -l + --) and dedupe by host:port, in order.
-  Default port 443. httpx/naabu output feeds its adapters:
-  -from-httpx/-from-naabu (the dialect stripping is built in).
+  Specs compose (-u + -l + the pipe/-- stdin) and dedupe by host:port,
+  in order. Default port 443. Spec lines accept scheme://host[:port]
+  (a URL path suffix stays the httpx adapter's business:
+  -from-httpx/-from-naabu strip scheme AND path).
 
 FLAGS, BY ROLE
 `)
@@ -92,10 +97,14 @@ FLAGS, BY ROLE
   pqscan -u google.com -mode pq                 the forced PQ ladder (the estate-grade PQ check)
   pqscan -u google.com -mode deep               the offer-one probe matrix (the 24-probe default cap)
   cat targets.txt | pqscan -jsonl --            stdin targets in, one schema-1 JSON record per line out
-  subfinder -d example.io -silent | pqscan --   the subfinder handoff (bare hosts)
+  subfinder -d shain.io -silent | pqscan        the subfinder handoff: the piped stdin IS the input
+  subfinder -d shain.io -silent | pqscan -l -   the same handoff by the explicit stdin-file alias
+  subfinder -d shain.io -silent | httpx -silent -p 443 | pqscan -jsonl
+                                                the live PD chain (httpx's scheme:// lines strip to the host)
+  echo https://shain.io | pqscan --             scheme://host[:port] strips on the pipe; same on -u and -l lines
   pqscan -completion zsh > _pqscan              keep the completions (zsh; see GENERAL above)
   httpx -silent -p 443 > hx.txt                 the httpx handoff feeds through the adapter:
-  pqscan -from-httpx hx.txt
+  pqscan -from-httpx hx.txt                     paths strip there too (https://host/api is accepted)
   pqscan -l all.txt -shard 1/4 -o s1.jsonl      box 1 of a 4-box pass
   pqscan -l all.txt -resume -o results.out      finish an interrupted run from the WAL
   pqscan -u 10.1.2.3 -ptr -certs-dir certs/     IP target: reverse DNS + PEM cert export
@@ -140,7 +149,7 @@ EXIT STATUS
 // grammar.
 func helpRow(fs *flag.FlagSet, name string) (string, string) {
 	if name == "--" {
-		return "--", `read target specs from stdin — the bare marker (options live before it); composes with -u and -l, deduped by host:port into one composed list`
+		return "--", `read target specs from stdin — the bare marker (options live before it), and the implicit default input when a pipe feeds a run with no other target source; piped lines accept scheme://host[:port]; composes with -u and -l, deduped by host:port into one composed list`
 	}
 	if tok, ok := flagTokens[name]; ok {
 		return tok, fs.Lookup(name).Usage
