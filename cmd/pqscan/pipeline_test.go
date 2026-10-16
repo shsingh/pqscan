@@ -847,3 +847,51 @@ func TestPipelineScanErrorRecordCarriesEmptyError(t *testing.T) {
 		t.Fatalf("csv error cell = %q, want empty", got)
 	}
 }
+
+// --- PQ-41 input-grammar parity (issue #117, watched RED) -------------------
+
+// TestListFileStdinAlias: -l - is the explicit stdin-file alias (PQ-41;
+// the nmap -iL - / nuclei -l - convention) — the composition reads the
+// stdin seam as the list, never the filesystem. "-" is not a file name:
+// the rc1 shape refused at the grammar with `open -: no such file or
+// directory` (exit 64). The alias composes with -- under the stdin
+// class's expand-exactly-once rule (the companion marker adds nothing),
+// and every line still arrives by the one grammar, deduped by host:port.
+func TestListFileStdinAlias(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+
+	t.Run("the alias reads stdin as the list file", func(t *testing.T) {
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "alias.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-l", "-", "-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted (results belong to -o): %q", out.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		target := recs[0]["target"].(map[string]any)
+		if target["input"] != hybridAddr {
+			t.Fatalf("input = %v, want %q (the alias feeds the one grammar)", target["input"], hybridAddr)
+		}
+	})
+
+	t.Run("the alias composes with --, stdin expands once", func(t *testing.T) {
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "alias-marker.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-l", "-", "-o", output, "-jsonl", "-quic-off", "--"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1 (-l - and -- name the same stdin; the class expands exactly once)", len(recs))
+		}
+	})
+}
