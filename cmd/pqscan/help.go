@@ -15,9 +15,10 @@ package main
 // an unknown-flag error.
 
 import (
-	"fmt"
+	"flag"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 // helpRequested reports whether the raw argv asks for help: the bare
@@ -45,10 +46,131 @@ func helpRequested(args []string) bool {
 	return false
 }
 
-// printHelp renders the help. Stub for PQ-38's watched RED: the full
-// rendering lands after the pins read it.
+// printHelp renders the full help (PQ-38). The intro is written for
+// the practitioner: what the tool observes, on both planes, and what a
+// verdict means — no developer-document references. Flag descriptions
+// read straight off the registration surface (flags.go): one source.
 func printHelp(w io.Writer) {
-	fmt.Fprintln(w, "pqscan")
+	fs, _ := newFlagSet()
+	var b strings.Builder
+	b.WriteString(`pqscan — the TLS/QUIC cipher-configuration and post-quantum readiness scanner.
+
+Reads the negotiated cipher configuration of remote endpoints — key-exchange
+group, cipher suite, protocol version, ALPN, and the certificate's signature
+and key algorithms — from both planes (TCP/TLS and QUIC/UDP), scores every
+observation on a fixed post-quantum readiness rubric, and puts the verdict on
+the record: which layers survive a quantum attacker and the
+harvest-now-decrypt-later exposure that remains. Rejections are results: a
+server that refuses a probe is an observation, never an error.
+
+TARGETS
+  Targets arrive by flag only — a single host, a file, or stdin:
+
+  -u example.com                    one target (host, host:port, ip, ip:port)
+  -l targets.txt                    one target spec per line
+  cat targets.txt | pqscan --      targets from stdin (the bare marker)
+
+  Target specs compose (-u + -l + --) and dedupe by host:port, in order.
+  Default port 443. httpx/naabu output feeds its adapters:
+  -from-httpx/-from-naabu (the dialect stripping is built in).
+
+FLAGS, BY ROLE
+`)
+	for _, grp := range helpGroups {
+		b.WriteString("\n  " + grp.name + "\n")
+		for _, name := range grp.flags {
+			token, desc := helpRow(fs, name)
+			b.WriteString("    " + token + "\n")
+			for _, line := range wrap(desc, 76) {
+				b.WriteString("      " + line + "\n")
+			}
+		}
+	}
+	b.WriteString("\n" + `EXAMPLES
+  pqscan -u google.com                          the fast handshake + the readiness verdict (default)
+  pqscan -u google.com -explain                 the same scan, read back in plain language
+  pqscan -u google.com -mode pq                 the forced PQ ladder (the estate-grade PQ check)
+  pqscan -u google.com -mode deep               the offer-one probe matrix (the 24-probe default cap)
+  cat targets.txt | pqscan -jsonl --            stdin targets in, one schema-1 JSON record per line out
+  subfinder -d example.io -silent | pqscan --   the subfinder handoff (bare hosts)
+  httpx -silent -p 443 > hx.txt                 the httpx handoff feeds through the adapter:
+  pqscan -from-httpx hx.txt
+  pqscan -l all.txt -shard 1/4 -o s1.jsonl      box 1 of a 4-box pass
+  pqscan -l all.txt -resume -o results.out      finish an interrupted run from the WAL
+  pqscan -u 10.1.2.3 -ptr -certs-dir certs/     IP target: reverse DNS + PEM cert export
+  pqscan -u google.com -rate 5 -threads 50      the polite-neighbour pace
+  pqscan -u google.com -debug -debug-out d.json the full diagnostics (bug reports attach it)
+
+READING THE OUTPUT
+  The default text line: one target per line, key=value fields; the
+  readiness verdict rides at the end as pq=<label>(<score>). -explain
+  expands each line into a plain-language block: the verdict in words,
+  what the negotiated group means (PQ hybrid / classical / obsolete
+  draft), the certificate layer, the QUIC plane, and an error hint.
+
+  Verdict bands (the readiness rubric, 0-100):
+    pq-ready          >= 80: post-quantum where the rubric can look — the
+                             key exchange AND the certificate layer answered PQ
+    pq-ready-hybrid   >= 60: the PQ hybrid negotiated, plus one PQ certificate signal
+    pq-partial        >= 40: the PQ hybrid negotiated; certificate classical
+    pq-missing        1-39:  PQ signal observed, nothing negotiated to stand on
+    scan-error        0:     zero usable PQ signal (an error state, not a grade)
+
+  Group classes: pq_hybrid = post-quantum hybrid (ML-KEM + a classical
+  curve); classic = classical; draft = an obsolete pre-final PQ group (the
+  harvest-now-decrypt-later trap); pq = pure PQ; unknown = unrecognised.
+  HNDL — harvest-now-decrypt-later: traffic captured today stays decryptable
+  to a future quantum computer. Classical key exchanges and obsolete draft
+  groups both carry it; -explain names which layer.
+
+EXIT STATUS
+  0    scan completed (results on the output stream, empty or not)
+  1    runtime error (probe, engine, or system failure during the scan)
+  64   usage refusal, nothing scanned: an unknown flag, a bad
+       -mode/-deep/-sni or -shard value, no targets, -explain under a
+       machine output format
+`)
+	_, _ = w.Write([]byte(b.String()))
+}
+
+// helpRow resolves one flag's rendered token + description: the token
+// from flagTokens (booleans render bare), the description straight off
+// the registration surface; the synthetic -- row carries the stdin
+// grammar.
+func helpRow(fs *flag.FlagSet, name string) (string, string) {
+	if name == "--" {
+		return "--", `read target specs from stdin — the bare marker (options live before it); composes with -u and -l, deduped by host:port into one composed list`
+	}
+	if tok, ok := flagTokens[name]; ok {
+		return tok, fs.Lookup(name).Usage
+	}
+	return "-" + name, fs.Lookup(name).Usage
+}
+
+// wrap greedy-wraps a description to the help column, returning the
+// content lines (the caller owns the indent); a single overlong word
+// rides alone, unsplit.
+func wrap(text string, width int) []string {
+	var lines []string
+	cur := ""
+	for _, word := range strings.Fields(text) {
+		cand := word
+		if cur != "" {
+			cand = cur + " " + word
+		}
+		if utf8.RuneCountInString(cand) <= width {
+			cur = cand
+			continue
+		}
+		if cur != "" {
+			lines = append(lines, cur)
+		}
+		cur = word
+	}
+	if cur != "" {
+		lines = append(lines, cur)
+	}
+	return lines
 }
 
 // flagGroup is a rendered help section: the group header plus the
