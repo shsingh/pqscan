@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/csv"
 	"encoding/json"
 	"net"
 	"os"
@@ -93,9 +94,10 @@ func mustParse(t *testing.T, specs []string) []grammar.Target {
 // for an error record, whose handshake must be zero); wantError pins a
 // probe-failure record (error, zero handshake, no verdict blocks);
 // wantScanError pins the rubric's zero-PQ-signal scan-error record (the
-// error path carries the rubric's error text, the verdict block is
-// present with the scan-error label). Every record is pinned to schema
-// 1 / fast mode.
+// verdict block is present with the scan-error label and score 0; the
+// record's error is EMPTY — PQ-43: the state lives in the pq block and
+// the rubric's error stays the classifier's internal path). Every record
+// is pinned to schema 1 / fast mode.
 type wantRec struct {
 	class         string
 	wantError     bool
@@ -208,8 +210,9 @@ func TestPipelineMultiTarget(t *testing.T) {
 							i, rec.Target.Input, rec.Pq, rec.Cert)
 					}
 				case want.wantScanError:
-					if rec.Error == "" || !strings.Contains(rec.Error, "zero PQ signal") {
-						t.Fatalf("record %d (%s): error = %q, want the rubric scan-error text", i, rec.Target.Input, rec.Error)
+					if rec.Error != "" {
+						t.Fatalf("record %d (%s): error = %q, want empty (PQ-43: the verdict block is the scan-error state's only honest home)",
+							i, rec.Target.Input, rec.Error)
 					}
 					if rec.Pq == nil {
 						t.Fatalf("record %d (%s): pq block missing on a scanned target", i, rec.Target.Input)
@@ -763,5 +766,84 @@ func TestRateThreadsFlagRegistration(t *testing.T) {
 	}
 	if bytes.Contains(errOut.Bytes(), []byte("flag provided but not defined")) {
 		t.Fatalf("the congestion flags did not register: %q", errOut.String())
+	}
+}
+
+// TestPipelineScanErrorRecordCarriesEmptyError (PQ-43, watched RED): the
+// rubric's zero-PQ-signal refusal is the classifier's internal path and
+// never the record's user-facing error. A verdict-carrying record — the
+// profile handshake SUCCEEDED (a classical group negotiated, the pq
+// block scored 0 / scan-error) — leaves record.error empty: the state's
+// only honest home is the pq block (label/score/summary), rendered as
+// pq=scan-error(0) on the text line. jsonl/csv agree (the schema-1 error
+// key/cell is present and empty: "the probe failed" — the probe did
+// not). Probe-failure records keep their verbatim failure text (the
+// unchanged error = probe-failure contract, pinned by TestPipelineMultiTarget
+// and the error.* goldens); the pq block MUST stay the scan-error shape.
+func TestPipelineScanErrorRecordCarriesEmptyError(t *testing.T) {
+	classicAddr := startClassicFixture(t)
+	recs, err := (&Engine{}).Run(mustParse(t, []string{classicAddr}),
+		Options{QuicOff: true, ProbeTimeout: 2 * time.Second}, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("records = %d, want 1", len(recs))
+	}
+	rec := recs[0]
+	if rec.Handshake.Negotiated == 0 || rec.Handshake.GroupClass != "classic" {
+		t.Fatalf("handshake = %d/%q, want a negotiated classical group (the scan succeeded)",
+			rec.Handshake.Negotiated, rec.Handshake.GroupClass)
+	}
+	if rec.Pq == nil {
+		t.Fatal("pq block missing on a scanned target")
+	}
+	if rec.Pq.Label != "scan-error" || rec.Pq.Score != 0 {
+		t.Fatalf("pq = {%d %q}, want the scan-error verdict shape (score 0)",
+			rec.Pq.Score, rec.Pq.Label)
+	}
+	if rec.Error != "" {
+		t.Fatalf("error = %q, want empty (PQ-43: a verdict-carrying record's state lives in the pq block, not the record's error field)",
+			rec.Error)
+	}
+
+	// jsonl: the schema-1 error key stays present (the schema keeps its
+	// meaning) and empty.
+	var jbuf bytes.Buffer
+	if err := out.NewEncoder(&jbuf, out.FormatJSONL).Encode(rec); err != nil {
+		t.Fatalf("encode jsonl: %v", err)
+	}
+	var line map[string]any
+	if err := json.Unmarshal(jbuf.Bytes(), &line); err != nil {
+		t.Fatalf("decode jsonl: %v", err)
+	}
+	if got, ok := line["error"]; !ok || got != "" {
+		t.Fatalf("jsonl error = %v (present=%v), want present and empty", got, ok)
+	}
+
+	// csv: the error cell empties.
+	var cbuf bytes.Buffer
+	if err := out.NewEncoder(&cbuf, out.FormatCSV).Encode(rec); err != nil {
+		t.Fatalf("encode csv: %v", err)
+	}
+	rows, rerr := csv.NewReader(&cbuf).ReadAll()
+	if rerr != nil {
+		t.Fatalf("read csv: %v", rerr)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("csv rows = %d, want 2 (header + record)", len(rows))
+	}
+	col := -1
+	for c, name := range rows[0] {
+		if name == "error" {
+			col = c
+			break
+		}
+	}
+	if col < 0 {
+		t.Fatalf("csv header %v carries no error column", rows[0])
+	}
+	if got := rows[1][col]; got != "" {
+		t.Fatalf("csv error cell = %q, want empty", got)
 	}
 }
