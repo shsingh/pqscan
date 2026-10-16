@@ -45,6 +45,17 @@ func sortedFlagNames() []string {
 	return names
 }
 
+// allDashForms is every implemented flag's BOTH dash spellings (PQ-48:
+// the doubled spelling completes beside the single one, since the flag
+// parser reads one and two dashes alike), lexically sorted.
+func allDashForms() []string {
+	fs, _ := newFlagSet()
+	names := []string{}
+	fs.VisitAll(func(f *flag.Flag) { names = append(names, "-"+f.Name, "--"+f.Name) })
+	sort.Strings(names)
+	return names
+}
+
 // sortedKeys keeps the generated sections' order deterministic.
 func sortedKeys(m map[string][]string) []string {
 	keys := []string{}
@@ -55,11 +66,12 @@ func sortedKeys(m map[string][]string) []string {
 	return keys
 }
 
-// fileFlagTokens renders the file-argument flags' dash forms.
+// fileFlagTokens renders the file-argument flags' dash forms (both
+// spellings, PQ-48).
 func fileFlagTokens() []string {
 	toks := []string{}
 	for _, name := range flagFiles {
-		toks = append(toks, "-"+name)
+		toks = append(toks, "-"+name, "--"+name)
 	}
 	sort.Strings(toks)
 	return toks
@@ -74,7 +86,7 @@ func bashScript() string {
 	b.WriteString("# bash completion for pqscan (generated: pqscan -completion bash; PQ-40)\n")
 	b.WriteString("# Session: source <(pqscan -completion bash)\n")
 	b.WriteString("# Persist: pqscan -completion bash > \"$(bash-completion-writable-dir)/pqscan\"\n\n")
-	fmt.Fprintf(&b, "_pqscan_flags=\"%s\"\n", strings.Join(sortedFlagNames(), " "))
+	fmt.Fprintf(&b, "_pqscan_flags=\"%s\"\n", strings.Join(allDashForms(), " "))
 	for _, name := range sortedKeys(flagChoices) {
 		fmt.Fprintf(&b, "_pqscan_%s_values=\"%s\"\n", name, strings.Join(flagChoices[name], " "))
 	}
@@ -86,7 +98,7 @@ _pqscan_completions() {
   case "$prev" in
 `)
 	for _, name := range sortedKeys(flagChoices) {
-		fmt.Fprintf(&b, "    -%s) COMPREPLY=($(compgen -W \"$_pqscan_%s_values\" -- \"$cur\")); return;;\n", name, name)
+		fmt.Fprintf(&b, "    -%s|--%s) COMPREPLY=($(compgen -W \"$_pqscan_%s_values\" -- \"$cur\")); return;;\n", name, name, name)
 	}
 	fmt.Fprintf(&b, `    %s) COMPREPLY=($(compgen -f -- "$cur")); return;;
   esac
@@ -122,7 +134,7 @@ func zshScript() string {
 	names := sortedFlagNames()
 	fileSet := map[string]bool{}
 	for _, tok := range fileFlagTokens() {
-		fileSet[tok] = true
+		fileSet[strings.TrimLeft(tok, "-")] = true // both spellings map same name
 	}
 	var b strings.Builder
 	b.WriteString("#compdef pqscan\n")
@@ -133,18 +145,22 @@ func zshScript() string {
 	for _, tok := range names {
 		name := strings.TrimLeft(tok, "-")
 		desc := zshDesc(fs.Lookup(name).Usage)
-		var spec string
-		switch {
-		case flagChoices[name] != nil:
-			spec = fmt.Sprintf("    '-%s[%s]:%s:(%s)'\n", name, desc, name, strings.Join(flagChoices[name], " "))
-		case fileSet[tok]:
-			spec = fmt.Sprintf("    '-%s[%s]:file:_files'\n", name, desc)
-		case name == "u":
-			spec = fmt.Sprintf("    '-%s[%s]:target:'\n", name, desc)
-		default:
-			spec = fmt.Sprintf("    '-%s[%s]'\n", name, desc)
+		// both dash spellings complete for every flag (PQ-48): the
+		// parser reads one and two dashes alike.
+		for _, dash := range []string{"-", "--"} {
+			var spec string
+			switch {
+			case flagChoices[name] != nil:
+				spec = fmt.Sprintf("    '%s%s[%s]:%s:(%s)'\n", dash, name, desc, name, strings.Join(flagChoices[name], " "))
+			case fileSet[name]:
+				spec = fmt.Sprintf("    '%s%s[%s]:file:_files'\n", dash, name, desc)
+			case name == "u":
+				spec = fmt.Sprintf("    '%s%s[%s]:target:'\n", dash, name, desc)
+			default:
+				spec = fmt.Sprintf("    '%s%s[%s]'\n", dash, name, desc)
+			}
+			b.WriteString(spec)
 		}
-		b.WriteString(spec)
 	}
 	b.WriteString("  )\n  _arguments -S -s $opts\n}\n\n_pqscan \"$@\"\n")
 	return b.String()
