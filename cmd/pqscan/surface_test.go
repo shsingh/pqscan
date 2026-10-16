@@ -290,7 +290,26 @@ func TestCLISurfaceContract(t *testing.T) {
 			t.Errorf("the live scan lost %q", want)
 		}
 	}
-	t.Logf("live -explain scan ↓\n%s", indentBlock(scanOut.String()))
+	if testing.Verbose() {
+		t.Logf("live -explain scan ↓\n%s", indentBlock(scanOut.String()))
+	}
+
+	// ---- 6b. deep mode: the executed plan's counts ride the line (the
+	// format-parity contract, PQ-46 — the story must not depend on the
+	// output format).
+	var deepOut, deepErr bytes.Buffer
+	if code := run([]string{"-u", addr, "-mode", "deep", "-deep", "standard"}, &deepOut, &deepErr); code != 0 {
+		t.Fatalf("deep scan: rc=%d (stderr: %s)", code, deepErr.String())
+	}
+	if !strings.Contains(deepOut.String(), " deep=standard:") || !strings.Contains(deepOut.String(), "ok/") || !strings.Contains(deepOut.String(), "rej") {
+		t.Errorf("the deep-mode text line lost the executed plan's counts:\n%s", deepOut.String())
+	}
+	if !strings.Contains(deepOut.String(), " cert=") {
+		t.Errorf("the deep-mode text line lost the certificate layer:\n%s", deepOut.String())
+	}
+	if testing.Verbose() {
+		t.Logf("live deep-mode scan ↓\n%s", indentBlock(deepOut.String()))
+	}
 
 	// ---- 7. the repo gates, verdicts visible.
 	for _, script := range []string{"check_usage_drift.sh", "check_schema_sync.sh"} {

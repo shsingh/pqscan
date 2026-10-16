@@ -225,9 +225,13 @@ DESCRIPTION
     -urls                The endpoint list: https://host:port, one line
                          per target (chainable into nuclei/httpx).
     -text                One human line per target (the default format:
-                         group= class= suite= version= alpn= ...;
-                         verdict-carrying records end with the readiness
-                         verdict as pq=<label>(<score>)).
+                        group= class= suite= version= alpn= ...;
+                        the format-parity tails ride when present:
+                        deep=<plan>:<N>p/<N>ok/<N>rej (the executed
+                        plan's counts), cert=<sigAlg>/<keyAlg> with
+                        +pq-sig/+pq-key/+dual markers when true,
+                        ptr=/sni= enrichment, and the readiness
+                        verdict as pq=<label>(<score>)).
     -explain             Under each -text line, a plain-language reading
                          of the record (PQ-39): the verdict in words,
                          what the negotiated group/class means, the
