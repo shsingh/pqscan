@@ -133,8 +133,12 @@ DESCRIPTION
                           pq = the forced PQ ladder (4585–4590 RFC 10024
                           hybrids + the obsolete Kyber drafts): the
                           ladder's observations land in the record's
-                          handshake block (the first accepted hybrid) and
-                          the pq verdict (a draft acceptance = HNDL).
+                          record's handshake block (the first accepted
+                          hybrid), the per-probe findings ride the
+                          record's deep block (mode pq, attempt/ok/
+                          rejected + findings[] — the deep executor's
+                          shape), and the pq verdict (a draft acceptance
+                          = HNDL).
                           (selftest is a planned mode.)
     -deep standard|full   Deep plan cap (-mode deep only): standard
                           (default) caps the plan at <=24 probes per
@@ -228,7 +232,9 @@ DESCRIPTION
                         group= class= suite= version= alpn= ...;
                         the format-parity tails ride when present:
                         deep=<plan>:<N>p/<N>ok/<N>rej (the executed
-                        plan's counts), cert=<sigAlg>/<keyAlg> with
+                        plan's counts; the -mode pq ladder rides the
+                        same tail as deep=pq:<N>p/<N>ok/<N>rej),
+                        cert=<sigAlg>/<keyAlg> with
                         +pq-sig/+pq-key/+dual markers when true,
                         ptr=/sni= enrichment, and the readiness
                         verdict as pq=<label>(<score>)).
