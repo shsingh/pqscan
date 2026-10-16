@@ -141,6 +141,16 @@ type Options struct {
 // stable for every existing test.
 var stdin io.Reader = os.Stdin
 
+// stdinIsPipe reports whether the run's stdin is a piped stream — the
+// implicit-input detector for PQ-41 (issue #117): the PD-chain convention
+// reads target specs from a pipe when NO other target source composes.
+// Character devices (the interactive terminal, /dev/null) never trigger
+// the implicit read, so an automation context holding a never-terminating
+// pipe is the documented contract case, not an accident. Package var:
+// run(args, stdout, stderr) keeps its test signature; tests pin the class
+// via setStdinPipe.
+var stdinIsPipe = func() bool { return false } // PQ-41 RED stub; the real detector lands in the GREEN commit
+
 // Engine is the multi-target run pipeline: it scans the composed
 // grammar.Targets under the PQ-23 control surfaces — the shared AIMD window
 // capping the launches in flight, the launch pace when -rate set it, and the

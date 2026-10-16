@@ -895,3 +895,116 @@ func TestListFileStdinAlias(t *testing.T) {
 		}
 	})
 }
+
+// --- PQ-41 implicit piped stdin (issue #117, watched RED) -------------------
+
+// setStdinPipe pins the piped-stdin class the implicit-input detector
+// reports (restored on cleanup): the seam decouples the run's input
+// decision from whatever stdin the test process inherited.
+func setStdinPipe(t *testing.T, piped bool) {
+	t.Helper()
+	prev := stdinIsPipe
+	stdinIsPipe = func() bool { return piped }
+	t.Cleanup(func() { stdinIsPipe = prev })
+}
+
+// TestImplicitPipedStdin: with a pipe on stdin and NO target source given
+// (-u/-l/--/adapters all absent) the pipe IS the target source (PQ-41;
+// issue #117) — the httpx/naabu handoff convention, `pd-tool | scanner`.
+// The rc1 shape refuses with "no target specified" on the same command.
+// An interactive terminal (a character device) never triggers the implicit
+// read, an explicit source wins over the pipe, and a piped-but-EMPTY
+// stdin still refuses exit 64 — honestly: nothing arrived, nothing
+// scanned. A piped-open never-terminating stdin blocks by contract (the
+// documented automation hazard).
+func TestImplicitPipedStdin(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	classicAddr := startClassicFixture(t)
+
+	t.Run("a piped stdin with no other source scans", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "implicit.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted (results belong to -o): %q", out.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != hybridAddr {
+			t.Fatalf("input = %v, want %q", input, hybridAddr)
+		}
+	})
+
+	t.Run("an empty pipe refuses honestly at exit 64", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, "")
+		var out, errOut bytes.Buffer
+		code := run([]string{}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (nothing arrived; the run must refuse)", code)
+		}
+		if !strings.Contains(errOut.String(), "piped stdin") {
+			t.Fatalf("refusal does not name the empty pipe: %q", errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
+
+	t.Run("an explicit -u beats the pipe", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, classicAddr+"\n")
+		output := filepath.Join(t.TempDir(), "explicit.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-u", hybridAddr, "-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1 (the piped spec must not compose beside -u)", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != hybridAddr {
+			t.Fatalf("input = %v, want %q (-u is the explicit source)", input, hybridAddr)
+		}
+	})
+
+	t.Run("a non-pipe stdin never reads implicitly", func(t *testing.T) {
+		setStdinPipe(t, false)
+		setStdin(t, hybridAddr+"\n")
+		var out, errOut bytes.Buffer
+		code := run([]string{}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (a terminal/char-device stdin is never an implicit source)", code)
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
+
+	t.Run("an adapter file is a source; the pipe stays unread", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "adapter.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-from-httpx", writeSpecFile(t, "hx.txt", "https://"+classicAddr+"\n"),
+			"-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1 (the adapter is the source; the pipe must not join)", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != classicAddr {
+			t.Fatalf("input = %v, want %q (the adapter dialed, not the piped stdin)", input, classicAddr)
+		}
+	})
+}
