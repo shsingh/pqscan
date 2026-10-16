@@ -11,15 +11,9 @@ scores every observation on a PQC-readiness rubric — and speaks the
 Project Discovery dialect (stdin → stdout, streaming JSONL, chainable with
 `subfinder` → `httpx` → `naabu` → `nuclei`).
 
-**Status:** pre-alpha. The product specification
-([`docs/spec.md`](docs/spec.md)) is in force; the M0 measurement gate is
-closed ([report](docs/m0-report.md): 2,952–3,026 h/s against the ≥ 2,500
-s/core target, both planes live). M1 is complete (grammar, pipeline,
-encoders + WAL + resume, the PD input adapters); the M2 cores have landed
-and the record carries the live verdict (`pq.score/label/hndl`) and
-certificate PQ analytics — the wiring pairs, the differential harness and
-the `2026.01-rc1` cut are the remainder
-([register](https://github.com/shsingh/pqscan/issues/4)).
+**Status:** the `2026.01-rc1` release-candidate cut is live and attested; the
+specification ([`docs/spec.md`](docs/spec.md)) is in force and the milestone
+register is closed ([register](https://github.com/shsingh/pqscan/issues/4)).
 
 ## What it does
 

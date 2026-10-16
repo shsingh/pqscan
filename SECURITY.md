@@ -64,8 +64,9 @@ other jurisdictions have their own equivalents.
 - Registry-derived tables carry a snapshot date, provenance and regeneration
   command; engines must never hardcode codepoints.
 
-**Known boundary, stated plainly:** the project is pre-alpha; CI gates prove
-spec conformance on fixtures, not production readiness.
+**Known boundary, stated plainly:** the project is at the `2026.01-rc1`
+release-candidate cut; CI gates prove spec conformance on fixtures, not
+production readiness.
 
 Open a [general issue](https://github.com/shsingh/pqscan/issues/new) for
 non-sensitive questions; security reports follow the channels above.
