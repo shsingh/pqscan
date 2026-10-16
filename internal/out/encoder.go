@@ -50,14 +50,22 @@ type Encoder struct {
 	w      io.Writer
 	format Format
 	header bool // csv header emitted
+	// explain rides the -explain flag: with it (and the text format),
+	// Encode appends the record's plain-language reading (PQ-38). The
+	// option is honored when the renderer lands; the stub ignores it.
+	explain bool
 
 	buf []byte
 }
 
 // NewEncoder wires a format into a destination stream (stdout or the -o
 // file — the caller owns the stream, the encoder only writes lines).
-func NewEncoder(w io.Writer, f Format) *Encoder {
-	return &Encoder{w: w, format: f}
+func NewEncoder(w io.Writer, f Format, opts ...EncoderOption) *Encoder {
+	e := &Encoder{w: w, format: f}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
 }
 
 // Encode writes one record line to the stream (CSV: the header line goes
@@ -85,6 +93,14 @@ func (e *Encoder) Encode(r *Record) error {
 	default:
 		e.buf = appendTextLine(e.buf, r)
 		e.buf = append(e.buf, '\n')
+		// -explain (PQ-38): the plain-language reading rides under the
+		// text line only — the machine branches never see the block.
+		if e.explain {
+			for _, line := range explainBlock(r) {
+				e.buf = append(e.buf, line...)
+				e.buf = append(e.buf, '\n')
+			}
+		}
 	}
 	_, err := e.w.Write(e.buf)
 	return err
@@ -342,6 +358,17 @@ func appendTextLine(dst []byte, r *Record) []byte {
 	}
 	if q := r.Quic; q != nil && q.UDPBlocked {
 		dst = append(dst, " udp_blocked=true"...)
+	}
+	// PQ-38: the verdict rides the line — the readiness label + score
+	// the record already carries, suffix-appended (every pre-existing
+	// field byte-identical; verdict-carrying records only — a failed
+	// probe never presents an invented verdict block).
+	if p := r.Pq; p != nil && p.Label != "" {
+		dst = append(dst, " pq="...)
+		dst = append(dst, p.Label...)
+		dst = append(dst, '(')
+		dst = strconv.AppendInt(dst, int64(p.Score), 10)
+		dst = append(dst, ')')
 	}
 	if r.Error != "" {
 		dst = append(dst, " error="...)

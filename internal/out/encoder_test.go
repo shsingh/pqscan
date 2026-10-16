@@ -234,6 +234,23 @@ func TestTextLineShape(t *testing.T) {
 			Record{Target: TargetRecord{Host: "203.0.113.10", Port: 8443}, Error: "connect: refused"},
 			"203.0.113.10:8443 group=- class=- suite=- version=- error=connect: refused",
 		},
+		{
+			// PQ-38: the verdict rides the line as pq=<label>(<score>)
+			// — suffix-appended, every pre-existing field byte-identical.
+			Record{Target: TargetRecord{Host: "example.com", Port: 443},
+				Handshake: HandshakeRecord{Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid",
+					Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3"},
+				Pq: &PqRecord{Score: 40, Label: "pq-partial"}},
+			"example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 pq=pq-partial(40)",
+		},
+		{ // the verdict tail sits between the quic block and error
+			Record{Target: TargetRecord{Host: "example.com", Port: 443},
+				Handshake: HandshakeRecord{Negotiated: 29, GroupName: "x25519", GroupClass: "classic", Suite: "TLS_AES_256_GCM_SHA384", Version: "tls-1.3"},
+				Quic:      &QuicRecord{Attempted: true, UDPBlocked: true},
+				Pq:        &PqRecord{Score: 0, Label: "scan-error"},
+				Error:     "connect: no route to host"},
+			"example.com:443 group=x25519 class=classic suite=TLS_AES_256_GCM_SHA384 version=tls-1.3 udp_blocked=true pq=scan-error(0) error=connect: no route to host",
+		},
 	}
 	for _, row := range rows {
 		var buf bytes.Buffer

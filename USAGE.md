@@ -38,10 +38,19 @@ DESCRIPTION
     Rejections are results: an offer the server refuses is recorded as an
     observation, never swallowed as an error.
 
-OPTIONS
+    OPTIONS
     GENERAL
     -version          Print the build's version stamp and exit (the
                       release stamp; source builds print the default).
+    -completion shell Emit the shell completion script to stdout
+                      (bash | zsh), generated from the same surface the
+                      help renders. Install, zsh:
+                      pqscan -completion zsh >
+                      /usr/local/share/zsh/site-functions/_pqscan
+                      (compinit picks it up) — or for the session:
+                      eval "$(pqscan -completion zsh)". Install, bash:
+                      source <(pqscan -completion bash), or persist it
+                      in a bash-completion.d drop.
 
     TARGETING
     -u target            Single target: hostname, host:port, ip, ip:port,
@@ -196,7 +205,15 @@ OPTIONS
     -urls                The endpoint list: https://host:port, one line
                          per target (chainable into nuclei/httpx).
     -text                One human line per target (the default format:
-                         group= class= suite= version= alpn= ...).
+                         group= class= suite= version= alpn= ...;
+                         verdict-carrying records end with the readiness
+                         verdict as pq=<label>(<score>)).
+    -explain             Under each -text line, a plain-language reading
+                         of the record (PQ-39): the verdict in words,
+                         what the negotiated group/class means, the
+                         certificate and QUIC layers, and an error-class
+                         hint when nothing negotiated. Text output
+                         only; the machine formats refuse it (exit 64).
     -o file           Output file (stdout default). The run journal rides
                       beside it as <basename>.wal (see FILES).
     -fields a,b,c     Field selection.
@@ -279,8 +296,10 @@ EXAMPLES
 EXIT STATUS
     0     Scan completed (empty or not; results in the output stream).
     1     Runtime error (engine or system failure).
-    2     Flag-parse error.
-    64    EX_USAGE: no targets to scan.
+    64    EX_USAGE: a command-line mistake refused before any scan
+          (flag-parse errors, no targets, unknown -mode/-deep/-sni, a
+          bogus -shard spec, -resume without -o, -explain under a
+          machine output format).
     130   Interrupted (Ctrl-C drains before exit; WAL retained).
 
 ENVIRONMENT
@@ -318,4 +337,4 @@ SEE ALSO
 AUTHOR
     Shain Singh <shain.singh@owasp.org>
 
-pqscan 0.0.1 (pre-alpha)                                  October 2026
+pqscan 2026.01-rc1                                        October 2026

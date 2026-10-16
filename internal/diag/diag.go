@@ -221,5 +221,6 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
-// binaryVersion is injected by ldflags -X diag.mainVersion at build time.
-var binaryVersion = func() string { return mainVersion }
+// binaryVersion resolves the footer/Report version stamp: version.go
+// owns it (the CLI wires the stamped identity in before the sink arms;
+// the swappable var is a test hook).

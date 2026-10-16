@@ -79,6 +79,22 @@ pqscan -version
 pqscan -u example.com
 ```
 
+## Shell completions
+
+```bash
+# zsh (persisted; compinit picks it up on the next shell)
+pqscan -completion zsh > /usr/local/share/zsh/site-functions/_pqscan
+# or, for the session only
+eval "$(pqscan -completion zsh)"
+# bash — session, or persist the script into a bash-completion.d drop
+source <(pqscan -completion bash)
+```
+
+The script is generated from the same surface the `-h` help renders
+(every implemented flag, the `-mode`/`-deep`/`-sni`/`-completion` value
+lists, and file completion where the flag takes a path); re-run it after
+upgrading so the completion matches the binary.
+
 ## Chain it with the PD tools
 
 ```bash
