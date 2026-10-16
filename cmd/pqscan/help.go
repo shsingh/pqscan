@@ -93,6 +93,7 @@ FLAGS, BY ROLE
   pqscan -u google.com -mode deep               the offer-one probe matrix (the 24-probe default cap)
   cat targets.txt | pqscan -jsonl --            stdin targets in, one schema-1 JSON record per line out
   subfinder -d example.io -silent | pqscan --   the subfinder handoff (bare hosts)
+  pqscan -completion zsh > _pqscan              keep the completions (zsh; see GENERAL above)
   httpx -silent -p 443 > hx.txt                 the httpx handoff feeds through the adapter:
   pqscan -from-httpx hx.txt
   pqscan -l all.txt -shard 1/4 -o s1.jsonl      box 1 of a 4-box pass
@@ -189,7 +190,7 @@ type flagGroup struct {
 // shared with the completion generator. flagFiles are the flags that
 // complete to filesystem paths.
 var helpGroups = []flagGroup{
-	{"GENERAL", []string{"version"}},
+	{"GENERAL", []string{"version", "completion"}},
 	{"TARGETS AND INPUT", []string{"u", "l", "--", "from-httpx", "from-naabu"}},
 	{"SCAN MODE", []string{"mode", "deep", "quic-off", "quic-always"}},
 	{"PACING", []string{"rate", "threads"}},
@@ -214,6 +215,7 @@ var flagTokens = map[string]string{
 	"deep":       "-deep standard|full",
 	"sni":        "-sni auto|ptr-then-ip|ip-only",
 	"certs-dir":  "-certs-dir dir",
+	"completion": "-completion shell",
 	"debug-out":  "-debug-out file",
 }
 

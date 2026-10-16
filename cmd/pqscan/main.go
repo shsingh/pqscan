@@ -76,6 +76,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	// -completion (PQ-40): the meta emission, like -version — it wins
+	// over the target composition; an unsupported shell is a usage
+	// refusal naming the valid values.
+	if comp := vals.Completion; comp != nil && *comp != "" {
+		script, err := completionScript(*comp)
+		if err != nil {
+			diag.Emit(diag.Warn, diag.DomConfig, "run", "", "-completion refused", err,
+				map[string]string{"shell": *comp})
+			fmt.Fprintf(stderr, "pqscan: -completion: %v\n", err)
+			return 64
+		}
+		fmt.Fprint(stdout, script)
+		return 0
+	}
+
 	// arm diagnostics under -debug; everything below emits
 	if *debug || *debugOut != "" {
 		diag.SetBinaryVersion(version)
