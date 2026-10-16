@@ -9,8 +9,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/binary"
-
+	"fmt"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -454,5 +455,239 @@ func TestDeepRecordJSONLLanding(t *testing.T) {
 	first, _ := findings[0].(map[string]any)
 	if first["probe"] == nil || first["result"] == nil || first["detail"] == nil {
 		t.Fatalf("finding row missing pinned keys: %v", first)
+	}
+}
+
+// ─── PQ-47: the forced PQ ladder lands in the record ───
+// (issue #129: fast and pq records differed by the mode field alone)
+
+// TestPQModeLadderBlockRecorded: -mode pq RECORDS the forced ladder's
+// per-probe observations in the record's deep block (PQ-47) — the block
+// mirrors the deep executor's shape (mode "pq", attempted/ok/rejected +
+// the findings vector probe/result/detail, e.g. group/4587 rejected with
+// the verbatim alert), so the jsonl lattice matches what -mode deep
+// carries and the -text line speaks the PQ-46 counts tail. The verdict
+// stays byte-stable: the block RECORDS what the rubric already consumed.
+func TestPQModeLadderBlockRecorded(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	classicAddr := startClassicFixture(t)
+	verdictByAddr := map[string]struct {
+		score int
+		label string
+	}{hybridAddr: {40, "pq-partial"}, classicAddr: {0, "scan-error"}}
+	rows := []struct {
+		name     string
+		addr     string
+		want4588 string
+	}{
+		{
+			name:     "hybrid fixture: the negotiated hybrid's step is the accepted row",
+			addr:     hybridAddr,
+			want4588: "accepted",
+		},
+		{
+			name:     "classic fixture: every forced PQ offer is refused server-side (the alerts are results)",
+			addr:     classicAddr,
+			want4588: "rejected",
+		},
+	}
+	for _, row := range rows {
+		row := row
+		t.Run(row.name, func(t *testing.T) {
+			rec := testDeepRun(t, row.addr, Options{Mode: modePQ, ProbeTimeout: 2 * time.Second})
+			if rec.Mode != "pq" {
+				t.Fatalf("rec.Mode = %q, want pq", rec.Mode)
+			}
+			if rec.Deep == nil {
+				t.Fatalf("the pq record carries no ladder block — the forced ladder's per-probe observations reach no output surface (rec=%+v)", rec)
+			}
+			if rec.Deep.Mode != "pq" {
+				t.Fatalf("deep.Mode = %q, want pq (the ladder block mirrors the deep executor's shape, mode token = the lane)", rec.Deep.Mode)
+			}
+			if rec.Deep.Attempted != len(pqLadderGroups) {
+				t.Fatalf("deep.Attempted = %d, want %d (one row per forced-group offer)", rec.Deep.Attempted, len(pqLadderGroups))
+			}
+			if len(rec.Deep.Findings) != rec.Deep.Attempted {
+				t.Fatalf("findings = %d, want the attempted count %d (one finding per ladder step)", len(rec.Deep.Findings), rec.Deep.Attempted)
+			}
+			for _, f := range rec.Deep.Findings {
+				if f.Probe == "" || f.Result == "" || f.Detail == "" {
+					t.Fatalf("a ladder row is missing its observation fields: %+v", f)
+				}
+			}
+			g4588 := findingsBy(rec, "group/4588")
+			if g4588 == nil || g4588.Result != row.want4588 {
+				t.Fatalf("group/4588: %+v, want a %q row (the fixture is the negotiation oracle)", g4588, row.want4588)
+			}
+			// The counters derive from the same findings vector the
+			// jsonl carries (never hand-pinned).
+			ok, rej := 0, 0
+			for _, f := range rec.Deep.Findings {
+				switch f.Result {
+				case "accepted":
+					ok++
+				case "rejected":
+					rej++
+				}
+			}
+			if rec.Deep.OK != ok || rec.Deep.Rejected != rej {
+				t.Fatalf("deep counts ok=%d rejected=%d, want the findings vector's %d/%d", rec.Deep.OK, rec.Deep.Rejected, ok, rej)
+			}
+			// The verdict/rubric semantics stay byte-stable: the block
+			// only RECORDS — the score/label pair the fixtures already
+			// pin (TestPQModeLadderWireIn) must not move.
+			if rec.Pq == nil || rec.Pq.Score != verdictByAddr[row.addr].score || rec.Pq.Label != verdictByAddr[row.addr].label {
+				t.Fatalf("verdict %+v, want the byte-stable %d/%q the rubric already computed", rec.Pq, verdictByAddr[row.addr].score, verdictByAddr[row.addr].label)
+			}
+		})
+	}
+}
+
+// TestPQModeLadderDraftOracleBlock: a draft-accepting fixture shows the
+// refused-vs-accepted distinction the HNDL verdict consumed — the draft
+// offer's HRR lands as group/25497's accepted row naming the demanded
+// group (the same probe id rejects on the draft-refusing fixtures pinned
+// in TestPQModeLadderBlockRecorded).
+func TestPQModeLadderDraftOracleBlock(t *testing.T) {
+	oracleAddr := startDraftHRROracle(t)
+	rec := testDeepRun(t, oracleAddr, Options{Mode: modePQ, ProbeTimeout: 2 * time.Second})
+	if rec.Deep == nil {
+		t.Fatalf("the draft oracle's pq record carries no ladder block (rec=%+v)", rec)
+	}
+	g := findingsBy(rec, "group/25497")
+	if g == nil || g.Result != "accepted" ||
+		!strings.Contains(g.Detail, "hrr: the server requested group") ||
+		!strings.Contains(g.Detail, "25497") {
+		t.Fatalf("group/25497 on the draft oracle: %+v, want the accepted HRR row naming the demanded draft group", g)
+	}
+}
+
+// TestPQModeLadderDeadTargetBlock: the pq lane does NOT skip the ladder
+// on a failed profile handshake (the HNDL fact is the ladder's whole
+// point on draft-only endpoints), so the block records there too — the
+// probe-path verdicts ride the rows honestly: the dial refusals are
+// error rows carrying the transport text verbatim (never a read-error
+// detail for a dial that never left the scanner), and nothing counts as
+// ok/rejected (the server never decided on any offer).
+func TestPQModeLadderDeadTargetBlock(t *testing.T) {
+	deadAddr := closedLoopbackPort(t)
+	rec := testDeepRun(t, deadAddr, Options{Mode: modePQ, ProbeTimeout: 500 * time.Millisecond})
+	if rec.Error == "" {
+		t.Fatalf("the dead endpoint's profile failure must ride the record's error path")
+	}
+	if rec.Deep == nil {
+		t.Fatalf("the ladder block is absent on a failed-profile pq record — the lane's own work vanished again (the mode field was the only delta)")
+	}
+	if rec.Deep.Mode != "pq" || rec.Deep.Attempted != len(pqLadderGroups) {
+		t.Fatalf("ladder block %+v, want mode pq / attempted %d", rec.Deep, len(pqLadderGroups))
+	}
+	if rec.Deep.OK != 0 || rec.Deep.Rejected != 0 {
+		t.Fatalf("dead-target ladder counted ok=%d rejected=%d — the server never decided on any offer", rec.Deep.OK, rec.Deep.Rejected)
+	}
+	for _, f := range rec.Deep.Findings {
+		if f.Detail == "" {
+			t.Fatalf("a dead-target ladder row lacks its observation: %+v", f)
+		}
+		if f.Detail == "read-error: the server closed without a TLS answer" {
+			t.Fatalf("a dial refusal recorded the read-error detail (the server never answered because it was never reached): %+v", f)
+		}
+	}
+}
+
+// TestPQRecordJSONLLanding: -mode pq's jsonl carries the ladder block
+// while the fast-mode line carries none — the record's mode field stops
+// being the only delta between the two records.
+func TestPQRecordJSONLLanding(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	dir := t.TempDir()
+	pqPath, fastPath := dir+"/pq.jsonl", dir+"/fast.jsonl"
+	var outBuf, errOut bytes.Buffer
+	if code := run([]string{"-u", hybridAddr, "-mode", "pq", "-quic-off", "-jsonl", "-o", pqPath}, &outBuf, &errOut); code != 0 {
+		t.Fatalf("pq run: exit = %d, stderr: %s", code, errOut.String())
+	}
+	outBuf.Reset()
+	errOut.Reset()
+	if code := run([]string{"-u", hybridAddr, "-mode", "fast", "-quic-off", "-jsonl", "-o", fastPath}, &outBuf, &errOut); code != 0 {
+		t.Fatalf("fast run: exit = %d, stderr: %s", code, errOut.String())
+	}
+	pqRecs := readJSONLRecords(t, pqPath)
+	fastRecs := readJSONLRecords(t, fastPath)
+	if len(pqRecs) != 1 || len(fastRecs) != 1 {
+		t.Fatalf("records pq=%d fast=%d, want 1/1", len(pqRecs), len(fastRecs))
+	}
+	if pqRecs[0]["mode"] != "pq" {
+		t.Fatalf("pq record mode = %v", pqRecs[0]["mode"])
+	}
+	deep, ok := pqRecs[0]["deep"].(map[string]any)
+	if !ok {
+		t.Fatalf("the pq-mode jsonl carries no ladder block — the mode field is still the only differentiator: %v", pqRecs[0])
+	}
+	if deep["mode"] != "pq" {
+		t.Fatalf("deep.mode = %v, want pq", deep["mode"])
+	}
+	findings, ok := deep["findings"].([]any)
+	if !ok || len(findings) != len(pqLadderGroups) {
+		t.Fatalf("deep.findings = %T/%v, want %d rows", deep["findings"], deep["findings"], len(pqLadderGroups))
+	}
+	first, _ := findings[0].(map[string]any)
+	if first["probe"] == nil || first["result"] == nil || first["detail"] == nil {
+		t.Fatalf("ladder finding row missing pinned keys: %v", first)
+	}
+	if _, present := fastRecs[0]["deep"]; present {
+		t.Fatalf("the fast-mode record grew a deep block: %v", fastRecs[0])
+	}
+}
+
+// TestPQRecordTextTail: the pq lane's -text line rides PQ-46's deep=
+// tail with the ladder counts — deep=pq:<N>p/<N>ok/<N>rej — composed
+// from the same run's jsonl (never hand-pinned); the fast-mode line
+// stays tail-free.
+func TestPQRecordTextTail(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	dir := t.TempDir()
+	jsonlPath, textPath := dir+"/pq.jsonl", dir+"/pq.txt"
+	var outBuf, errOut bytes.Buffer
+	if code := run([]string{"-u", hybridAddr, "-mode", "pq", "-quic-off", "-jsonl", "-o", jsonlPath}, &outBuf, &errOut); code != 0 {
+		t.Fatalf("pq jsonl run: exit = %d, stderr: %s", code, errOut.String())
+	}
+	recs := readJSONLRecords(t, jsonlPath)
+	if len(recs) != 1 {
+		t.Fatalf("records = %d, want 1", len(recs))
+	}
+	deep, ok := recs[0]["deep"].(map[string]any)
+	if !ok {
+		t.Fatalf("the pq-mode jsonl carries no ladder block: %v", recs[0])
+	}
+	att, ok := deep["attempted"].(float64)
+	okC, ok2 := deep["ok"].(float64)
+	rejC, ok3 := deep["rejected"].(float64)
+	if !ok || !ok2 || !ok3 {
+		t.Fatalf("ladder counts absent from the jsonl block: %v", deep)
+	}
+	want := fmt.Sprintf(" deep=pq:%dp/%dok/%drej", int(att), int(okC), int(rejC))
+	outBuf.Reset()
+	errOut.Reset()
+	if code := run([]string{"-u", hybridAddr, "-mode", "pq", "-quic-off", "-text", "-o", textPath}, &outBuf, &errOut); code != 0 {
+		t.Fatalf("pq text run: exit = %d, stderr: %s", code, errOut.String())
+	}
+	got, err := os.ReadFile(textPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), want) {
+		t.Fatalf("pq text line missing the ladder counts tail %q; got:\n%s", want, got)
+	}
+	outBuf.Reset()
+	errOut.Reset()
+	fastPath := dir + "/fast.txt"
+	if code := run([]string{"-u", hybridAddr, "-mode", "fast", "-quic-off", "-text", "-o", fastPath}, &outBuf, &errOut); code != 0 {
+		t.Fatalf("fast text run: exit = %d, stderr: %s", code, errOut.String())
+	}
+	fast, err := os.ReadFile(fastPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(fast), " deep=") {
+		t.Fatalf("fast-mode text line grew a deep= tail:\n%s", fast)
 	}
 }
