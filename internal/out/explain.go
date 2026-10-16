@@ -108,6 +108,11 @@ const (
 	deepResultRejected = "rejected"
 	deepResultRefused  = "refused"
 	deepResultError    = "error"
+
+	// deepModePQ is the pq ladder's mode token in the deep block (PQ-47):
+	// the block mirrors the deep executor's shape with the lane's token,
+	// and the ladder reading (PQ-50) keys on it.
+	deepModePQ = "pq"
 )
 
 // deepTally is one probe-id family's roll-up: the findings counted, the
@@ -148,37 +153,13 @@ var deepFamilies = []struct {
 // in the jsonl findings — the line invents nothing past the fields.
 // Group classes ride internal/classify (the IANA-derived taxonomy's
 // single home; the registry rule forbids inlining codepoints into
-// prose).
+// prose). The pq ladder (Deep.Mode == "pq", PQ-47's block) reads
+// differently — its forced-ladder prose is pqLadderLine.
 func deepLine(d *DeepRecord, r *Record) string {
-	refused, errored := 0, 0
-	tallies := map[string]*deepTally{}
-	var accepted []DeepFinding
-	for i := range d.Findings {
-		f := &d.Findings[i]
-		prefix := "other"
-		for _, fam := range deepFamilies {
-			if strings.HasPrefix(f.Probe, fam.prefix) {
-				prefix = fam.prefix
-				break
-			}
-		}
-		t := tallies[prefix]
-		if t == nil {
-			t = &deepTally{}
-			tallies[prefix] = t
-		}
-		t.tot++
-		if f.Result == deepResultAccepted {
-			t.acc++
-			accepted = append(accepted, *f)
-		}
-		switch f.Result {
-		case deepResultRefused:
-			refused++
-		case deepResultError:
-			errored++
-		}
+	if d.Mode == deepModePQ {
+		return pqLadderLine(d, r)
 	}
+	refused, errored, tallies, accepted := deepFindingsTally(d)
 
 	var b strings.Builder
 	b.WriteString("  - deep: the executed " + d.Mode + " plan ran " + strconv.Itoa(d.Attempted) + " probes: ")
@@ -228,6 +209,85 @@ func deepLine(d *DeepRecord, r *Record) string {
 			}
 		}
 	}
+	b.WriteString(" — the per-probe detail lives in the jsonl findings.")
+	return b.String()
+}
+
+// deepFindingsTally walks a deep block's findings vector once — the
+// shared roll-up behind both readings of the block (the deep plan's and
+// the pq ladder's): each probe-id family's acc/tot in family order, the
+// not-offerable (refused) and errored counts, and the accepted rows in
+// vector order.
+func deepFindingsTally(d *DeepRecord) (refused, errored int, tallies map[string]*deepTally, accepted []DeepFinding) {
+	tallies = map[string]*deepTally{}
+	for i := range d.Findings {
+		f := &d.Findings[i]
+		prefix := "other"
+		for _, fam := range deepFamilies {
+			if strings.HasPrefix(f.Probe, fam.prefix) {
+				prefix = fam.prefix
+				break
+			}
+		}
+		t := tallies[prefix]
+		if t == nil {
+			t = &deepTally{}
+			tallies[prefix] = t
+		}
+		t.tot++
+		if f.Result == deepResultAccepted {
+			t.acc++
+			accepted = append(accepted, *f)
+		}
+		switch f.Result {
+		case deepResultRefused:
+			refused++
+		case deepResultError:
+			errored++
+		}
+	}
+	return refused, errored, tallies, accepted
+}
+
+// pqLadderLine reads the forced PQ ladder in words (PQ-50, issue #134;
+// the Deep.Mode == "pq" block PQ-47 lands): the forced-offer counts, the
+// ACCEPTED rows named — the actionable part; a draft-group acceptance IS
+// the harvest-now-decrypt-later exposure, spelled by the deep reading's
+// row-note discipline — and the refusals framed as the expected default:
+// each forced PQ-only group came back refused unless the server truly
+// speaks it. The per-probe pointer is the deep reading's. No second
+// roll-up mechanism: the findings tally and the row notes are the deep
+// reading's helpers.
+func pqLadderLine(d *DeepRecord, r *Record) string {
+	refused, errored, _, accepted := deepFindingsTally(d)
+
+	var b strings.Builder
+	b.WriteString("  - deep: the forced PQ ladder made " + strconv.Itoa(d.Attempted) + " offers: ")
+	if d.OK == 0 {
+		b.WriteString("no offer was accepted")
+	} else {
+		b.WriteString(strconv.Itoa(d.OK) + " accepted")
+	}
+	b.WriteString(", " + strconv.Itoa(d.Rejected) + " refused with the server's reasons")
+	if len(d.Findings) > 0 {
+		b.WriteString(", " + strconv.Itoa(refused) + " not-offerable")
+		if errored > 0 {
+			b.WriteString(", " + strconv.Itoa(errored) + " errored on the probe path")
+		}
+	}
+	if len(accepted) > 0 {
+		b.WriteString("; accepted: ")
+		for i := range accepted {
+			if i > 0 {
+				b.WriteString("; ")
+			}
+			b.WriteString(accepted[i].Probe)
+			if note := deepRowNote(accepted[i].Probe, r.Handshake.GroupClass); note != "" {
+				b.WriteString(" (" + note + ")")
+			}
+		}
+	}
+	b.WriteString("; each forced PQ-only group came back refused unless the server truly speaks it")
 	b.WriteString(" — the per-probe detail lives in the jsonl findings.")
 	return b.String()
 }
