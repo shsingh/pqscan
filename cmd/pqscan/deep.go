@@ -209,7 +209,10 @@ func scanTargetPQ(t grammar.Target, opts Options) (*scanRecord, bool, bool) {
 	rec.Pq = &out.PqRecord{Score: verdict.Score, Label: verdict.Label, HNDL: verdict.HNDL, Summary: verdict.Summary}
 	fields := map[string]string{"score": strconv.Itoa(verdict.Score), "label": verdict.Label}
 	if verr != nil {
-		rec.Error = verr.Error()
+		// PQ-43: the rubric's refusal stays the classifier's internal
+		// path (the diagnostics warning carries it) — the record's error
+		// field keeps the probe-failure contract and the scan-error
+		// state lives in the pq block just landed.
 		diag.Emit(diag.Warn, diag.DomEngine, "pq", t.Host, "readiness verdict is a scan-error", verr, fields)
 	} else {
 		fields["hndl"] = strconv.FormatBool(verdict.HNDL)

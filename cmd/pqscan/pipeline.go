@@ -427,10 +427,14 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	// AcceptsDraft — the negotiated class being a draft class is the
 	// accepted fact; ClassicalPreferred — a classical group was negotiated
 	// while PQ was offered; CertPQ/DualCert — the PQ-21 analysis of the
-	// chain this same handshake delivered. The rubric's scan-error
-	// behavior is the record's error path (a failed probe never reaches
-	// the rubric: score 0 stays the zero value and no verdict block is
-	// invented — the Error field is that record's verdict path).
+	// chain this same handshake delivered. PQ-43: the rubric's
+	// scan-error verdict (score 0, the zero-PQ-signal refusal) is the
+	// record's verdict STATE — it lives in the pq block (score 0 / label
+	// scan-error), never in the error field: that field keeps the
+	// probe-failure contract alone (a failed probe never reaches the
+	// rubric: score 0 stays the zero value and no verdict block is
+	// invented), and the rubric's returned error remains the classifier's
+	// internal path.
 	// rubricNegotiatedClass collapses the two facts into the rubric's
 	// compact token. The ScoreInput contract (PQ-19) defines the compact
 	// tokens: "pq", "pq_hybrid", "classic", "draft", "unknown".
@@ -458,7 +462,13 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	}
 	fields := map[string]string{"score": strconv.Itoa(verdict.Score), "label": verdict.Label}
 	if serr != nil {
-		rec.Error = serr.Error()
+		// PQ-43: the rubric's zero-PQ-signal refusal stays the
+		// classifier's internal path (the diagnostics warning carries
+		// it) — a verdict-carrying record never feeds it into
+		// record.Error. The record's error field is the probe's failure
+		// reason (docs/spec.md §5.7); the scan-error state's only honest
+		// home is the pq block just landed (score 0 / label scan-error,
+		// rendered as pq=scan-error(0) on the text line and by -explain).
 		diag.Emit(diag.Warn, diag.DomEngine, "scan", t.Host, "readiness verdict is a scan-error", serr, fields)
 	} else {
 		fields["hndl"] = strconv.FormatBool(verdict.HNDL)
