@@ -298,7 +298,7 @@ func TestCLISurfaceContract(t *testing.T) {
 	// format-parity contract, PQ-46 — the story must not depend on the
 	// output format).
 	var deepOut, deepErr bytes.Buffer
-	if code := run([]string{"-u", addr, "-mode", "deep", "-deep", "standard"}, &deepOut, &deepErr); code != 0 {
+	if code := run([]string{"-u", addr, "-mode", "deep", "-deep", "standard", "-explain"}, &deepOut, &deepErr); code != 0 {
 		t.Fatalf("deep scan: rc=%d (stderr: %s)", code, deepErr.String())
 	}
 	if !strings.Contains(deepOut.String(), " deep=standard:") || !strings.Contains(deepOut.String(), "ok/") || !strings.Contains(deepOut.String(), "rej") {
@@ -306,6 +306,12 @@ func TestCLISurfaceContract(t *testing.T) {
 	}
 	if !strings.Contains(deepOut.String(), " cert=") {
 		t.Errorf("the deep-mode text line lost the certificate layer:\n%s", deepOut.String())
+	}
+	// PQ-50 (issue #134): with -explain the deep block carries the deep
+	// reading — the executed plan in words after the verdict lines.
+	if !strings.Contains(deepOut.String(), "  - deep: the executed standard plan ran ") ||
+		!strings.Contains(deepOut.String(), "the per-probe detail lives in the jsonl findings") {
+		t.Errorf("the deep-mode -explain block lost the PQ-50 deep reading line:\n%s", deepOut.String())
 	}
 	if testing.Verbose() {
 		t.Logf("live deep-mode scan ↓\n%s", indentBlock(deepOut.String()))

@@ -3,6 +3,8 @@ package out
 import (
 	"strconv"
 	"strings"
+
+	"github.com/shsingh/pqscan/internal/classify"
 )
 
 // Explain turns a record's fields into the plain-language reading a
@@ -31,8 +33,10 @@ func WithExplain() EncoderOption {
 }
 
 // explainBlock renders one record's reading as full lines (the caller
-// newline-terminates each). Line order: verdict, HNDL warning, key
-// exchange, certificate, QUIC; the error line carries any error the
+// newline-terminates each). Line order: verdict, HNDL warning, the deep
+// reading (PQ-50: the executed plan in words, when the record executes a
+// deep plan), key exchange, certificate, QUIC; the error line carries any
+// error the
 // record actually holds — it replaces the verdict lines when the probe
 // failed before one existed (pq == nil) and rides under them on a
 // verdict-carrying record with a leftover error string (PQ-43
@@ -46,6 +50,9 @@ func explainBlock(r *Record) []string {
 		if p.HNDL {
 			lines = append(lines, hndlLine)
 		}
+	}
+	if d := r.Deep; d != nil {
+		lines = append(lines, deepLine(d, r))
 	}
 	if r.Handshake.Negotiated > 0 {
 		lines = append(lines, keyExchangeLine(r.Handshake.GroupName, r.Handshake.GroupClass))
@@ -92,6 +99,169 @@ func verdictLine(p *PqRecord) string {
 // hndlLine is the standing warning for an endpoint that accepts the
 // obsolete draft PQ groups: post-quantum in appearance, not in fact.
 const hndlLine = "  - hndl: HARVEST-NOW-DECRYPT-LATER exposure — the endpoint accepts an obsolete draft PQ group (a pre-ML-KEM algorithm); those handshakes' classical halves stay decryptable to a future quantum computer: strip the draft groups from the server configuration."
+
+// The deep block's finding result vocabulary — the record's own contract
+// (DeepFinding, spec §8): accepted | rejected | refused | error. The
+// renderer counts the record's fields and invents nothing past them.
+const (
+	deepResultAccepted = "accepted"
+	deepResultRejected = "rejected"
+	deepResultRefused  = "refused"
+	deepResultError    = "error"
+)
+
+// deepTally is one probe-id family's roll-up: the findings counted, the
+// ones the server accepted.
+type deepTally struct {
+	acc, tot int
+}
+
+// deepFamilies is the plan's probe-id vocabulary in plan order (spec
+// §7.4's phase-2 kinds): the roll-up groups the findings by the ids'
+// common prefix and reports each family's yield acc/tot. A finding
+// outside the table (a future kind) rolls up under "other" so the
+// reading's counts stay complete.
+var deepFamilies = []struct {
+	prefix string
+	name   string
+}{
+	{"version/", "version floor"},
+	{"group/", "group ladder"},
+	{"quic/", "quic rungs"},
+	{"suite/", "suite matrix"},
+	{"sigalg/", "sigalg ladder"},
+	{"cert/", "certificate probe"},
+	{"resumption/", "resumption vectors"},
+	{"hrr/", "hrr probe"},
+}
+
+// deepLine reads the executed deep plan in words (PQ-50, issue #134): the
+// counts the record actually carries (attempted, accepted, server-
+// rejected; the refused/not-offerable and errored tails counted from the
+// findings vector), the offer-one matrix's yield rolled up by probe-id
+// family, and the accepted rows NAMED — the naming is the actionable
+// part: a PQ group accepted where the profile handshake negotiated
+// classical is the estate-wide "their stack speaks PQ when forced" fact,
+// and a draft-group acceptance IS the harvest-now-decrypt-later exposure
+// spelled out. Refusals stay the expected default of a forced-offer
+// matrix (observations, not tool failure) and the per-probe detail lives
+// in the jsonl findings — the line invents nothing past the fields.
+// Group classes ride internal/classify (the IANA-derived taxonomy's
+// single home; the registry rule forbids inlining codepoints into
+// prose).
+func deepLine(d *DeepRecord, r *Record) string {
+	refused, errored := 0, 0
+	tallies := map[string]*deepTally{}
+	var accepted []DeepFinding
+	for i := range d.Findings {
+		f := &d.Findings[i]
+		prefix := "other"
+		for _, fam := range deepFamilies {
+			if strings.HasPrefix(f.Probe, fam.prefix) {
+				prefix = fam.prefix
+				break
+			}
+		}
+		t := tallies[prefix]
+		if t == nil {
+			t = &deepTally{}
+			tallies[prefix] = t
+		}
+		t.tot++
+		if f.Result == deepResultAccepted {
+			t.acc++
+			accepted = append(accepted, *f)
+		}
+		switch f.Result {
+		case deepResultRefused:
+			refused++
+		case deepResultError:
+			errored++
+		}
+	}
+
+	var b strings.Builder
+	b.WriteString("  - deep: the executed " + d.Mode + " plan ran " + strconv.Itoa(d.Attempted) + " probes: ")
+	if d.OK == 0 {
+		b.WriteString("no offer was accepted")
+	} else {
+		b.WriteString(strconv.Itoa(d.OK) + " accepted")
+	}
+	b.WriteString(", " + strconv.Itoa(d.Rejected) + " refused with the server's reasons")
+	if len(d.Findings) > 0 {
+		b.WriteString(", " + strconv.Itoa(refused) + " not-offerable")
+		if errored > 0 {
+			b.WriteString(", " + strconv.Itoa(errored) + " errored on the probe path")
+		}
+		b.WriteString("; the offered-one matrix read: ")
+		first := true
+		for _, fam := range deepFamilies {
+			t := tallies[fam.prefix]
+			if t == nil {
+				continue
+			}
+			if !first {
+				b.WriteString(", ")
+			}
+			first = false
+			b.WriteString(fam.name + " " + strconv.Itoa(t.acc) + "/" + strconv.Itoa(t.tot))
+		}
+		if t := tallies["other"]; t != nil {
+			if !first {
+				b.WriteString(", ")
+			}
+			b.WriteString("other " + strconv.Itoa(t.acc) + "/" + strconv.Itoa(t.tot))
+		}
+		b.WriteString("; ")
+		if d.OK == 0 {
+			b.WriteString("the profile handshake above carries the negotiation")
+		} else {
+			b.WriteString("accepted: ")
+			for i := range accepted {
+				if i > 0 {
+					b.WriteString("; ")
+				}
+				b.WriteString(accepted[i].Probe)
+				if note := deepRowNote(accepted[i].Probe, r.Handshake.GroupClass); note != "" {
+					b.WriteString(" (" + note + ")")
+				}
+			}
+		}
+	}
+	b.WriteString(" — the per-probe detail lives in the jsonl findings.")
+	return b.String()
+}
+
+// deepRowNote names the notable shapes among the accepted rows: a PQ
+// group accepted where the profile handshake negotiated classical (the
+// fact the forced offer exists to answer for the estate), and a
+// draft-group acceptance — the harvest-now-decrypt-later exposure, here
+// spelled out because the hndl line rides the pq verdict's flag and a
+// deep finding's draft acceptance is this line's data. The class lookup
+// is classify's — the sanctioned taxonomy home; unknown codepoints name
+// nothing.
+func deepRowNote(id, handshakeClass string) string {
+	if !strings.HasPrefix(id, "group/") {
+		return ""
+	}
+	cp, err := strconv.ParseUint(strings.TrimPrefix(id, "group/"), 10, 32)
+	if err != nil {
+		return ""
+	}
+	cls, known := classify.GroupClass(uint32(cp))
+	if !known {
+		return ""
+	}
+	switch cls {
+	case classify.ClassPQHybridD:
+		return "an obsolete draft group accepted — the harvest-now-decrypt-later exposure: strip the draft groups from the server configuration"
+	case classify.ClassPQHybrid, classify.ClassPQ, classify.ClassHybridSM:
+		if handshakeClass == "classic" {
+			return "a PQ group accepted where the profile handshake negotiated classical"
+		}
+	}
+	return ""
+}
 
 // keyExchangeLine reads the negotiated group and its class. The hybrid
 // partner is derived from the group name (ML-KEM-<N> + the classical
