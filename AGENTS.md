@@ -201,14 +201,13 @@ contract, not decoration.
 | Label | Meaning |
 | --- | --- |
 | `PQ-XXn — <summary>` (issue titles carry it in the title, PR titles in the conventional subject) | issue/PR identity |
-| area:* (probe, quic, classify, resolver, target, out, legacy, cli, docs, ci, release) | component — one prefix per package area |
-| type:task | a leaf-sized roadmap slice — the only type:* label today |
+| area:* (probe, quic, classify, resolver, target, out, legacy, cli, docs, ci, release) | component — the primary vocabulary: EVERY issue carries the right area(s) (cli, docs, out, …); an issue without an area is unfiled (the dependency dashboard exempt); no type:* labels exist |
 | target:m0 … target:m5, target:backlog | milestone |
 | s:xs / s:s / s:m / s:l | effort |
-| bug, documentation, ci | maintenance |
+| bug, documentation, ci | maintenance — `bug` = a genuine operator-facing defect, labeled at birth and kept after closure (the fix may be a design refinement; the label reflects what the issue was) |
 
 Board status (`Todo` / `In Progress` / `Done`) is a project-field, not a
-label: labels never encode progress. Never invent new `area:*`/`type:*`
+label: labels never encode progress. Never invent new labels; `type:*` labels do not exist — the vocabulary is `area:*` (primary) + `bug` (defects) + `target:m*`/`s:*`
 names — growing the catalog is a deliberate change, not agent improvisation.
 
 ## Security
