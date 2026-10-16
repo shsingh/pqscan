@@ -27,8 +27,9 @@ register is closed ([register](https://github.com/shsingh/pqscan/issues/4)).
   classification, estate-wide readiness verdicts with an HNDL risk flag.
 - **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443;
   HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
-- **Chainable** — hosts, `ip:port`, CIDR, subfinder/httpx/naabu/masscan
-  output in; JSONL/CSV/text/URLs out.
+- **Chainable** — hosts, `host:port`/`ip:port`, `scheme://host[:port]`
+  spec lines (the scheme strips), the piped stdin and the
+  subfinder/httpx/naabu/masscan renders in; JSONL/CSV/text/URLs out.
 
 ## Measured performance
 
@@ -55,7 +56,7 @@ run transcripts.
 subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 
 # naabu's port truth feeds the cipher pass
-naabu -l domains.txt -p 443,8443,993 -silent | pqscan -from-naabu -mode fast -jsonl
+naabu -l domains.txt -p 443,8443,993 -silent | pqscan -mode fast -jsonl
 
 # deep: the offer-one matrix on one asset (versions, suites, groups, HRR)
 pqscan -u google.com -mode deep -deep full -jsonl

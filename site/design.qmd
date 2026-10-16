@@ -63,7 +63,7 @@ cannot starve the run.
 ```{mermaid}
 flowchart TB
   P[profile handshake<br/>version, suite, group, ALPN, cert] --> S[suite matrix<br/>1.0-1.2: offer-one/observe<br/>1.3: fixed set accepted?]
-  R2[pq forced-group ladder<br/>4588, 4587, 4589, mlkem pure, drafts] --> S
+  R2[pq forced-group ladder<br/>4585–4590 + drafts] --> S
   S --> T[sigalg matrix incl. mldsa, composite]
   T --> U[feature probes: HRR, 0-RTT,<br/>resumption xN, SCSV, renegotiation]
   U --> V[quic plane if hinted or -quic-always]
@@ -72,13 +72,16 @@ flowchart TB
 
 The profile handshake prunes phase 2: a suite that already negotiated is
 skipped; groups the server re-routed via HRR are marked. Default plan caps
-at 24 probes/target (`-deep full` unlocks ~120).
+at 24 probes/target (`-deep full` unlocks the complete matrix — 80 probes
+on the current registry snapshot, auto-tracked to `crypto/tls`).
 
 ## PQC classification
 
 Every negotiated or observed parameter scores `pq | pq_hybrid |
-pq_hybrid_draft | classic | obsolete` from generated registry tables
+classic | draft | unknown` from generated registry tables
 ([Appendix A](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot)),
-and the readiness verdict (A+…D) carries an **HNDL flag** — classic-only
+and the readiness verdict rides the record as `pq=<label>(<score>)` —
+the bands `pq-ready`, `pq-ready-hybrid`, `pq-partial`, `pq-missing` —
+with an **HNDL flag** — classic-only
 key exchange with long-lived certificates means recorded traffic stays
 decryptable by a future quantum attacker.
