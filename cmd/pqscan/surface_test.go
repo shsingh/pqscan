@@ -317,6 +317,25 @@ func TestCLISurfaceContract(t *testing.T) {
 		t.Logf("live deep-mode scan ↓\n%s", indentBlock(deepOut.String()))
 	}
 
+	// ---- 6c. pq mode: the forced PQ ladder's reading rides -explain
+	// (PQ-50, issue #134): the mode's counts tail on the text line, then
+	// the ladder line in operator words — the accepted rows named, the
+	// refusals framed as the expected default.
+	var pqOut, pqErr bytes.Buffer
+	if code := run([]string{"-u", addr, "-mode", "pq", "-explain"}, &pqOut, &pqErr); code != 0 {
+		t.Fatalf("pq scan: rc=%d (stderr: %s)", code, pqErr.String())
+	}
+	if !strings.Contains(pqOut.String(), " deep=pq:") {
+		t.Errorf("the pq-mode text line lost the ladder's counts tail:\n%s", pqOut.String())
+	}
+	if !strings.Contains(pqOut.String(), "  - deep: the forced PQ ladder made ") ||
+		!strings.Contains(pqOut.String(), "each forced PQ-only group came back refused unless the server truly speaks it") {
+		t.Errorf("the pq-mode -explain block lost the PQ-50 ladder reading line:\n%s", pqOut.String())
+	}
+	if testing.Verbose() {
+		t.Logf("live pq-mode scan ↓\n%s", indentBlock(pqOut.String()))
+	}
+
 	// ---- 7. the repo gates, verdicts visible.
 	for _, script := range []string{"check_usage_drift.sh", "check_schema_sync.sh"} {
 		out, rc := runGate(t, root, script)
