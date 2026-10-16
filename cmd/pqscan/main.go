@@ -27,8 +27,10 @@ import (
 )
 
 // version carries the build's identity, stamped at build time by the
-// release workflow via -ldflags "-X main.version=<tag>"; default is the
-// source-tree revision (pre-alpha).
+// release workflow via -ldflags "-X main.version=<tag>"; an unstamped
+// source build prints the default revision. The diagnostics sink reads
+// the same value (diag.SetBinaryVersion before it arms) so `-version`
+// and the footer always agree.
 var version = "0.0.1"
 
 func main() {
@@ -46,69 +48,52 @@ func main() {
 // choose the encoder (PQ-16); -resume replays the run journal beside -o
 // and scans only the pending targets.
 func run(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("pqscan", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	showVersion := fs.Bool("version", false, "print pqscan version and exit")
-	debug := fs.Bool("debug", false, "full diagnostics: human stream on stderr + machine report")
-	debugOut := fs.String("debug-out", "", "write the machine-parsable diagnostics report (schema 1) to this JSON file")
-	target := fs.String("u", "", "single target: host, host:port, or ip:port (composes with -l and --)")
-	listFile := fs.String("l", "", "read newline-separated target specs from this file (composes with -u and --; deduped by host:port)")
-	// PD-dialect input adapters (PQ-35/issue #80): the files' lines are
-	// httpx/naabu output; internal/target strips the dialect decoration
-	// and feeds the same grammar, so ONE composition — one dedupe —
-	// serves every input source.
-	httpxFile := fs.String("from-httpx", "", "read httpx-format input lines from this file (scheme://host:port with an optional URL path; composes with -u/-l/--; deduped by host:port)")
-	naabuFile := fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines, or a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)")
-	// Multi-box partition (PQ-24/issue #47): -shard i/n names this box's
-	// slice of the composed list — the deterministic fnv1a64(host:port)
-	// % n == i-1 rule, so the n boxes' shards are disjoint and complete.
-	shardSpec := fs.String("shard", "", `scan only shard i of n (spec "i/n"; the composed targets filter to the shard's membership: a multi-box pass = disjoint, complete)`)
-	// Output format selectors (spec §5.7): the LAST selector on the
-	// command line wins and text is the absent-flag default —
-	// chooseFormat resolves it. The five spellings register as real flags
-	// (the USAGE <-> source drift gate reads them back from the flag set).
-	_ = fs.Bool("json", false, "emit one schema-1 JSON record per line (alias of -jsonl)")
-	_ = fs.Bool("jsonl", false, "emit one schema-1 JSON record per line")
-	_ = fs.Bool("csv", false, "emit CSV rows (header line first)")
-	_ = fs.Bool("urls", false, "emit scheme://host:port lines, one per target")
-	_ = fs.Bool("text", false, "one human line per target (default format)")
-	outFile := fs.String("o", "", "write results to file (default stdout)")
-	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
-	// PQ-25/-quic-always (issue #48, spec §5.3): the additive hint-gate
-	// override — force the direct QUIC probe regardless of the alt-svc
-	// hint; -quic-off keeps the highest precedence.
-	quicAlways := fs.Bool("quic-always", false, "run the direct QUIC probe regardless of Alt-Svc h3 hints (the hint gate's override)")
-	resume := fs.Bool("resume", false, "resume an interrupted run from the WAL (<output basename>.wal next to -o)")
-	// Congestion wiring (PQ-23): the §7.3 control surfaces reach the
-	// pipeline through two flags — the token-bucket launch pace and the
-	// AIMD window ceiling. Both defaults stay the pre-PQ-23 engine: rate
-	// 0 = uncapped, window 1 = the sequential dispatch.
-	rate := fs.Float64("rate", 0, "probe launches per second through the token-bucket limiter (0 = uncapped: the pre-congestion pace)")
-	threads := fs.Int("threads", 1, "AIMD window ceiling: max target probes in flight (default 1 = the sequential engine)")
-	// Mode wiring (PQ-20/issue #43): -mode selects the per-target scan
-	// mode and -deep the deep plan cap; the deep-mode record carries the
-	// executed plan's deep block.
-	mode := fs.String("mode", "fast", "scan mode: fast (default) | deep (the executed deep plan) | pq (the forced PQ ladder)")
-	deepPlan := fs.String("deep", "standard", "deep-mode plan cap (-mode deep only): standard (default, <=24 probes/target) | full (the complete matrix)")
-	// Enrichment surfaces (PQ-26/issue #49): -ptr builds the run's
-	// resolver pool (the system resolver, bounded: 4 workers, a 2s
-	// budget, a 1024-entry LRU of positives) for IP targets' reverse
-	// DNS; -sni selects the pool's strategy; -certs-dir names the PEM
-	// export directory.
-	ptr := fs.Bool("ptr", false, "PTR enrichment for IP targets: resolve reverse DNS pre-probe, SNI per -sni; the record carries ptr/sni_used")
-	sni := fs.String("sni", "auto", "SNI strategy for IP targets: auto (default) | ptr-then-ip | ip-only")
-	certsDir := fs.String("certs-dir", "", "write each scanned host's end-entity certificate as PEM to <dir>/<host>.pem")
+	// -h/-help is the help path (PQ-38): stdout, exit 0, decided from
+	// the raw argv before the flag set parses (the scan stops at the
+	// bare `--`, past which tokens are target data).
+	if helpRequested(args) {
+		printHelp(stdout)
+		return 0
+	}
+
+	// One registration surface (flags.go): run() parses it, -help and
+	// the completions render from it. The locals bind the same names
+	// the body has always read.
+	fs, vals := newFlagSet()
+	wireFlagSetOutput(fs, stderr)
+	showVersion, debug, debugOut := vals.ShowVersion, vals.Debug, vals.DebugOut
+	target, listFile, httpxFile, naabuFile := vals.Target, vals.ListFile, vals.HTTPX, vals.Naabu
+	shardSpec, outFile := vals.ShardSpec, vals.OutFile
+	quicOff, quicAlways, resume := vals.QuicOff, vals.QuicAlways, vals.Resume
+	rate, threads := vals.Rate, vals.Threads
+	mode, deepPlan, ptr, sni, certsDir, explain := vals.Mode, vals.DeepPlan, vals.Ptr, vals.SNI, vals.CertsDir, vals.Explain
 	if err := fs.Parse(args); err != nil {
 		return 64
 	}
 
 	if *showVersion {
-		fmt.Fprintf(stdout, "pqscan %s (pre-alpha; specification: docs/spec.md)\n", version)
+		fmt.Fprintf(stdout, "pqscan %s\n", version)
+		return 0
+	}
+
+	// -completion (PQ-40): the meta emission, like -version — it wins
+	// over the target composition; an unsupported shell is a usage
+	// refusal naming the valid values.
+	if comp := vals.Completion; comp != nil && *comp != "" {
+		script, err := completionScript(*comp)
+		if err != nil {
+			diag.Emit(diag.Warn, diag.DomConfig, "run", "", "-completion refused", err,
+				map[string]string{"shell": *comp})
+			fmt.Fprintf(stderr, "pqscan: -completion: %v\n", err)
+			return 64
+		}
+		fmt.Fprint(stdout, script)
 		return 0
 	}
 
 	// arm diagnostics under -debug; everything below emits
 	if *debug || *debugOut != "" {
+		diag.SetBinaryVersion(version)
 		sink, err := diag.NewSink(stderr, 10000)
 		if err == nil {
 			sink.SetFlags(effectiveFlags(fs))
@@ -120,6 +105,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	format := chooseFormat(args)
+
+	// -explain is a text-presentation surface (PQ-39): under a machine
+	// format it pollutes a schema-1/CSV/URL stream, so it is a
+	// command-line mistake, refused before anything composes or scans.
+	if *explain && format != out.FormatText {
+		diag.Emit(diag.Warn, diag.DomOutput, "run", "", "-explain refused under a machine output format", nil,
+			map[string]string{"format": format.String()})
+		fmt.Fprintf(stderr, "pqscan: -explain applies to text output only (drop the -%s selector)\n", format.String())
+		return 64
+	}
 
 	// Mode validation (PQ-20): bogus -mode/-deep values are usage-class
 	// refusals before anything composes or scans (the offending value
@@ -186,7 +181,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(targets) == 0 {
 		diag.Emit(diag.Warn, diag.DomEngine, "run", "", "no targets; run refuses", nil, nil)
-		fmt.Fprintln(stderr, "pqscan: no target specified (use -u, -l, or -- for stdin; probe engines per the PQ-01 register)")
+		fmt.Fprintln(stderr, "pqscan: no target specified (use -u TARGET, -l FILE, or -- for stdin; -h shows examples)")
 		return 64 // EX_USAGE
 	}
 
@@ -381,7 +376,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		defer f.Close() //nolint:errcheck
 		sink = f
 	}
-	enc := out.NewEncoder(sink, format)
+	enc := out.NewEncoder(sink, format, explainOptions(*explain)...)
 	for _, rec := range final {
 		if err := enc.Encode(rec); err != nil {
 			diag.Emit(diag.Error, diag.DomOutput, "encode", rec.Target.Host, "record encode failed", err, nil)
@@ -496,6 +491,16 @@ func walPathFor(outFile string) string {
 		stem = base // "-o .wal" journals in place
 	}
 	return filepath.Join(filepath.Dir(outFile), stem+".wal")
+}
+
+// explainOptions renders the -explain flag into the encoder's option
+// list (PQ-39). The option is honored when the explain renderer lands;
+// until then the machine and text streams are identical either way.
+func explainOptions(on bool) []out.EncoderOption {
+	if on {
+		return []out.EncoderOption{out.WithExplain()}
+	}
+	return nil
 }
 
 func effectiveFlags(fs *flag.FlagSet) map[string]string {

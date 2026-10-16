@@ -1,1 +1,1 @@
-example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 quic_neg=X25519MLKEM768 quic_class=pq_hybrid
+example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 quic_neg=X25519MLKEM768 quic_class=pq_hybrid pq=pq-ready(85)
