@@ -15,24 +15,33 @@ import (
 	fixtures "github.com/shsingh/pqscan/tests/fixtures/servers"
 )
 
-// TestRunVersion pins the -version path (PQ-10 coverage audit; watched
-// RED lands with these tests before run() is implemented).
+// TestRunVersion pins the -version path exactly (PQ-38 scrub): the stamp
+// and nothing else — no status words, no developer-document references,
+// stdout only. The release stamps `<tag>` via -ldflags; a source build
+// prints the default revision.
 func TestRunVersion(t *testing.T) {
 	var out, errOut bytes.Buffer
 	code := run([]string{"-version"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("exit = %d, want 0", code)
 	}
-	if !bytes.Contains(out.Bytes(), []byte("pqscan 0.0.1")) {
-		t.Fatalf("version output missing %q; got %q", "pqscan 0.0.1", out.String())
+	if got := out.String(); got != "pqscan 0.0.1\n" {
+		t.Fatalf("version output = %q, want exactly %q", got, "pqscan 0.0.1\n")
 	}
 	if errOut.Len() != 0 {
 		t.Fatalf("stderr polluted on -version: %q", errOut.String())
 	}
+	for _, bad := range []string{"pre-alpha", "spec", "docs/"} {
+		if bytes.Contains(out.Bytes(), []byte(bad)) {
+			t.Fatalf("version output carries the internal reference %q: %q", bad, out.String())
+		}
+	}
 }
 
 // TestRunUsage pins the no-argument path: usage guidance on stderr with
-// the EX_USAGE exit code (64) — the engine-stub contract until M1.
+// the EX_USAGE exit code (64) — and no internal reference: an issue id
+// ("PQ-01"), the word "register", a spec/doc path — none of those mean
+// anything to an operator (PQ-38).
 func TestRunUsage(t *testing.T) {
 	var out, errOut bytes.Buffer
 	code := run([]string{}, &out, &errOut)
@@ -44,6 +53,53 @@ func TestRunUsage(t *testing.T) {
 	}
 	if out.String() != "" {
 		t.Fatalf("stdout polluted on usage path: %q", out.String())
+	}
+	for _, bad := range []string{"PQ-", "register", "spec", "docs/"} {
+		if bytes.Contains(errOut.Bytes(), []byte(bad)) {
+			t.Fatalf("usage guidance carries the internal reference %q: %q", bad, errOut.String())
+		}
+	}
+	for _, want := range []string{"-u", "-l", "--", "-h"} {
+		if !bytes.Contains(errOut.Bytes(), []byte(want)) {
+			t.Fatalf("usage guidance missing %q: %q", want, errOut.String())
+		}
+	}
+}
+
+// TestRunVersionWiredIntoDiagnostics (PQ-38): the diagnostics footer and
+// the machine Report must carry the SAME identity `-version` prints —
+// one version symbol, wired from the stamped `version` var, not a
+// hard-coded internal default.
+func TestRunVersionWiredIntoDiagnostics(t *testing.T) {
+	defer func(v string) { version = v }(version)
+	version = "v-test-stamp"
+
+	dump := t.TempDir() + "/diag.json"
+	var out, errOut bytes.Buffer
+	code := run([]string{"-debug", "-debug-out", dump}, &out, &errOut)
+	if code != 64 {
+		t.Fatalf("exit = %d, want 64 (no targets)", code)
+	}
+	for _, want := range []string{"v-test-stamp", "pqscan diagnostics"} {
+		if !bytes.Contains(errOut.Bytes(), []byte(want)) {
+			t.Fatalf("diagnostics footer missing %q:\n%s", want, errOut.String())
+		}
+	}
+	if bytes.Contains(errOut.Bytes(), []byte("0.0.1")) {
+		t.Fatalf("diagnostics footer still carries the hard-coded default:\n%s", errOut.String())
+	}
+	raw, err := os.ReadFile(dump)
+	if err != nil {
+		t.Fatalf("read debug-out: %v", err)
+	}
+	var report struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(raw, &report); err != nil {
+		t.Fatalf("unmarshal report: %v", err)
+	}
+	if report.Version != "v-test-stamp" {
+		t.Fatalf("report version = %q, want the stamped identity %q", report.Version, "v-test-stamp")
 	}
 }
 
