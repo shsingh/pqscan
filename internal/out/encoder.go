@@ -359,6 +359,44 @@ func appendTextLine(dst []byte, r *Record) []byte {
 	if q := r.Quic; q != nil && q.UDPBlocked {
 		dst = append(dst, " udp_blocked=true"...)
 	}
+	// PQ-46: the format-parity tails — the story the human line tells
+	// matches what the machine formats carry. Hand-appended (no
+	// Sprintf on the encode path, spec §7.7); every pre-existing field
+	// stays byte-identical and an absent block renders nothing.
+	if d := r.Deep; d != nil {
+		dst = append(dst, " deep="...)
+		dst = append(dst, orDash(d.Mode)...)
+		dst = append(dst, ':')
+		dst = strconv.AppendInt(dst, int64(d.Attempted), 10)
+		dst = append(dst, "p/"...)
+		dst = strconv.AppendInt(dst, int64(d.OK), 10)
+		dst = append(dst, "ok/"...)
+		dst = strconv.AppendInt(dst, int64(d.Rejected), 10)
+		dst = append(dst, "rej"...)
+	}
+	if c := r.Cert; c != nil {
+		dst = append(dst, " cert="...)
+		dst = append(dst, orDash(c.SigAlg)...)
+		dst = append(dst, '/')
+		dst = append(dst, orDash(c.KeyAlg)...)
+		if c.SigPQ {
+			dst = append(dst, " +pq-sig"...)
+		}
+		if c.KeyPQ {
+			dst = append(dst, " +pq-key"...)
+		}
+		if c.Dual {
+			dst = append(dst, " +dual"...)
+		}
+	}
+	if r.Target.Ptr != "" {
+		dst = append(dst, " ptr="...)
+		dst = append(dst, r.Target.Ptr...)
+	}
+	if r.Target.SNIUsed != "" {
+		dst = append(dst, " sni="...)
+		dst = append(dst, r.Target.SNIUsed...)
+	}
 	// PQ-38: the verdict rides the line — the readiness label + score
 	// the record already carries, suffix-appended (every pre-existing
 	// field byte-identical; verdict-carrying records only — a failed

@@ -429,7 +429,7 @@ Comparative baselines recorded at M3: zgrab2, sslyze, cryptonice, gnutls-cli-deb
 - Probes: `-probe-suite`, `-probe-version`, `-probe-group`, `-probe-sigalg` (force sets), `-client-fingerprint chrome|firefox|safari|ios|gotls`, `-ja4`, `-jarm`
 - TLS knobs: `-sni auto|ptr-then-ip|ip-only|strict-sni`, `-ptr`, `-no-ptr`, `-timeout`, `-connect-timeout`, `-retries`, `-verify`, `-ca-bundle`
 - Performance: `-threads` (engine workers), `-c` (in-flight cap), `-rate`, `-dns-threads`, `-stats`, `-no-color`
-- Output: `-json`, `-jsonl`, `-csv`, `-urls`, `-text` (default), `-o`, `-fields`, `-certs-dir`, `-explain` (the plain-language reading under each `-text` line; the verdict rides the line as `pq=<label>(<score>)`), `-silent`, `-stream`/`-sorted`
+- Output: `-json`, `-jsonl`, `-csv`, `-urls`, `-text` (default; the format-parity surface: `deep=<plan>:<N>p/<N>ok/<N>rej`, `cert=<sig>/<key>` with `+pq-sig/+pq-key/+dual`, `ptr=/sni=`, `pq=<label>(<score>)` all ride the line when present so the human format tells the same story jsonl does), `-o`, `-fields`, `-certs-dir`, `-explain` (the plain-language reading under each `-text` line), `-silent`, `-stream`/`-sorted`
 - Shells: `-completion bash|zsh` (the completion script on stdout, generated from the same surface the help renders)
 - Legacy module: `-legacy module=heartbleed,ccs,robot,sslv3` (opt-in, off by default)
 - Config: `-config pqscan.yaml` (org profiles: default ports, budgets, probes, output path); env overrides `PQSCAN_*`; `-h2c`/`-http2` never needed (ALPN is automatic).
