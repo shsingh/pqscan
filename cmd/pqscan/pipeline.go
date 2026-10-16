@@ -645,6 +645,11 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // yields for "--"; -l -- and -l - compose the same way (neither marker
 // value is treated as a file name; PQ-41). stdin expands exactly once.
 //
+// The spec path (PQ-41) strips the accepted scheme://host[:port]
+// decoration through target.StripScheme — the same internal/target rule
+// the adapter dialects apply — before grammar.Parse; a URL path suffix
+// on a spec line refuses with the adapter named (-from-httpx).
+//
 // Refusals (exit 64, usage class): a source that fails to read, a spec the
 // grammar rejects (the adapter dialects annotate the failing line's
 // number), and CIDR-class targets — a cidr spec prints the PQ-16 deferral
@@ -768,6 +773,17 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 
 	parseSpecs = func(batch []string) error {
 		for _, spec := range batch {
+			// The spec path strips the accepted scheme:// decoration
+			// (PQ-41): the same internal/target rule the adapter
+			// dialects apply, so -u/-l/-- lines accept
+			// scheme://host[:port] with ONE decoration rule for every
+			// input source. A URL path suffix refuses here naming the
+			// adapter; an honestly-unparseable shape reaches the
+			// grammar's own refusal unchanged.
+			spec, err := target.StripScheme(spec)
+			if err != nil {
+				return err
+			}
 			parsed, err := grammar.Parse(spec)
 			if err != nil {
 				return err

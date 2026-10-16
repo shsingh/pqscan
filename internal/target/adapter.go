@@ -240,5 +240,16 @@ func stripDialectDecor(line string) string {
 // scheme is not a scheme, and the grammar's own refusal keeps owning the
 // honestly-unparseable shapes.
 func StripScheme(line string) (string, error) {
-	return line, nil // PQ-41 RED stub; the strip lands in the GREEN commit
+	i := strings.Index(line, "://")
+	if i <= 0 {
+		return line, nil
+	}
+	rest := line[i+3:]
+	if j := strings.Index(rest, "/"); j >= 0 {
+		return "", fmt.Errorf("URL path %q in target spec %q: a URL path is the -from-httpx adapter's decoration (-from-httpx FILE strips scheme and path; the spec path keeps host[:port])", rest[j:], line)
+	}
+	if rest == "" {
+		return "", fmt.Errorf("target spec %q: nothing after the scheme prefix (want scheme://host[:port])", line)
+	}
+	return rest, nil
 }
