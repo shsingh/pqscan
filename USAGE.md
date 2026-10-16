@@ -279,8 +279,10 @@ EXAMPLES
 EXIT STATUS
     0     Scan completed (empty or not; results in the output stream).
     1     Runtime error (engine or system failure).
-    2     Flag-parse error.
-    64    EX_USAGE: no targets to scan.
+    64    EX_USAGE: a command-line mistake refused before any scan
+          (flag-parse errors, no targets, unknown -mode/-deep/-sni, a
+          bogus -shard spec, -resume without -o, -explain under a
+          machine output format).
     130   Interrupted (Ctrl-C drains before exit; WAL retained).
 
 ENVIRONMENT
@@ -318,4 +320,4 @@ SEE ALSO
 AUTHOR
     Shain Singh <shain.singh@owasp.org>
 
-pqscan 0.0.1 (pre-alpha)                                  October 2026
+pqscan 2026.01-rc1                                        October 2026

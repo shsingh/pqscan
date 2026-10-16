@@ -27,8 +27,10 @@ import (
 )
 
 // version carries the build's identity, stamped at build time by the
-// release workflow via -ldflags "-X main.version=<tag>"; default is the
-// source-tree revision (pre-alpha).
+// release workflow via -ldflags "-X main.version=<tag>"; an unstamped
+// source build prints the default revision. The diagnostics sink reads
+// the same value (diag.SetBinaryVersion before it arms) so `-version`
+// and the footer always agree.
 var version = "0.0.1"
 
 func main() {
@@ -103,12 +105,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if *showVersion {
-		fmt.Fprintf(stdout, "pqscan %s (pre-alpha; specification: docs/spec.md)\n", version)
+		fmt.Fprintf(stdout, "pqscan %s\n", version)
 		return 0
 	}
 
 	// arm diagnostics under -debug; everything below emits
 	if *debug || *debugOut != "" {
+		diag.SetBinaryVersion(version)
 		sink, err := diag.NewSink(stderr, 10000)
 		if err == nil {
 			sink.SetFlags(effectiveFlags(fs))
@@ -186,7 +189,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(targets) == 0 {
 		diag.Emit(diag.Warn, diag.DomEngine, "run", "", "no targets; run refuses", nil, nil)
-		fmt.Fprintln(stderr, "pqscan: no target specified (use -u, -l, or -- for stdin; probe engines per the PQ-01 register)")
+		fmt.Fprintln(stderr, "pqscan: no target specified (use -u TARGET, -l FILE, or -- for stdin; -h shows examples)")
 		return 64 // EX_USAGE
 	}
 

@@ -54,7 +54,7 @@ func TestRunUsage(t *testing.T) {
 	if out.String() != "" {
 		t.Fatalf("stdout polluted on usage path: %q", out.String())
 	}
-	for _, bad := range []string{"PQ-", "register", "spec", "docs/"} {
+	for _, bad := range []string{"PQ-", "register", "spec.md", "docs/"} {
 		if bytes.Contains(errOut.Bytes(), []byte(bad)) {
 			t.Fatalf("usage guidance carries the internal reference %q: %q", bad, errOut.String())
 		}
