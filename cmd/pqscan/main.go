@@ -74,6 +74,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	_ = fs.Bool("csv", false, "emit CSV rows (header line first)")
 	_ = fs.Bool("urls", false, "emit scheme://host:port lines, one per target")
 	_ = fs.Bool("text", false, "one human line per target (default format)")
+	// PQ-38: -explain appends a plain-language reading under each -text
+	// line (the line's verdict in words, group class, certificate layer,
+	// QUIC plane, error classes); the machine formats refuse it.
+	explain := fs.Bool("explain", false, "under each -text line, a plain-language reading of the record: the verdict in words, what the negotiated group/class means, the certificate and QUIC planes, an error-class hint when nothing negotiated (-text output only)")
 	outFile := fs.String("o", "", "write results to file (default stdout)")
 	quicOff := fs.Bool("quic-off", false, "skip the QUIC plane probe")
 	// PQ-25/-quic-always (issue #48, spec §5.3): the additive hint-gate
@@ -384,7 +388,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		defer f.Close() //nolint:errcheck
 		sink = f
 	}
-	enc := out.NewEncoder(sink, format)
+	enc := out.NewEncoder(sink, format, explainOptions(*explain)...)
 	for _, rec := range final {
 		if err := enc.Encode(rec); err != nil {
 			diag.Emit(diag.Error, diag.DomOutput, "encode", rec.Target.Host, "record encode failed", err, nil)
@@ -499,6 +503,16 @@ func walPathFor(outFile string) string {
 		stem = base // "-o .wal" journals in place
 	}
 	return filepath.Join(filepath.Dir(outFile), stem+".wal")
+}
+
+// explainOptions renders the -explain flag into the encoder's option
+// list (PQ-38). The option is honored when the explain renderer lands;
+// until then the machine and text streams are identical either way.
+func explainOptions(on bool) []out.EncoderOption {
+	if on {
+		return []out.EncoderOption{out.WithExplain()}
+	}
+	return nil
 }
 
 func effectiveFlags(fs *flag.FlagSet) map[string]string {

@@ -50,14 +50,22 @@ type Encoder struct {
 	w      io.Writer
 	format Format
 	header bool // csv header emitted
+	// explain rides the -explain flag: with it (and the text format),
+	// Encode appends the record's plain-language reading (PQ-38). The
+	// option is honored when the renderer lands; the stub ignores it.
+	explain bool
 
 	buf []byte
 }
 
 // NewEncoder wires a format into a destination stream (stdout or the -o
 // file — the caller owns the stream, the encoder only writes lines).
-func NewEncoder(w io.Writer, f Format) *Encoder {
-	return &Encoder{w: w, format: f}
+func NewEncoder(w io.Writer, f Format, opts ...EncoderOption) *Encoder {
+	e := &Encoder{w: w, format: f}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
 }
 
 // Encode writes one record line to the stream (CSV: the header line goes

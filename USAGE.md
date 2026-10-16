@@ -197,6 +197,12 @@ OPTIONS
                          per target (chainable into nuclei/httpx).
     -text                One human line per target (the default format:
                          group= class= suite= version= alpn= ...).
+    -explain             Under each -text line, a plain-language reading
+                         of the record (PQ-39): the verdict in words,
+                         what the negotiated group/class means, the
+                         certificate and QUIC layers, and an error-class
+                         hint when nothing negotiated. Text output
+                         only; the machine formats refuse it (exit 64).
     -o file           Output file (stdout default). The run journal rides
                       beside it as <basename>.wal (see FILES).
     -fields a,b,c     Field selection.
