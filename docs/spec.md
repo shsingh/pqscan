@@ -171,7 +171,7 @@ Classification tables live in generated code (Section 5.9), snapshot-sourced fro
 | Modern hygiene: TLS 1.3 + forward secrecy + no legacy versions/suites accepted | 15 |
 | Certificate/chain PQ signal (PQ or composite cert, PQ-ready issuer) | 15 |
 
-Verdict banding: **A+ ≥ 85, A ≥ 70, B ≥ 50, C ≥ 30, D < 30**, plus standalone boolean flags: `kex_pq`, `auth_pq_signal`, `cert_pq`, `hndl_risk` (classic-only KEX today ⇒ recorded traffic is decryptable by a future CRQC — the flag means "harvestable").
+Verdict banding (the readiness rubric, clamped 0–100): **pq-ready ≥ 80, pq-ready-hybrid ≥ 60, pq-partial ≥ 40, pq-missing 1–39, scan-error 0** (a zero-signal scan is an error state, not a grade), plus standalone boolean flags: `kex_pq`, `auth_pq_signal`, `cert_pq`, `hndl_risk` (classic-only KEX today ⇒ recorded traffic is decryptable by a future CRQC — the flag means "harvestable").
 
 ### 5.7 Output and chainability
 
@@ -225,7 +225,7 @@ flowchart LR
   end
   subgraph PQ["pqscan - cipher-configuration plane"]
     P1["fast - 1 handshake"]
-    P2["deep - 24-120 probes"]
+    P2["deep - offer-one matrix: ≤24 standard, full = the complete matrix"]
     P3["pq - PQ ladder + verdicts"]
   end
   subgraph SINK["Downstream"]
@@ -279,7 +279,7 @@ masscan -p 443 -iL cidrs.txt --rate=100000 --open-only -oX - \
 
 ```bash
 pqscan -l estate.txt -mode pq -jsonl \
-  | jq -r 'select(.pq.verdict != "A+" and .pq.verdict != "A") | [.target.host, .pq.verdict, (.pq.reasons|join("; "))] | @tsv'
+  | jq -r 'select(.pq.label != "pq-ready") | [.target.host, .pq.label, .pq.score, .pq.summary] | @tsv'
 ```
 
 - **Output → nuclei (only h2-speaking, pq-ready hosts):**
