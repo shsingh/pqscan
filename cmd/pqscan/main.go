@@ -128,6 +128,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	format := chooseFormat(args)
 
+	// -explain is a text-presentation surface (PQ-38): under a machine
+	// format it pollutes a schema-1/CSV/URL stream, so it is a
+	// command-line mistake, refused before anything composes or scans.
+	if *explain && format != out.FormatText {
+		diag.Emit(diag.Warn, diag.DomOutput, "run", "", "-explain refused under a machine output format", nil,
+			map[string]string{"format": format.String()})
+		fmt.Fprintf(stderr, "pqscan: -explain applies to text output only (drop the -%s selector)\n", format.String())
+		return 64
+	}
+
 	// Mode validation (PQ-20): bogus -mode/-deep values are usage-class
 	// refusals before anything composes or scans (the offending value
 	// named; exit 64).

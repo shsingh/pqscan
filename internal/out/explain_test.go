@@ -25,7 +25,6 @@ func TestExplainBlockGolden(t *testing.T) {
 			"  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. Session traffic is protected from later decryption by a quantum computer; the harvest-now-decrypt-later risk does not apply while this group negotiates.",
 			"  - certificate: classical identity (ECDSA key, sha256WithRSAEncryption signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.",
 			"  - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum verdict applies to h3 traffic.",
-			"",
 		}, "\n")
 		if got := strings.Join(explainBlock(&hybrid), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -43,7 +42,6 @@ func TestExplainBlockGolden(t *testing.T) {
 			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
 			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
 			"  - certificate: classical identity (RSAPublicKey key, sha256WithRSAEncryption signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.",
-			"",
 		}, "\n")
 		if got := strings.Join(explainBlock(&classic), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -62,7 +60,6 @@ func TestExplainBlockGolden(t *testing.T) {
 			"  - hndl: HARVEST-NOW-DECRYPT-LATER exposure — the endpoint accepts an obsolete draft PQ group (a pre-ML-KEM algorithm); those handshakes' classical halves stay decryptable to a future quantum computer: strip the draft groups from the server configuration.",
 			"  - key exchange: X25519Kyber768Draft00 (draft) — obsolete post-quantum draft (pre-final Kyber): readiness in appearance only, not the standard ML-KEM.",
 			"  - quic: x25519 (classic) on the UDP plane — classical there too: a PQ negotiation on TCP does not protect the QUIC plane.",
-			"",
 		}, "\n")
 		if got := strings.Join(explainBlock(&draft), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -76,7 +73,6 @@ func TestExplainBlockGolden(t *testing.T) {
 		}
 		want := strings.Join([]string{
 			"  - error: connect: connection refused — no handshake was reached: the endpoint is unreachable on this port (closed or filtered); no cipher verdict is possible.",
-			"",
 		}, "\n")
 		if got := strings.Join(explainBlock(&refused), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -94,8 +90,8 @@ func TestExplainOtherErrorClasses(t *testing.T) {
 	}{
 		{"dial tcp 192.0.2.1:443: i/o timeout", "stalled"},
 		{"context deadline exceeded", "stalled"},
-		{"tls: handshake failure", "TLS layer"},
-		{"x509: certificate signed by unknown authority", "TLS layer"},
+		{"tls: handshake failure", "TLS/certificate layer"},
+		{"x509: certificate signed by unknown authority", "TLS/certificate layer"},
 		{"something novel", "no cipher verdict"},
 	}
 	for _, row := range rows {

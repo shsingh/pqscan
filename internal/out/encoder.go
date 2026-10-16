@@ -93,6 +93,14 @@ func (e *Encoder) Encode(r *Record) error {
 	default:
 		e.buf = appendTextLine(e.buf, r)
 		e.buf = append(e.buf, '\n')
+		// -explain (PQ-38): the plain-language reading rides under the
+		// text line only — the machine branches never see the block.
+		if e.explain {
+			for _, line := range explainBlock(r) {
+				e.buf = append(e.buf, line...)
+				e.buf = append(e.buf, '\n')
+			}
+		}
 	}
 	_, err := e.w.Write(e.buf)
 	return err
@@ -350,6 +358,17 @@ func appendTextLine(dst []byte, r *Record) []byte {
 	}
 	if q := r.Quic; q != nil && q.UDPBlocked {
 		dst = append(dst, " udp_blocked=true"...)
+	}
+	// PQ-38: the verdict rides the line — the readiness label + score
+	// the record already carries, suffix-appended (every pre-existing
+	// field byte-identical; verdict-carrying records only — a failed
+	// probe never presents an invented verdict block).
+	if p := r.Pq; p != nil && p.Label != "" {
+		dst = append(dst, " pq="...)
+		dst = append(dst, p.Label...)
+		dst = append(dst, '(')
+		dst = strconv.AppendInt(dst, int64(p.Score), 10)
+		dst = append(dst, ')')
 	}
 	if r.Error != "" {
 		dst = append(dst, " error="...)
