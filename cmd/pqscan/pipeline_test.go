@@ -341,6 +341,10 @@ func TestPipelineVerdictWireIn(t *testing.T) {
 // and never a flag-parsing artifact (issue #38 / PQ-15, watched RED: the
 // -l rows fail while the flag is undefined).
 func TestNoTargets(t *testing.T) {
+	// The no-input-source refusal is asserted, not the ambient stdin
+	// state: pin the class non-piped so the rows never consult whatever
+	// stream the test process inherits (PQ-41's implicit-pipe seam).
+	setStdinPipe(t, false)
 	rows := []struct {
 		name string
 		args []string
@@ -846,4 +850,277 @@ func TestPipelineScanErrorRecordCarriesEmptyError(t *testing.T) {
 	if got := rows[1][col]; got != "" {
 		t.Fatalf("csv error cell = %q, want empty", got)
 	}
+}
+
+// --- PQ-41 input-grammar parity (issue #117, watched RED) -------------------
+
+// TestListFileStdinAlias: -l - is the explicit stdin-file alias (PQ-41;
+// the nmap -iL - / nuclei -l - convention) — the composition reads the
+// stdin seam as the list, never the filesystem. "-" is not a file name:
+// the rc1 shape refused at the grammar with `open -: no such file or
+// directory` (exit 64). The alias composes with -- under the stdin
+// class's expand-exactly-once rule (the companion marker adds nothing),
+// and every line still arrives by the one grammar, deduped by host:port.
+func TestListFileStdinAlias(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+
+	t.Run("the alias reads stdin as the list file", func(t *testing.T) {
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "alias.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-l", "-", "-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted (results belong to -o): %q", out.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		target := recs[0]["target"].(map[string]any)
+		if target["input"] != hybridAddr {
+			t.Fatalf("input = %v, want %q (the alias feeds the one grammar)", target["input"], hybridAddr)
+		}
+	})
+
+	t.Run("the alias composes with --, stdin expands once", func(t *testing.T) {
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "alias-marker.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-l", "-", "-o", output, "-jsonl", "-quic-off", "--"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1 (-l - and -- name the same stdin; the class expands exactly once)", len(recs))
+		}
+	})
+}
+
+// --- PQ-41 implicit piped stdin (issue #117, watched RED) -------------------
+
+// setStdinPipe pins the piped-stdin class the implicit-input detector
+// reports (restored on cleanup): the seam decouples the run's input
+// decision from whatever stdin the test process inherited.
+func setStdinPipe(t *testing.T, piped bool) {
+	t.Helper()
+	prev := stdinIsPipe
+	stdinIsPipe = func() bool { return piped }
+	t.Cleanup(func() { stdinIsPipe = prev })
+}
+
+// TestImplicitPipedStdin: with a pipe on stdin and NO target source given
+// (-u/-l/--/adapters all absent) the pipe IS the target source (PQ-41;
+// issue #117) — the httpx/naabu handoff convention, `pd-tool | scanner`.
+// The rc1 shape refuses with "no target specified" on the same command.
+// An interactive terminal (a character device) never triggers the implicit
+// read, an explicit source wins over the pipe, and a piped-but-EMPTY
+// stdin still refuses exit 64 — honestly: nothing arrived, nothing
+// scanned. A piped-open never-terminating stdin blocks by contract (the
+// documented automation hazard).
+func TestImplicitPipedStdin(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	classicAddr := startClassicFixture(t)
+
+	t.Run("a piped stdin with no other source scans", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "implicit.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted (results belong to -o): %q", out.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != hybridAddr {
+			t.Fatalf("input = %v, want %q", input, hybridAddr)
+		}
+	})
+
+	t.Run("an empty pipe refuses honestly at exit 64", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, "")
+		var out, errOut bytes.Buffer
+		code := run([]string{}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (nothing arrived; the run must refuse)", code)
+		}
+		if !strings.Contains(errOut.String(), "piped stdin") {
+			t.Fatalf("refusal does not name the empty pipe: %q", errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
+
+	t.Run("an explicit -u beats the pipe", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, classicAddr+"\n")
+		output := filepath.Join(t.TempDir(), "explicit.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-u", hybridAddr, "-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1 (the piped spec must not compose beside -u)", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != hybridAddr {
+			t.Fatalf("input = %v, want %q (-u is the explicit source)", input, hybridAddr)
+		}
+	})
+
+	t.Run("a non-pipe stdin never reads implicitly", func(t *testing.T) {
+		setStdinPipe(t, false)
+		setStdin(t, hybridAddr+"\n")
+		var out, errOut bytes.Buffer
+		code := run([]string{}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (a terminal/char-device stdin is never an implicit source)", code)
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
+
+	t.Run("an adapter file is a source; the pipe stays unread", func(t *testing.T) {
+		setStdinPipe(t, true)
+		setStdin(t, hybridAddr+"\n")
+		output := filepath.Join(t.TempDir(), "adapter.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-from-httpx", writeSpecFile(t, "hx.txt", "https://"+classicAddr+"\n"),
+			"-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1 (the adapter is the source; the pipe must not join)", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != classicAddr {
+			t.Fatalf("input = %v, want %q (the adapter dialed, not the piped stdin)", input, classicAddr)
+		}
+	})
+}
+
+// --- PQ-41 scheme:// on the spec path (issue #117, watched RED) -------------
+
+// TestSchemeSpecs: -u/-l/-- lines accept scheme://host[:port] — the
+// USAGE -u row's promise implemented on the spec path with the same
+// internal/target strip the adapters apply (PQ-41; issue #117). A URL
+// path suffix stays refused with the adapter named; CIDR specs keep
+// their exactly-as-shaped grammar semantics (the composition refuses the
+// class untouched); the record's input is the stripped host[:port] spec
+// the same way an adapter line composes.
+func TestSchemeSpecs(t *testing.T) {
+	hybridAddr := startHybridFixture(t)
+	classicAddr := startClassicFixture(t)
+
+	t.Run("-u accepts scheme://host:port", func(t *testing.T) {
+		output := filepath.Join(t.TempDir(), "scheme.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-u", "https://" + hybridAddr, "-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted (results belong to -o): %q", out.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != hybridAddr {
+			t.Fatalf("input = %v, want %q (the stripped spec composes, adapter-style)", input, hybridAddr)
+		}
+	})
+
+	t.Run("piped scheme lines scan through the stdin marker", func(t *testing.T) {
+		setStdin(t, "https://"+classicAddr+"\n")
+		output := filepath.Join(t.TempDir(), "scheme-marker.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-o", output, "-jsonl", "-quic-off", "--"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != classicAddr {
+			t.Fatalf("input = %v, want %q", input, classicAddr)
+		}
+	})
+
+	t.Run("-l lines accept the scheme", func(t *testing.T) {
+		output := filepath.Join(t.TempDir(), "scheme-list.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-l", writeSpecFile(t, "schemes.txt", "https://"+classicAddr+"\n"),
+			"-jsonl", "-o", output, "-quic-off"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
+		}
+		recs := readJSONLRecords(t, output)
+		if len(recs) != 1 {
+			t.Fatalf("records = %d, want 1", len(recs))
+		}
+		if input := recs[0]["target"].(map[string]any)["input"]; input != classicAddr {
+			t.Fatalf("input = %v, want %q", input, classicAddr)
+		}
+	})
+
+	t.Run("a URL path suffix on -u stays refused, the adapter named", func(t *testing.T) {
+		var out, errOut bytes.Buffer
+		code := run([]string{"-u", "https://" + hybridAddr + "/api"}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (a URL path is not spec-path grammar)", code)
+		}
+		if !strings.Contains(errOut.String(), "-from-httpx") {
+			t.Fatalf("refusal does not name the adapter: %q", errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
+
+	t.Run("a piped URL path refuses naming the adapter", func(t *testing.T) {
+		setStdin(t, "https://"+classicAddr+"/api\n")
+		output := filepath.Join(t.TempDir(), "scheme-path.jsonl")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-o", output, "-quic-off", "--"}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (a URL path is not spec-path grammar)", code)
+		}
+		if !strings.Contains(errOut.String(), "-from-httpx") {
+			t.Fatalf("refusal does not name the adapter: %q", errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
+
+	t.Run("CIDR specs are untouched by the scheme strip", func(t *testing.T) {
+		setStdin(t, "192.0.2.0/24\n")
+		var out, errOut bytes.Buffer
+		code := run([]string{"-o", filepath.Join(t.TempDir(), "cidr.jsonl"), "-quic-off", "--"}, &out, &errOut)
+		if code != 64 {
+			t.Fatalf("exit = %d, want 64 (the CIDR class refuses until expansion ships)", code)
+		}
+		if !bytes.Contains(errOut.Bytes(), []byte("cidr expansion lands with PQ-16")) {
+			t.Fatalf("stderr missing the cidr deferral message: %q", errOut.String())
+		}
+		if out.Len() != 0 {
+			t.Fatalf("stdout polluted on the refusal path: %q", out.String())
+		}
+	})
 }

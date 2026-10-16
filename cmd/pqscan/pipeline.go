@@ -141,6 +141,22 @@ type Options struct {
 // stable for every existing test.
 var stdin io.Reader = os.Stdin
 
+// stdinIsPipe reports whether the run's stdin is a piped stream — the
+// implicit-input detector for PQ-41 (issue #117): the PD-chain convention
+// reads target specs from a pipe when NO other target source composes.
+// Character devices (the interactive terminal, /dev/null) never trigger
+// the implicit read, so an automation context holding a never-terminating
+// pipe is the documented contract case, not an accident. Package var:
+// run(args, stdout, stderr) keeps its test signature; tests pin the class
+// via setStdinPipe.
+var stdinIsPipe = func() bool {
+	si, err := os.Stdin.Stat()
+	if err != nil {
+		return false // unclassifiable stdin: the explicit forms still compose
+	}
+	return si.Mode()&os.ModeNamedPipe != 0 // pipes only: terminals and /dev/null are character devices
+}
+
 // Engine is the multi-target run pipeline: it scans the composed
 // grammar.Targets under the PQ-23 control surfaces — the shared AIMD window
 // capping the launches in flight, the launch pace when -rate set it, and the
@@ -626,8 +642,13 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // consumes the terminator and it never lands in fs.Args() (surfaced by the
 // composition RED row — 2 of 3 records came out before the marker was
 // honoured). It reaches the spec loop as the stdin-class spec grammar.Parse
-// yields for "--"; -l -- composes the same way (the marker value is not
-// treated as a file name). stdin expands exactly once.
+// yields for "--"; -l -- and -l - compose the same way (neither marker
+// value is treated as a file name; PQ-41). stdin expands exactly once.
+//
+// The spec path (PQ-41) strips the accepted scheme://host[:port]
+// decoration through target.StripScheme — the same internal/target rule
+// the adapter dialects apply — before grammar.Parse; a URL path suffix
+// on a spec line refuses with the adapter named (-from-httpx).
 //
 // Refusals (exit 64, usage class): a source that fails to read, a spec the
 // grammar rejects (the adapter dialects annotate the failing line's
@@ -637,13 +658,18 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // directly). No partial list ever scans.
 func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
 	var specs []string
-	if listFile == "--" {
-		listFile = "" // the marker composes via the spec loop below
-	}
+	implicitStdin := false // the piped stdin composed as the only source (PQ-41)
 	if uSpec != "" {
 		specs = append(specs, uSpec)
 	}
-	if listFile != "" {
+	if listFile == "--" || listFile == "-" {
+		// Both spellings compose stdin through the spec loop below: the
+		// bare marker and, PQ-41 (issue #117), "-l -" — the explicit
+		// stdin-file alias (nmap -iL - / nuclei -l -), never a file
+		// name. stdin still expands exactly once: the admit layer holds
+		// the stdin class, so a companion raw -- marker adds nothing.
+		specs = append(specs, "--")
+	} else if listFile != "" {
 		lines, err := readSpecFile(listFile)
 		if err != nil {
 			diag.Emit(diag.Error, diag.DomTarget, "compose", "", "-l read failed", err, map[string]string{"file": listFile})
@@ -699,6 +725,19 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 		adapterBatches = append(adapterBatches, ts)
 	}
 
+	// The implicit piped stdin (PQ-41; issue #117): with a pipe on stdin
+	// and NO target source at all (-u/-l/--/adapters all absent), the
+	// pipe IS the target source — httpx/naabu lines flowing into the
+	// run, the PD chain's natural handoff shape. A character-device
+	// stdin (the interactive terminal, /dev/null) never triggers it.
+	// An EMPTY pipe still refuses exit 64 below with its own honest
+	// line — nothing arrived, nothing scanned — and a piped-open
+	// never-terminating stdin blocks by contract (USAGE.md).
+	if len(specs) == 0 && httpxFile == "" && naabuFile == "" && stdinIsPipe() {
+		specs = append(specs, "--")
+		implicitStdin = true
+	}
+
 	targets := make([]grammar.Target, 0, len(specs))
 	seen := make(map[string]bool, len(specs))
 	stdinDrained := false
@@ -734,6 +773,17 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 
 	parseSpecs = func(batch []string) error {
 		for _, spec := range batch {
+			// The spec path strips the accepted scheme:// decoration
+			// (PQ-41): the same internal/target rule the adapter
+			// dialects apply, so -u/-l/-- lines accept
+			// scheme://host[:port] with ONE decoration rule for every
+			// input source. A URL path suffix refuses here naming the
+			// adapter; an honestly-unparseable shape reaches the
+			// grammar's own refusal unchanged.
+			spec, err := target.StripScheme(spec)
+			if err != nil {
+				return err
+			}
 			parsed, err := grammar.Parse(spec)
 			if err != nil {
 				return err
@@ -763,6 +813,11 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 				return nil, 64
 			}
 		}
+	}
+	if len(targets) == 0 && implicitStdin {
+		diag.Emit(diag.Warn, diag.DomTarget, "compose", "", "piped stdin held no target specs; run refuses", nil, nil)
+		fmt.Fprintln(stderr, "pqscan: piped stdin held no target specs (nothing to scan; one target spec per line — -h shows the input forms)")
+		return nil, 64
 	}
 	return targets, 0
 }

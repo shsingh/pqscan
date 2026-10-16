@@ -55,8 +55,8 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		ShowVersion: fs.Bool("version", false, "print pqscan version and exit"),
 		Debug:       fs.Bool("debug", false, "full diagnostics: human stream on stderr + machine report"),
 		DebugOut:    fs.String("debug-out", "", "write the machine-parsable diagnostics report (schema 1) to this JSON file"),
-		Target:      fs.String("u", "", "single target: host, host:port, or ip:port (composes with -l and --)"),
-		ListFile:    fs.String("l", "", "read newline-separated target specs from this file (composes with -u and --; deduped by host:port)"),
+		Target:      fs.String("u", "", "single target: hostname, host:port, ip, ip:port, or scheme://host[:port] (composes with -l and --)"),
+		ListFile:    fs.String("l", "", "read newline-separated target specs from this file ('-' = stdin, the stdin-file alias; composes with -u and --; deduped by host:port)"),
 		// PD-dialect input adapters (PQ-35/issue #80): the files' lines are
 		// httpx/naabu output; internal/target strips the dialect decoration
 		// and feeds the same grammar, so ONE composition — one dedupe —

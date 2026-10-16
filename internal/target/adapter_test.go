@@ -270,3 +270,75 @@ func TestFromLines(t *testing.T) {
 		runAdapterCases(t, FromLines, []adapterCase{tc})
 	}
 }
+
+// --- PQ-41 scheme:// on the spec path (issue #117, watched RED) -------------
+
+// TestStripScheme pins the spec-path decoration strip (PQ-41; issue
+// #117): -u/-l/-- lines accept scheme://host[:port] — the same strip the
+// adapter dialects apply (internal/target owns the one decoration rule),
+// so the USAGE -u row's scheme://host[:port] promise is the engine's
+// behavior, not just its documentation. A URL path suffix stays refused
+// on the spec path with the adapter named: path decoration is
+// -from-httpx's business (the adapter strips scheme AND path; the spec
+// path keeps host[:port]). A line without a scheme prefix — bare hosts,
+// host:port, CIDRs, the "--" marker — passes through untouched, so the
+// grammar's own semantics (including the CIDR class and the
+// honestly-unparseable refusals) stay exactly as shipped.
+func TestStripScheme(t *testing.T) {
+	rows := []struct {
+		name    string
+		in      string
+		want    string
+		wantErr string
+	}{
+		{name: "bare host passes through", in: "example.com", want: "example.com"},
+		{name: "host:port passes through", in: "example.com:8443", want: "example.com:8443"},
+		{name: "a CIDR passes through (the grammar owns the /)", in: "192.0.2.0/24", want: "192.0.2.0/24"},
+		{name: "the stdin marker passes through", in: "--", want: "--"},
+		{name: "an empty-scheme prefix passes through (the grammar's refusal owns it)", in: "://example.com", want: "://example.com"},
+		{name: "https scheme strips", in: "https://example.com", want: "example.com"},
+		{name: "scheme + port strips", in: "http://example.com:9443", want: "example.com:9443"},
+		{name: "bracketed IPv6 with port strips", in: "https://[2001:db8::1]:8443", want: "[2001:db8::1]:8443"},
+		{name: "the strip is case-blind on the separator", in: "HTTPS://Example.com", want: "Example.com"},
+		{
+			name:    "a URL path suffix refuses naming the adapter",
+			in:      "https://example.com/api",
+			wantErr: "-from-httpx",
+		},
+		{
+			name:    "a path with a query refuses too",
+			in:      "http://example.com:9443/a/b?c=d",
+			wantErr: "-from-httpx",
+		},
+		{
+			name:    "a bracketed IPv6 path suffix refuses",
+			in:      "https://[2001:db8::1]:8443/path",
+			wantErr: "-from-httpx",
+		},
+		{
+			name:    "a scheme with no authority refuses",
+			in:      "https://",
+			wantErr: "nothing after the scheme prefix",
+		},
+	}
+	for _, row := range rows {
+		t.Run(row.name, func(t *testing.T) {
+			got, err := StripScheme(row.in)
+			if row.wantErr != "" {
+				if err == nil {
+					t.Fatalf("error %q: got none (spec %q)", row.wantErr, got)
+				}
+				if !strings.Contains(err.Error(), row.wantErr) {
+					t.Fatalf("error %q: missing %q", err, row.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != row.want {
+				t.Fatalf("spec = %q, want %q", got, row.want)
+			}
+		})
+	}
+}

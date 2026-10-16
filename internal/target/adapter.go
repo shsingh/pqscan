@@ -220,3 +220,36 @@ func stripDialectDecor(line string) string {
 	}
 	return line
 }
+
+// StripScheme strips the accepted scheme:// prefix from one spec-path
+// target line (-u/-l/-- composition; PQ-41, issue #117): "everything
+// through ://" leaves — the SAME decoration rule the adapter dialects
+// apply to their lines (the adapter then also handles any URL path; see
+// stripDialectDecor) — so one internal/target rule serves every input
+// source and the USAGE -u row's scheme://host[:port] promise is the
+// engine's behavior. What remains is a host[:port] spec for
+// grammar.Parse; bracketed IPv6 keeps working because the brackets close
+// before any path separator.
+//
+// A URL path suffix stays REFUSED on the spec path, naming the adapter:
+// path decoration is the -from-httpx adapter's business (pqscan
+// -from-httpx FILE strips scheme AND path). A line without a scheme
+// prefix — bare hosts, host:port, CIDRs, the "--" marker — passes
+// through untouched (the grammar owns the "/" through the CIDR class),
+// and an empty-scheme prefix ("://host") passes through too: an empty
+// scheme is not a scheme, and the grammar's own refusal keeps owning the
+// honestly-unparseable shapes.
+func StripScheme(line string) (string, error) {
+	i := strings.Index(line, "://")
+	if i <= 0 {
+		return line, nil
+	}
+	rest := line[i+3:]
+	if j := strings.Index(rest, "/"); j >= 0 {
+		return "", fmt.Errorf("URL path %q in target spec %q: a URL path is the -from-httpx adapter's decoration (-from-httpx FILE strips scheme and path; the spec path keeps host[:port])", rest[j:], line)
+	}
+	if rest == "" {
+		return "", fmt.Errorf("target spec %q: nothing after the scheme prefix (want scheme://host[:port])", line)
+	}
+	return rest, nil
+}
