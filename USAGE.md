@@ -39,6 +39,16 @@ DESCRIPTION
     observation, never swallowed as an error.
 
     OPTIONS
+    DOUBLE-DASH EQUIVALENCE: every implemented flag parses under both
+    dash spellings — a row below written "-mode" spells the same as
+    "--mode" (one and two dashes read alike, never a different
+    surface), and the letter flags behave identically ("--u" parses
+    like "-u", likewise "--l" and "--o"). This preamble is the
+    equivalence's one home: it covers every row this block's engine
+    implements today (planned rows name flags no build yet registers;
+    they parse no dash form until they land), and both shell
+    completions offer both spellings for every implemented flag.
+
     GENERAL
     -version          Print the build's version stamp and exit (the
                       release stamp; source builds print the default).
