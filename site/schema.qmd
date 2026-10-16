@@ -50,8 +50,7 @@ target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,qu
 |---|---|
 | 0 | scan completed (per-target errors are records, not failures) |
 | 1 | runtime error (engine/system) |
-| 2 | flag-parse error |
-| 64 | EX_USAGE: no targets to scan |
+| 64 | EX_USAGE: a command-line mistake refused before any scan (flag-parse errors, no targets, unknown -mode/-deep/-sni, a bogus -shard spec, -resume without -o, -explain under a machine output format) |
 | 130 | interrupted (drains before exit; WAL retained) |
 
 Consumption recipes (jq views, the estate calendar, the adapters) live on
