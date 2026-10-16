@@ -54,15 +54,35 @@ DESCRIPTION
 
     TARGETING
     -u target            Single target: hostname, host:port, ip, ip:port,
-                         or scheme://host[:port].
+                         or scheme://host[:port] (the scheme strips:
+                         here and on -l/--/piped spec lines; a URL path
+                         suffix is the -from-httpx adapter's decoration
+                         and the spec path refuses it, naming the
+                         adapter).
     -l file              Targets from file: newline-separated specs,
                          blank lines skipped (composes with -u; deduped
-                         by host:port in order).
-    --                   Read target specs from stdin (bare marker after
-                         the options; composes with -u and -l; deduped
-                         by host:port). CIDR specs refuse with the
-                         PQ-16 deferral notice (exit 64) until
-                         per-address expansion ships.
+                         by host:port in order). The value "-" reads
+                         stdin, the explicit stdin-file alias (the
+                         nmap -iL - and nuclei -l - convention); stdin
+                         expands exactly once even when -- composes
+                         beside it.
+    --                   Read target specs from stdin: the bare marker
+                         after the options, AND the implicit default
+                         input when a pipe feeds a run with no other
+                         target source given (the PD-chain convention,
+                         e.g. subfinder -silent | pqscan -jsonl). A
+                         character device (an interactive terminal,
+                         /dev/null) never triggers the implicit read;
+                         an empty pipe still refuses exit 64 (nothing
+                         to scan); a piped-open never-terminating
+                         stdin blocks until the pipe closes: the
+                         documented automation hazard; a redirected
+                         regular FILE does not trigger the implicit
+                         read (that is what -l - and -- are for).
+                         Piped spec lines accept scheme://host[:port].
+                         CIDR specs refuse with the PQ-16 deferral
+                         notice (exit 64) until per-address expansion
+                         ships. Deduped by host:port with -u and -l.
     -cidr range          CIDR expansion (e.g. 192.0.2.0/24).
     -p port[,port...]    Ports; default 443. Ranges allowed (8000-8100).
     -from-httpx file     httpx text lines: each line is
@@ -205,9 +225,13 @@ DESCRIPTION
     -urls                The endpoint list: https://host:port, one line
                          per target (chainable into nuclei/httpx).
     -text                One human line per target (the default format:
-                         group= class= suite= version= alpn= ...;
-                         verdict-carrying records end with the readiness
-                         verdict as pq=<label>(<score>)).
+                        group= class= suite= version= alpn= ...;
+                        the format-parity tails ride when present:
+                        deep=<plan>:<N>p/<N>ok/<N>rej (the executed
+                        plan's counts), cert=<sigAlg>/<keyAlg> with
+                        +pq-sig/+pq-key/+dual markers when true,
+                        ptr=/sni= enrichment, and the readiness
+                        verdict as pq=<label>(<score>)).
     -explain             Under each -text line, a plain-language reading
                          of the record (PQ-39): the verdict in words,
                          what the negotiated group/class means, the
@@ -262,9 +286,11 @@ EXAMPLES
 
     Input composition: a target, a file, and the bare -- stdin marker;
     duplicates dedupe by host:port, first occurrence wins. The bare --
-    token must follow the options:
+    token must follow the options; piped spec lines accept
+    scheme://host[:port], and the pipe is the implicit input when no
+    other target source is given:
 
-        $ echo http://example.org:8443 | pqscan -u google.com -l known.txt -- -jsonl
+        $ echo https://example.org:8443 | pqscan -u google.com -l known.txt -jsonl --
 
     Interruption is a resume point, not a loss. The WAL journal sits
     beside -o; a resume replays completed targets into the output and

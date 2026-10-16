@@ -97,10 +97,16 @@ upgrading so the completion matches the binary.
 
 ## Chain it with the PD tools
 
+The PD chain reads targets off the pipe (the implicit piped stdin — no
+`--` marker needed) and the httpx `scheme://` lines strip to the host on
+the way in. Verified live, end to end:
+
 ```bash
-subfinder -d example.com -silent | httpx -silent | pqscan -mode fast -jsonl | nuclei -jsonl -
+subfinder -d shain.io -silent | httpx -silent -p 443 | pqscan -jsonl
 ```
 
 The record shape is specified in
 [`docs/spec.md#7-data-contract-record-and-pipelines`](docs/spec.md#7-data-contract-record-and-pipelines);
-each line is schema-1 JSON.
+each line is schema-1 JSON. For lists held in files, the adapters
+`-from-httpx` / `-from-naabu` parse the same dialects (scheme and path
+stripping built in); `-l -` reads the pipe explicitly.

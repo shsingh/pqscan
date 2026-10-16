@@ -251,6 +251,50 @@ func TestTextLineShape(t *testing.T) {
 				Error:     "connect: no route to host"},
 			"example.com:443 group=x25519 class=classic suite=TLS_AES_256_GCM_SHA384 version=tls-1.3 udp_blocked=true pq=scan-error(0) error=connect: no route to host",
 		},
+		{
+			// PQ-46: the executed plan rides the line as a counts summary
+			// (deep=<plan>:<N>p/<N>ok/<N>rej); the findings vector stays
+			// jsonl-only.
+			Record{Target: TargetRecord{Host: "example.com", Port: 443},
+				Handshake: HandshakeRecord{Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3"},
+				Pq:        &PqRecord{Score: 40, Label: "pq-partial"},
+				Deep:      &DeepRecord{Mode: "standard", Attempted: 22, OK: 2, Rejected: 8}},
+			"example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 deep=standard:22p/2ok/8rej pq=pq-partial(40)",
+		},
+		{
+			// the certificate layer is on the line in every mode; the PQ
+			// and dual facts speak only when true.
+			Record{Target: TargetRecord{Host: "example.com", Port: 443},
+				Handshake: HandshakeRecord{Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3"},
+				Cert:      &CertRecord{SigAlg: "sha256WithRSAEncryption", KeyAlg: "ECDSA"},
+				Pq:        &PqRecord{Score: 40, Label: "pq-partial"}},
+			"example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 cert=sha256WithRSAEncryption/ECDSA pq=pq-partial(40)",
+		},
+		{
+			Record{Target: TargetRecord{Host: "example.com", Port: 443},
+				Handshake: HandshakeRecord{Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3"},
+				Cert:      &CertRecord{SigAlg: "MLDSA65", SigPQ: true, KeyAlg: "MLDSA65", KeyPQ: true},
+				Pq:        &PqRecord{Score: 85, Label: "pq-ready"}},
+			"example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 cert=MLDSA65/MLDSA65 +pq-sig +pq-key pq=pq-ready(85)",
+		},
+		{
+			Record{Target: TargetRecord{Host: "example.com", Port: 443},
+				Handshake: HandshakeRecord{Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3"},
+				Cert:      &CertRecord{SigAlg: "sha256WithRSAEncryption", KeyAlg: "ECDSA", Dual: true},
+				Pq:        &PqRecord{Score: 60, Label: "pq-ready-hybrid"}},
+			"example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 cert=sha256WithRSAEncryption/ECDSA +dual pq=pq-ready-hybrid(60)",
+		},
+		{
+			// the enrichment facts ride too (ptr/sni; -ptr runs), and the
+			// full field order: quic → deep → cert → ptr → sni → pq → error.
+			Record{Target: TargetRecord{Host: "example.com", Port: 443, Ptr: "example.com.", SNIUsed: "ptr-then-ip"},
+				Handshake: HandshakeRecord{Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3"},
+				Quic:      &QuicRecord{Attempted: true, UDPBlocked: true},
+				Deep:      &DeepRecord{Mode: "standard", Attempted: 24, OK: 3, Rejected: 21},
+				Cert:      &CertRecord{SigAlg: "sha256WithRSAEncryption", KeyAlg: "ECDSA"},
+				Pq:        &PqRecord{Score: 40, Label: "pq-partial"}},
+			"example.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 udp_blocked=true deep=standard:24p/3ok/21rej cert=sha256WithRSAEncryption/ECDSA ptr=example.com. sni=ptr-then-ip pq=pq-partial(40)",
+		},
 	}
 	for _, row := range rows {
 		var buf bytes.Buffer
