@@ -626,8 +626,8 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // consumes the terminator and it never lands in fs.Args() (surfaced by the
 // composition RED row — 2 of 3 records came out before the marker was
 // honoured). It reaches the spec loop as the stdin-class spec grammar.Parse
-// yields for "--"; -l -- composes the same way (the marker value is not
-// treated as a file name). stdin expands exactly once.
+// yields for "--"; -l -- and -l - compose the same way (neither marker
+// value is treated as a file name; PQ-41). stdin expands exactly once.
 //
 // Refusals (exit 64, usage class): a source that fails to read, a spec the
 // grammar rejects (the adapter dialects annotate the failing line's
@@ -637,13 +637,17 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // directly). No partial list ever scans.
 func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
 	var specs []string
-	if listFile == "--" {
-		listFile = "" // the marker composes via the spec loop below
-	}
 	if uSpec != "" {
 		specs = append(specs, uSpec)
 	}
-	if listFile != "" {
+	if listFile == "--" || listFile == "-" {
+		// Both spellings compose stdin through the spec loop below: the
+		// bare marker and, PQ-41 (issue #117), "-l -" — the explicit
+		// stdin-file alias (nmap -iL - / nuclei -l -), never a file
+		// name. stdin still expands exactly once: the admit layer holds
+		// the stdin class, so a companion raw -- marker adds nothing.
+		specs = append(specs, "--")
+	} else if listFile != "" {
 		lines, err := readSpecFile(listFile)
 		if err != nil {
 			diag.Emit(diag.Error, diag.DomTarget, "compose", "", "-l read failed", err, map[string]string{"file": listFile})
