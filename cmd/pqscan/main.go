@@ -106,7 +106,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	format := chooseFormat(args)
 
-	// -explain is a text-presentation surface (PQ-38): under a machine
+	// -explain is a text-presentation surface (PQ-39): under a machine
 	// format it pollutes a schema-1/CSV/URL stream, so it is a
 	// command-line mistake, refused before anything composes or scans.
 	if *explain && format != out.FormatText {
@@ -494,7 +494,7 @@ func walPathFor(outFile string) string {
 }
 
 // explainOptions renders the -explain flag into the encoder's option
-// list (PQ-38). The option is honored when the explain renderer lands;
+// list (PQ-39). The option is honored when the explain renderer lands;
 // until then the machine and text streams are identical either way.
 func explainOptions(on bool) []out.EncoderOption {
 	if on {

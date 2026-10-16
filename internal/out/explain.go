@@ -6,7 +6,7 @@ import (
 )
 
 // Explain turns a record's fields into the plain-language reading a
-// netsec/netops operator needs at the terminal (PQ-38): the verdict in
+// netsec/netops operator needs at the terminal (PQ-39): the verdict in
 // words, what the negotiated group/class means, the certificate and
 // the QUIC planes, and an error-class hint when nothing negotiated.
 // The renderer is pure (explainBlock) so the prose is testable against
