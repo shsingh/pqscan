@@ -144,7 +144,9 @@ func observedFromProfile(rec *scanRecord, res *tlsx.ProbeResult) *deepplan.Obser
 // A failed profile handshake does NOT skip the ladder: the ladder's raw
 // probes work where a modern share-match cannot (a draft-preference-only
 // endpoint never completes a modern negotiation — the HNDL fact is the
-// ladder's whole point; spec §5.6 hndl_risk).
+// ladder's whole point; spec §5.6 hndl_risk). The ladder's per-probe
+// observations land in the record's deep block (PQ-47) regardless —
+// that block records the lane's own work beside the error path.
 func scanTargetPQ(t grammar.Target, opts Options) (*scanRecord, bool, bool) {
 	rec, res, failing, timedOut := scanTargetFast(t, opts)
 	rec.Mode = modePQ
@@ -189,6 +191,18 @@ func scanTargetPQ(t grammar.Target, opts Options) (*scanRecord, bool, bool) {
 			map[string]string{"negotiated": u32str(rec.Handshake.Negotiated), "suite": accepted.Suite})
 	}
 
+	// PQ-47 (issue #129): the ladder's per-probe observations RECORD in
+	// the record's deep block — the block mirrors the deep executor's
+	// shape with the lane's mode token, one finding per forced offer in
+	// offer order (the refused/accepted lattice), and the -text counts
+	// tail then rides it. The verdict below keeps reading the ladder's
+	// facts unchanged: the block only documents what the rubric already
+	// consumed.
+	rec.Deep = pqLadderRecord(ladder)
+	diag.Emit(diag.Info, diag.DomEngine, "pq", t.Host, "pq ladder recorded", nil,
+		map[string]string{"attempted": strconv.Itoa(rec.Deep.Attempted),
+			"ok": strconv.Itoa(rec.Deep.OK), "rejected": strconv.Itoa(rec.Deep.Rejected)})
+
 	// The ladder-observation verdict (spec §5.6/PQ-19b): the negotiated
 	// class is the handshake block's (the ladder-accepted hybrid, else
 	// the profile posture); PQ was offered either way (the ladder); the
@@ -219,6 +233,31 @@ func scanTargetPQ(t grammar.Target, opts Options) (*scanRecord, bool, bool) {
 		diag.Emit(diag.Info, diag.DomEngine, "pq", t.Host, "readiness verdict", nil, fields)
 	}
 	return rec, failing, timedOut
+}
+
+// pqLadderRecord lands the forced PQ ladder's observations in the
+// record's deep block (PQ-47, issue #129): the block mirrors the deep
+// executor's shape (mode "pq", attempted = the forced-offer count, ok/
+// rejected the server's accepted/rejected counters) and one finding per
+// ladder step in offer order, mapped by the SAME row vocabulary the
+// deep plan's group dispatch speaks. Refusals and errors ride the
+// findings only (the deep counts contract). The verdict/rubric reading
+// of the ladder is untouched — the block records what the rubric
+// already consumed (OfferedPQ/AcceptsDraft/ClassicalPreferred).
+func pqLadderRecord(ladder []tlsx.ProbeResult) *out.DeepRecord {
+	dr := &out.DeepRecord{Mode: modePQ, Findings: make([]out.DeepFinding, 0, len(ladder))}
+	for i := range ladder {
+		f := groupLadderFinding("group/"+strconv.FormatUint(uint64(ladder[i].Offered), 10), ladder[i])
+		dr.Findings = append(dr.Findings, f)
+		dr.Attempted++
+		switch f.Result {
+		case tlsx.SuiteAccepted:
+			dr.OK++
+		case tlsx.SuiteRejected:
+			dr.Rejected++
+		}
+	}
+	return dr
 }
 
 // planModeFor normalizes the -deep selector for zero-value Options
@@ -351,12 +390,24 @@ func deepGroupFinding(name, addr, host string, group uint32, timeout time.Durati
 	if len(rows) == 0 {
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: "the ladder returned no observation"}
 	}
-	r := rows[0]
+	return groupLadderFinding(name, rows[0])
+}
+
+// groupLadderFinding maps one ladder row onto its finding — the shared
+// vocabulary of the deep plan's group dispatch and the pq lane's
+// recorded ladder block (PQ-47): a real-share negotiation names the
+// negotiated group and suite, a server refusal carries its verbatim
+// alert, the stack's construction refusals are the honest
+// not-offerable rows, and the share-less raw answers map hrr/alert/sh.
+// Anything the probe path itself failed on keeps the transport text
+// verbatim: a dial refusal is never a server verdict and never a
+// read-error.
+func groupLadderFinding(name string, r tlsx.ProbeResult) out.DeepFinding {
 	switch {
 	case r.Path == "stdlib" && r.State == "negotiated":
-		gname := groupName(group)
+		gname := groupName(r.Offered)
 		if gname == "" {
-			gname = strconv.FormatUint(uint64(group), 10)
+			gname = strconv.FormatUint(uint64(r.Offered), 10)
 		}
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteAccepted,
 			Detail: "negotiated " + gname + ", suite " + r.Suite + ", " + deepVersionToken(r.Version)}
@@ -384,9 +435,12 @@ func deepGroupFinding(name, addr, host string, group uint32, timeout time.Durati
 		case tlsx.StateSH:
 			return out.DeepFinding{Probe: name, Result: tlsx.SuiteAccepted,
 				Detail: "sh: the share-less offer was answered without hrr"}
-		default: // read-error: the server closed without a TLS answer
+		case tlsx.StateRead:
 			return out.DeepFinding{Probe: name, Result: tlsx.SuiteError,
 				Detail: "read-error: the server closed without a TLS answer"}
+		default: // the probe path failed before any TLS answer — the
+			// transport text verbatim
+			return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: r.Error}
 		}
 	default:
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: r.Error}
