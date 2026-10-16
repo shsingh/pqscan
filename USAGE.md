@@ -38,10 +38,19 @@ DESCRIPTION
     Rejections are results: an offer the server refuses is recorded as an
     observation, never swallowed as an error.
 
-OPTIONS
+    OPTIONS
     GENERAL
     -version          Print the build's version stamp and exit (the
                       release stamp; source builds print the default).
+    -completion shell Emit the shell completion script to stdout
+                      (bash | zsh), generated from the same surface the
+                      help renders. Install, zsh:
+                      pqscan -completion zsh >
+                      /usr/local/share/zsh/site-functions/_pqscan
+                      (compinit picks it up) — or for the session:
+                      eval "$(pqscan -completion zsh)". Install, bash:
+                      source <(pqscan -completion bash), or persist it
+                      in a bash-completion.d drop.
 
     TARGETING
     -u target            Single target: hostname, host:port, ip, ip:port,

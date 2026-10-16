@@ -42,6 +42,7 @@ type flagVals struct {
 	Ptr         *bool
 	SNI         *string
 	CertsDir    *string
+	Completion  *string
 }
 
 // newFlagSet registers the whole implemented CLI surface in one place.
@@ -102,6 +103,10 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		Ptr:      fs.Bool("ptr", false, "PTR enrichment for IP targets: resolve reverse DNS pre-probe, SNI per -sni; the record carries ptr/sni_used"),
 		SNI:      fs.String("sni", "auto", "SNI strategy for IP targets: auto (default) | ptr-then-ip | ip-only"),
 		CertsDir: fs.String("certs-dir", "", "write each scanned host's end-entity certificate as PEM to <dir>/<host>.pem"),
+		// PQ-40: the shell-completion emission (bash|zsh); the script
+		// prints to stdout, the same surface table the help renders
+		// generates it.
+		Completion: fs.String("completion", "", "emit the shell completion script to stdout (bash | zsh); install one-liners ride the help and INSTALL.md"),
 	}
 	return fs, v
 }
