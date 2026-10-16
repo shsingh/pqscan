@@ -341,6 +341,10 @@ func TestPipelineVerdictWireIn(t *testing.T) {
 // and never a flag-parsing artifact (issue #38 / PQ-15, watched RED: the
 // -l rows fail while the flag is undefined).
 func TestNoTargets(t *testing.T) {
+	// The no-input-source refusal is asserted, not the ambient stdin
+	// state: pin the class non-piped so the rows never consult whatever
+	// stream the test process inherits (PQ-41's implicit-pipe seam).
+	setStdinPipe(t, false)
 	rows := []struct {
 		name string
 		args []string

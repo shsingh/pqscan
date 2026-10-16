@@ -149,7 +149,13 @@ var stdin io.Reader = os.Stdin
 // pipe is the documented contract case, not an accident. Package var:
 // run(args, stdout, stderr) keeps its test signature; tests pin the class
 // via setStdinPipe.
-var stdinIsPipe = func() bool { return false } // PQ-41 RED stub; the real detector lands in the GREEN commit
+var stdinIsPipe = func() bool {
+	si, err := os.Stdin.Stat()
+	if err != nil {
+		return false // unclassifiable stdin: the explicit forms still compose
+	}
+	return si.Mode()&os.ModeNamedPipe != 0 // pipes only: terminals and /dev/null are character devices
+}
 
 // Engine is the multi-target run pipeline: it scans the composed
 // grammar.Targets under the PQ-23 control surfaces — the shared AIMD window
@@ -647,6 +653,7 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // directly). No partial list ever scans.
 func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
 	var specs []string
+	implicitStdin := false // the piped stdin composed as the only source (PQ-41)
 	if uSpec != "" {
 		specs = append(specs, uSpec)
 	}
@@ -713,6 +720,19 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 		adapterBatches = append(adapterBatches, ts)
 	}
 
+	// The implicit piped stdin (PQ-41; issue #117): with a pipe on stdin
+	// and NO target source at all (-u/-l/--/adapters all absent), the
+	// pipe IS the target source — httpx/naabu lines flowing into the
+	// run, the PD chain's natural handoff shape. A character-device
+	// stdin (the interactive terminal, /dev/null) never triggers it.
+	// An EMPTY pipe still refuses exit 64 below with its own honest
+	// line — nothing arrived, nothing scanned — and a piped-open
+	// never-terminating stdin blocks by contract (USAGE.md).
+	if len(specs) == 0 && httpxFile == "" && naabuFile == "" && stdinIsPipe() {
+		specs = append(specs, "--")
+		implicitStdin = true
+	}
+
 	targets := make([]grammar.Target, 0, len(specs))
 	seen := make(map[string]bool, len(specs))
 	stdinDrained := false
@@ -777,6 +797,11 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 				return nil, 64
 			}
 		}
+	}
+	if len(targets) == 0 && implicitStdin {
+		diag.Emit(diag.Warn, diag.DomTarget, "compose", "", "piped stdin held no target specs; run refuses", nil, nil)
+		fmt.Fprintln(stderr, "pqscan: piped stdin held no target specs (nothing to scan; one target spec per line — -h shows the input forms)")
+		return nil, 64
 	}
 	return targets, 0
 }
