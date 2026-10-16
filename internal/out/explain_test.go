@@ -80,6 +80,116 @@ func TestExplainBlockGolden(t *testing.T) {
 	})
 }
 
+// --- PQ-50 deep reading (issue #134, watched RED) ---------------------------
+
+// TestExplainDeepReading pins the deep reading line (PQ-50, issue #134):
+// when the record executes a deep plan (Deep != nil) the block adds ONE
+// line in operator words after the verdict lines — the executed plan's
+// counts, the offer-one matrix's yield rolled up by probe-id family, and
+// the accepted rows NAMED (the actionable part: a PQ group accepted where
+// the profile handshake negotiated classical; a draft-group acceptance IS
+// the HNDL exposure spelled out). Refusals are the expected default of a
+// forced-offer matrix; the per-probe detail points at the jsonl findings.
+// The records are pure construction — no scan runs. The no-block records
+// above stay byte-identical: the line rides only when a deep block exists.
+func TestExplainDeepReading(t *testing.T) {
+	t.Run("deep reading: the executed plan in words, accepted rows named", func(t *testing.T) {
+		mixed := Record{
+			Target:    TargetRecord{Host: "198.51.100.20", Port: 443},
+			Handshake: HandshakeRecord{Negotiated: 29, GroupName: "x25519", GroupClass: "classic", Suite: "TLS_AES_256_GCM_SHA384", Version: "tls-1.3"},
+			Pq:        &PqRecord{Score: 0, Label: "scan-error", Summary: "scan-error"},
+			Deep: &DeepRecord{Mode: "standard", Attempted: 8, OK: 2, Rejected: 3, Findings: []DeepFinding{
+				{Probe: "version/1.0", Result: "rejected", Detail: "alert protocol_version"},
+				{Probe: "group/4588", Result: "accepted", Detail: "negotiated X25519MLKEM768, suite TLS_AES_128_GCM_SHA256, tls-1.3"},
+				{Probe: "group/29", Result: "rejected", Detail: "remote error: tls: illegal_parameter"},
+				{Probe: "suite/TLS_RSA_WITH_AES_128_CBC_SHA@1.2", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "sigalg/mldsa65", Result: "refused", Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)"},
+				{Probe: "cert/chain", Result: "accepted", Detail: "the profile handshake delivered the certificate chain (analyzed in the record's cert block)"},
+				{Probe: "resumption/psk-tls13", Result: "refused", Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)"},
+				{Probe: "hrr/x25519-shareless", Result: "error", Detail: "read-error: the server closed without a TLS answer"},
+			}},
+		}
+		want := strings.Join([]string{
+			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
+			"  - deep: the executed standard plan ran 8 probes: 2 accepted, 3 refused with the server's reasons, 2 not-offerable, 1 errored on the probe path; the offered-one matrix read: version floor 0/1, group ladder 1/2, suite matrix 0/1, sigalg ladder 0/1, certificate probe 1/1, resumption vectors 0/1, hrr probe 0/1; accepted: group/4588 (a PQ group accepted where the profile handshake negotiated classical); cert/chain — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+		}, "\n")
+		if got := strings.Join(explainBlock(&mixed), "\n"); got != want {
+			t.Fatalf("deep reading block:\n(got)\n%s\n(want)\n%s", got, want)
+		}
+	})
+
+	t.Run("deep reading: nothing accepted reads the roll-up, the handshake carries the verdict", func(t *testing.T) {
+		all := Record{
+			Target:    TargetRecord{Host: "198.51.100.21", Port: 443},
+			Handshake: HandshakeRecord{Negotiated: 29, GroupName: "x25519", GroupClass: "classic", Suite: "TLS_AES_256_GCM_SHA384", Version: "tls-1.3"},
+			Pq:        &PqRecord{Score: 0, Label: "scan-error", Summary: "scan-error"},
+			Deep: &DeepRecord{Mode: "full", Attempted: 14, OK: 0, Rejected: 14, Findings: []DeepFinding{
+				{Probe: "version/1.0", Result: "rejected", Detail: "alert protocol_version"},
+				{Probe: "version/1.1", Result: "rejected", Detail: "alert protocol_version"},
+				{Probe: "version/1.2", Result: "rejected", Detail: "alert protocol_version"},
+				{Probe: "group/4585", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/4586", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/4587", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/4588", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/4589", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/4590", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/25", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/26", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/27", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/28", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/29", Result: "rejected", Detail: "remote error: tls: illegal_parameter"},
+			}},
+		}
+		want := strings.Join([]string{
+			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
+			"  - deep: the executed full plan ran 14 probes: no offer was accepted, 14 refused with the server's reasons, 0 not-offerable; the offered-one matrix read: version floor 0/3, group ladder 0/11; the profile handshake above carries the negotiation — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+		}, "\n")
+		if got := strings.Join(explainBlock(&all), "\n"); got != want {
+			t.Fatalf("nothing-accepted deep reading:\n(got)\n%s\n(want)\n%s", got, want)
+		}
+	})
+
+	t.Run("deep reading: a draft-group acceptance spells the HNDL exposure", func(t *testing.T) {
+		draft := Record{
+			Target:    TargetRecord{Host: "198.51.100.22", Port: 443},
+			Handshake: HandshakeRecord{Negotiated: 29, GroupName: "x25519", GroupClass: "classic", Suite: "TLS_AES_256_GCM_SHA384", Version: "tls-1.3"},
+			Pq:        &PqRecord{Score: 0, Label: "scan-error", Summary: "scan-error"},
+			Deep: &DeepRecord{Mode: "standard", Attempted: 5, OK: 1, Rejected: 3, Findings: []DeepFinding{
+				{Probe: "group/25497", Result: "accepted", Detail: "hrr: the server requested group X25519Kyber768Draft00 (25497)"},
+				{Probe: "group/4588", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "group/29", Result: "rejected", Detail: "remote error: tls: illegal_parameter"},
+				{Probe: "suite/TLS_RSA_WITH_AES_256_GCM_SHA384@1.2", Result: "rejected", Detail: "alert handshake_failure"},
+				{Probe: "resumption/psk-tls13", Result: "refused", Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)"},
+			}},
+		}
+		want := strings.Join([]string{
+			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
+			"  - deep: the executed standard plan ran 5 probes: 1 accepted, 3 refused with the server's reasons, 1 not-offerable; the offered-one matrix read: group ladder 1/3, suite matrix 0/1, resumption vectors 0/1; accepted: group/25497 (an obsolete draft group accepted — the harvest-now-decrypt-later exposure: strip the draft groups from the server configuration) — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+		}, "\n")
+		if got := strings.Join(explainBlock(&draft), "\n"); got != want {
+			t.Fatalf("draft-acceptance deep reading:\n(got)\n%s\n(want)\n%s", got, want)
+		}
+	})
+
+	t.Run("deep reading: an empty findings vector degrades to the field counts", func(t *testing.T) {
+		bare := Record{
+			Target: TargetRecord{Host: "198.51.100.23", Port: 443},
+			Pq:     &PqRecord{Score: 0, Label: "scan-error", Summary: "scan-error"},
+			Deep:   &DeepRecord{Mode: "standard", Attempted: 24, OK: 2, Rejected: 3},
+		}
+		want := strings.Join([]string{
+			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
+			"  - deep: the executed standard plan ran 24 probes: 2 accepted, 3 refused with the server's reasons — the per-probe detail lives in the jsonl findings.",
+		}, "\n")
+		if got := strings.Join(explainBlock(&bare), "\n"); got != want {
+			t.Fatalf("degenerate deep reading:\n(got)\n%s\n(want)\n%s", got, want)
+		}
+	})
+}
+
 // TestExplainOtherErrorClasses pins the error-prose mapping for the error
 // classes beyond a plain refusal: a stalled accept (the deadline text),
 // a TLS-layer rejection, and the fallback.
