@@ -13,7 +13,7 @@ package target
 
 import (
 	"bufio"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -255,15 +255,53 @@ func StripScheme(line string) (string, error) {
 	return rest, nil
 }
 
-// errNotImplemented marks a declared-but-unwired surface: the watched-RED
-// pair's stub (ADR-0002) — the tests above compile against the real
-// signature and fail on their assertions until the engine commit lands.
-var errNotImplemented = errors.New("not implemented")
-
 // FromNuclei parses nuclei -j findings JSONL into grammar targets (PQ-55,
-// issue #149). STUB for the watched-RED pair: the engine commit replaces
-// this body; the contract the tests pin is described in adapter_nuclei_test.go.
+// issue #149; spec §6's import chain). The pinned capture
+// `nuclei -l hosts.txt -silent -j` (nuclei v3.11.1) emits ONE JSON finding
+// per line; every finding contributes the host:port of its matched-at (the
+// url field is the fallback where matched-at is empty), with the SAME
+// dialect decoration rule the httpx lines walk (stripDialectDecor): a
+// matched-at reads scheme://host[:port][path] or bare host[:port] — the
+// scheme and any path suffix strip to a host[:port] spec, handed to
+// grammar.Parse exactly as the -u composition parses a -u spec, so the
+// composition's dedupe semantics (host:port, first occurrence wins) apply
+// unchanged when the pipeline composes this result with its other sources.
+// The adapter does NOT dedupe: nuclei findings repeat one host:port across
+// many findings (the pinned capture: 28 findings → two distinct
+// host:ports), and the collapse is the composition's one dedupe layer.
+//
+// The findings' remaining fields (the template's identity, the info/matcher
+// blocks, the request/response bodies) are not target material: the parser
+// consumes exactly the two host fields the pinned capture shows. Comment
+// (#) and blank lines are skipped but still numbered (the -from-* dialect
+// convention: every pinned fixture file carries its header comments). A
+// line that is not a findings object — unparseable JSON, or a JSON object
+// carrying neither matched-at nor url — is a recorded observation at its
+// line number: the stream aborts, the composition refuses the run exit 64
+// named by its flag, so no partial list is ever scanned.
 func FromNuclei(r io.Reader) ([]grammar.Target, error) {
-	_ = r
-	return nil, errNotImplemented
+	return scanLines(r, func(no int, line string) ([]grammar.Target, error) {
+		if isComment(line) {
+			return nil, nil
+		}
+		var finding struct {
+			MatchedAt string `json:"matched-at"`
+			URL       string `json:"url"`
+		}
+		if err := json.Unmarshal([]byte(line), &finding); err != nil {
+			return nil, lineErr(no, fmt.Errorf("not a nuclei findings JSONL object (want the -j object per line): %w", err))
+		}
+		spec := finding.MatchedAt
+		if spec == "" {
+			spec = finding.URL
+		}
+		if spec == "" {
+			return nil, lineErr(no, fmt.Errorf("nuclei finding with neither matched-at nor url (want the -j finding's host fields)"))
+		}
+		targets, err := grammar.Parse(stripDialectDecor(spec))
+		if err != nil {
+			return nil, lineErr(no, err)
+		}
+		return targets, nil
+	}, nil)
 }
