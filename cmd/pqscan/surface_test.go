@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -117,6 +118,15 @@ func plannedManRows(t *testing.T, root string) map[string]bool {
 	}
 	return rows
 }
+
+// docRefRe is the zero-reference census inventory (PQ-57): the token
+// classes no user-facing string carries — docs/ paths, repo doc file
+// names (.md), section-symbol anchors, issue/register references (#N,
+// PQ-N), status words, and the PRD itself. TestCLISurfaceContract's
+// zero-reference section renders every user-facing face live and greps
+// it against this one inventory; a string that re-introduces a
+// reference goes red there in CI.
+var docRefRe = regexp.MustCompile(`\.md|docs/|§|PQ-?[0-9]|#[0-9]|PRD|\bplanned\b|\bdeferred\b|\blands\b|\blanded\b|\bunimplemented\b|\bpre-alpha\b|\bregister\b`)
 
 // helpGroupFor resolves a flag's rendered group (name, position).
 func helpGroupFor(name string) (string, int) {
@@ -243,6 +253,11 @@ func TestCLISurfaceContract(t *testing.T) {
 	t.Logf("── -completion fish: refused exit 64 naming bash or zsh ──")
 
 	// ---- 5. the usage-class exit-code table (pre-composition, fast).
+	// The exit-64 refusal streams are collected here for the
+	// zero-reference scan (section 10): a refusal must say why — and
+	// carry no doc references while saying it.
+	var refArgs [][]string
+	var refErrs [][]byte
 	rows := []struct {
 		args []string
 		code int
@@ -271,6 +286,10 @@ func TestCLISurfaceContract(t *testing.T) {
 			continue
 		}
 		t.Logf("exit(%-24v) = %-3d ✓", row.args, code)
+		if code == 64 {
+			refArgs = append(refArgs, row.args)
+			refErrs = append(refErrs, append([]byte(nil), e.Bytes()...))
+		}
 	}
 
 	// ---- 6. one live scan: the complete human surface, verbatim.
@@ -431,6 +450,72 @@ func TestCLISurfaceContract(t *testing.T) {
 	} else {
 		t.Logf("-from-nuclei file-completion entry ✓; man row ✓; planned-list exit ✓")
 	}
+
+	// ---- 10. the zero-reference policy (PQ-57): every face the CLI can
+	// put in front of an operator greps clean of doc-reference tokens.
+	// The tool speaks its own language — documentation lives in the
+	// repository, never in the binary's output: no docs/ paths, no repo
+	// doc file names, no section-symbol anchors, no issue or register
+	// references, no status words. Every face is rendered live and
+	// scanned by line against the one census inventory (docRefRe). The
+	// -h, -version, -explain and refusal faces come off the renders and
+	// the fixture scans above; the completions are re-rendered here; one
+	// extra fixture scan runs under -debug so the diagnostics human
+	// stream and the report footer stand in the scan too.
+	t.Logf("── zero-reference policy (PQ-57): every user-facing face × the census inventory ──")
+	var dbgOut, dbgErr bytes.Buffer
+	if code := run([]string{"-u", addr, "-debug", "-explain"}, &dbgOut, &dbgErr); code != 0 {
+		t.Fatalf("the zero-reference scan run: rc=%d (stderr: %s)", code, dbgErr.String())
+	}
+	zeroFaces := []struct {
+		face string
+		data []byte
+	}{
+		{"-h render", help.Bytes()},
+		{"-version", vOut.Bytes()},
+		{"-explain scan (fast)", scanOut.Bytes()},
+		{"-explain scan (deep)", deepOut.Bytes()},
+		{"-explain scan (pq ladder)", pqOut.Bytes()},
+		{"-debug stderr (human stream + report footer)", dbgErr.Bytes()},
+		{"-debug stdout (the scan's own output under -debug)", dbgOut.Bytes()},
+	}
+	for _, shell := range []string{"bash", "zsh"} {
+		var c, ce bytes.Buffer
+		if code := run([]string{"-completion", shell}, &c, &ce); code != 0 || ce.Len() != 0 {
+			t.Fatalf("-completion %s re-render (the zero-reference pass): rc=%d err=%q", shell, code, ce.String())
+		}
+		zeroFaces = append(zeroFaces, struct {
+			face string
+			data []byte
+		}{"-completion " + shell + " script", c.Bytes()})
+	}
+	if len(refErrs) == 0 {
+		t.Fatalf("zero-reference pass: no refusal streams were collected (section 5 feeds them)")
+	}
+	for i, e := range refErrs {
+		zeroFaces = append(zeroFaces, struct {
+			face string
+			data []byte
+		}{fmt.Sprintf("exit-64 refusal #%d (%v)", i+1, refArgs[i]), e})
+	}
+	clean := 0
+	for _, face := range zeroFaces {
+		lines := strings.Split(string(face.data), "\n")
+		hits := 0
+		for _, line := range lines {
+			if hit := docRefRe.FindString(line); hit != "" {
+				hits++
+				t.Errorf("the %s surface carries a doc reference %q: %q", face.face, hit, strings.TrimSpace(line))
+			}
+		}
+		if hits == 0 {
+			clean++
+			t.Logf("zero-reference %-56s ✓ (%d lines)", face.face, len(lines))
+		}
+	}
+	t.Logf("zero-reference policy: %d/%d faces × the census inventory, clean",
+		clean, len(zeroFaces))
+	t.Logf("zero-reference policy: no docs/ paths, no repo doc file names, no section anchors, no issue or register references, no status words")
 }
 
 // fsLookup is the flag-set lookup shaped for the map-driven row check.
