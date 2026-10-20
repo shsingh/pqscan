@@ -12,9 +12,7 @@ properties — scores every observation on a PQC-readiness rubric — and
 speaks the import toolset's dialect (stdin → stdout, streaming JSONL).
 
 **Status:** the `2026.01-rc3` release-candidate cut is live and attested; the
-specification
-([`docs/spec.md`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md)) is
-in force.
+written specification is in force.
 
 ## Performance
 
@@ -34,7 +32,7 @@ in force.
   </div>
   <div class="pstat">
     <div class="pnum">&lt;8<span class="punit">MB</span></div>
-    <div class="pcap">one static binary — the size SLO enforced on every change · <a href="https://github.com/shsingh/pqscan/blob/main/docs/size-ledger.md">the ledger</a></div>
+    <div class="pcap">one static binary — the size SLO enforced on every change</div>
   </div>
 </div>
 ```
@@ -60,7 +58,7 @@ gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before r
 
 | Tool | Capability in common with pqscan | Divergence from pqscan's scope |
 |---|---|---|
-| [cryptonice](https://github.com/F5-Labs/cryptonice) | Multi-surface scan menu (TLS, HTTP, DNS, fingerprint) with structured JSON reporting | Python execution model without the throughput contract (spec §7); PQC group and signature assessment out of scope |
+| [cryptonice](https://github.com/F5-Labs/cryptonice) | Multi-surface scan menu (TLS, HTTP, DNS, fingerprint) with structured JSON reporting | Python execution model without the throughput contract; PQC group and signature assessment out of scope |
 | [gnutls-cli-debug](https://man7.org/linux/man-pages/man1/gnutls-cli-debug.1.html) | Exhaustive offer-and-observe protocol and suite probing | Interactive single-target scope; group and signature matrices are not scriptable |
 | [testssl.sh](https://github.com/testssl/testssl.sh) | Wide protocol coverage including legacy versions, single-file portability | Serial execution model bounds estate-scale runs; PQC codepoints not classified |
 | [sslyze](https://github.com/nabla-c0d3/sslyze) | Structured TLS probing library; base for several Python scanners | Per-target serial execution; no pipe-first interface |
@@ -72,9 +70,7 @@ gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before r
 
 Port and host discovery compose with the adjacent tools
 ([Recipes](recipes.qmd)); pqscan covers the cipher-configuration plane:
-TLS and QUIC handshake parameters, certificates, and PQC classification
-(spec
-[`§3`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#3-related-work--honest-survey)).
+TLS and QUIC handshake parameters, certificates, and PQC classification.
 
 Only scan systems you own or are authorised to test — see
 [Security](https://github.com/shsingh/pqscan/security/advisories/new) and
