@@ -103,9 +103,9 @@ func TestExplainDeepReading(t *testing.T) {
 				{Probe: "group/4588", Result: "accepted", Detail: "negotiated X25519MLKEM768, suite TLS_AES_128_GCM_SHA256, tls-1.3"},
 				{Probe: "group/29", Result: "rejected", Detail: "remote error: tls: illegal_parameter"},
 				{Probe: "suite/TLS_RSA_WITH_AES_128_CBC_SHA@1.2", Result: "rejected", Detail: "alert handshake_failure"},
-				{Probe: "sigalg/mldsa65", Result: "refused", Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)"},
+				{Probe: "sigalg/mldsa65", Result: "refused", Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)"},
 				{Probe: "cert/chain", Result: "accepted", Detail: "the profile handshake delivered the certificate chain (analyzed in the record's cert block)"},
-				{Probe: "resumption/psk-tls13", Result: "refused", Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)"},
+				{Probe: "resumption/psk-tls13", Result: "refused", Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane"},
 				{Probe: "hrr/x25519-shareless", Result: "error", Detail: "read-error: the server closed without a TLS answer"},
 			}},
 		}
@@ -161,7 +161,7 @@ func TestExplainDeepReading(t *testing.T) {
 				{Probe: "group/4588", Result: "rejected", Detail: "alert handshake_failure"},
 				{Probe: "group/29", Result: "rejected", Detail: "remote error: tls: illegal_parameter"},
 				{Probe: "suite/TLS_RSA_WITH_AES_256_GCM_SHA384@1.2", Result: "rejected", Detail: "alert handshake_failure"},
-				{Probe: "resumption/psk-tls13", Result: "refused", Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)"},
+				{Probe: "resumption/psk-tls13", Result: "refused", Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane"},
 			}},
 		}
 		want := strings.Join([]string{

@@ -926,7 +926,7 @@ func parityGroup(key string, pq, refs []Obs) Comparison {
 
 	if len(refs) == 0 {
 		row.Agree = true
-		row.Note = fmt.Sprintf("no reference observation for %s (pqscan-only probe; documented exception per spec §10.1)", name)
+		row.Note = fmt.Sprintf("no reference observation for %s (pqscan-only probe)", name)
 		return row
 	}
 

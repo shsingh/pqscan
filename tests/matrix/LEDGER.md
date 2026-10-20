@@ -185,7 +185,7 @@ gets its rows here and in
 
 | Defect | Origin | Status | Cell duty |
 |---|---|---|---|
-| [#157](https://github.com/shsingh/pqscan/issues/157) — PQ-60, the error-record contract: schema-required blocks missing on error-class records | battery-caught (PQ-54's lane, PR [#155](https://github.com/shsingh/pqscan/pull/155)); disclosed on issue [#148](https://github.com/shsingh/pqscan/issues/148) | open — no cell yet | the cure lands its error-class fixture cells, the registry checkbox and the ledger rows in the same change |
+| [#157](https://github.com/shsingh/pqscan/issues/157) — PQ-60, the error-record contract: schema-required blocks missing on error-class records | battery-caught (PQ-54's lane, PR [#155](https://github.com/shsingh/pqscan/pull/155)); disclosed on issue [#148](https://github.com/shsingh/pqscan/issues/148) | LANDED 2026-10-20 — fix PR [#162](https://github.com/shsingh/pqscan/pull/162) (RED `936cc1b` → GREEN `6d5f534`, merged `9de5966`) | the cell = `TestErrorRecordSchemaContract` (cmd/pqscan/errorrecord_test.go) + the regenerated `error.jsonl/csv/text` goldens; the demonstrated fix→cell pair is complete |
 | [#159](https://github.com/shsingh/pqscan/issues/159) — PQ-61, the httpx csv adapter gap (today's `-from-httpx` refuses the 50-column table, not the url,status shape) | capture-before-contract: PQ-55 pinned the captured bytes before any contract | open — the refusal cell is already landed | `TestPinnedHttpxCsvRefusal` and the committed capture pin today's documented refusal; the adapter extension lands its own cells |
 
 ## The constraint vocabulary (the shared domain table)
