@@ -406,6 +406,7 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	res, perr := tlsx.ProbeNegotiated(addr, sniHost, nil, timeout)
 	if perr != nil && (res == nil || res.Error == "") {
 		rec.Error = perr.Error()
+		zeroProbeBlocks(rec)
 		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe errored", perr, nil)
 		return rec, res, true, isTimeoutError(rec.Error)
 	}
@@ -415,6 +416,7 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 		// zero handshake (surfaced by the dead-target RED row — the rc1
 		// scanSingle dropped dial refusals into empty-error records).
 		rec.Error = res.Error
+		zeroProbeBlocks(rec)
 		diag.Emit(diag.Error, diag.DomTLS, "scan", t.Host, "TCP probe refused", errors.New(res.Error), nil)
 		// A refusal still fails the probe for the breaker's consecutive-
 		// failure count; only the deadline-expiry class signals the AIMD
@@ -567,10 +569,26 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	return rec, res, false, false
 }
 
+// zeroProbeBlocks populates a failed-probe record's schema-required probe
+// blocks with their zero halves (PQ-60, issue #157, cure A — the uniform
+// record contract): the blocks docs/schema-v1.json requires at top level
+// stand on EVERY record class, zero-populated when the handshake never
+// completed — the QUIC plane made no attempt, no certificate was analyzed,
+// the rubric never produced a verdict. The zero values carry the absence
+// (the #155 writer discipline: zeros and empty strings, never missing
+// keys); the engine invents no observation, and the record's Error field
+// remains the failure class's only carrier.
+func zeroProbeBlocks(rec *scanRecord) {
+	rec.Quic = &quicRecord{Discovered: &out.H3Discovery{}}
+	rec.Cert = &out.CertRecord{}
+	rec.Pq = &out.PqRecord{}
+}
+
 // breakerOpenRecord builds the breaker-skipped target's record: the
-// schema-1 error shape (like any failed probe — zero handshake, no
-// verdict blocks invented), its Error carrying the skip reason "breaker
-// open" instead of the dial's outcome. Skipped-with-reason, never silent.
+// schema-1 error shape (like any failed probe — zero handshake, the
+// schema-required probe blocks zero-populated, no invented verdict), its
+// Error carrying the skip reason "breaker open" instead of the dial's
+// outcome. Skipped-with-reason, never silent.
 func breakerOpenRecord(t grammar.Target, mode string) *scanRecord {
 	rec := &scanRecord{
 		Schema: out.SchemaVersion,
@@ -579,6 +597,7 @@ func breakerOpenRecord(t grammar.Target, mode string) *scanRecord {
 	}
 	rec.Ts = time.Now().UTC().Format(time.RFC3339Nano)
 	rec.Error = "breaker open"
+	zeroProbeBlocks(rec)
 	return rec
 }
 

@@ -11,22 +11,29 @@ const SchemaVersion = 1
 // Record is the schema-1 record carried per target (spec §5.7): the
 // hand-rolled encoders write it without reflection. The JSONL line pins
 // the shipped field set byte-exact (the golden tests in tests/goldens):
-// schema, mode, target, handshake, quic, cert, pq, error — with the
-// optional blocks zero/absent per the omitempty corners; Ts rides the
-// CSV line and the journal meanwhile.
+// schema, mode, target, handshake, quic, cert, pq, error — every record
+// CLASS (success and error alike) carries the schema-required blocks
+// (PQ-60's uniform contract: on error records the blocks ride
+// zero-populated, the never-ran halves); Ts rides the CSV line and the
+// journal meanwhile.
 type Record struct {
 	Schema    int             `json:"schema"`
 	Mode      string          `json:"mode"`
 	Target    TargetRecord    `json:"target"`
 	Handshake HandshakeRecord `json:"handshake"`
-	// Quic is the QUIC plane block; nil when the probe never ran.
+	// Quic is the QUIC plane block. The engine populates it on every
+	// record (the zero halves where the plane never ran — PQ-60's
+	// uniform contract; the -quic-off plane since PQ-54), so a nil
+	// block exists only in hand-built or legacy-journal records.
 	//
 	// Cert (PQ-21) and Pq (PQ-19) are the certificate-analytics and
 	// readiness-verdict blocks, spec §5.7's record layout: handshake,
 	// quic, cert, pq, error — cert leads pq (the analyzed facts, then
-	// the verdict computed on them). Both nil on a record whose probe
-	// failed before their step: the Error field is that record's
-	// verdict path.
+	// the verdict computed on them). The engine likewise never leaves
+	// them nil: a probe that never reached their step rides the
+	// zero-populated blocks (empty names, score 0, empty label — no
+	// invented verdict) and the Error field is that record's failure
+	// path (PQ-60: the uniform contract, issue #157).
 	//
 	//	Deep (PQ-20) is the deep-mode executor block (-mode deep):
 	//	the executed plan's counts + findings. Nil on fast records
@@ -52,11 +59,13 @@ type Record struct {
 // CertRecord is the PQ-21 leaf-certificate analytics block: the leaf's
 // signature and key algorithms (names per certinfo's owned OID table,
 // "unknown-…" notes carried verbatim), their PQ flags, and the delivered
-// chain's dual-cert signal. Nil when no certificate was analyzed (failed
-// probe, raw path, unanalyzable chain — the tlsx zero policy: no invented
-// rows). A present block encodes every inner field unconditionally, also
-// the false flags and the classical names: presence = the leaf was
-// analyzed, so the booleans are facts, not omissions.
+// chain's dual-cert signal. Nil outside the engine's record path only
+// (hand-built and legacy-journal records): on error records the block
+// rides ZERO-POPULATED (PQ-60's uniform contract — empty names, false
+// flags: nothing was analyzed, nothing is claimed), and a present block
+// encodes every inner field unconditionally, also the false flags and
+// the classical names: presence = the leaf was analyzed, so the
+// booleans are facts, not omissions.
 type CertRecord struct {
 	SigAlg string `json:"sig_alg"`
 	SigPQ  bool   `json:"sig_pq"`
@@ -69,12 +78,13 @@ type CertRecord struct {
 // output over the ladder-derived observations — the 0-100 clamped score,
 // the verdict label, the HNDL flag (obsolete-draft groups in use =
 // harvest-now-decrypt-later exposure), and the fired rules as the
-// printable summary. Nil only for records whose probe failed before a
-// verdict: the rubric's scan-error behavior surfaces there as the
-// record's error path (score 0 stays the zero value; a failed probe
-// never presents an invented verdict block). A verdict block that DID
-// run encodes scan-error too — score 0, label scan-error, the fired
-// rows' summary.
+// printable summary. Outside the engine's record path (hand-built and
+// legacy-journal records) the block may be nil; on error records the
+// ENGINE populates the ZERO half (PQ-60's uniform contract — score 0,
+// empty label, no invented verdict: the rubric never ran, and a failed
+// probe never reaches it; the rubric's scan-error behavior surfaces as
+// the record's error path). A verdict block that DID run encodes
+// scan-error too — score 0, label scan-error, the fired rows' summary.
 type PqRecord struct {
 	Score   int    `json:"score"`
 	Label   string `json:"label"`
@@ -108,17 +118,20 @@ type HandshakeRecord struct {
 // H3Discovery is the h3-discovery block (PQ-25, spec §5.3): the QUIC
 // lane's two halves as observed — AltSvcH3 the hint (an alt-svc h3=
 // directive on the fast pass's HTTP probe), H3Direct the direct QUIC
-// truth. Presence is the fact: the block appears wherever the lane
-// evaluated the hint (the probe-run, mismatch and skipped-no-hint
-// states); it stays nil on -quic-off records, where the discovery never
-// ran. JSONL-only fields — the CSV/text projections carry no new
+// truth. The block rides every quic block the engine builds, its zero
+// halves where the discovery never ran (the -quic-off plane — PQ-54's
+// populate-the-zeros cure; the error paths likewise, PQ-60's uniform
+// contract). JSONL-only fields — the CSV/text projections carry no new
 // columns.
 type H3Discovery struct {
 	AltSvcH3 bool `json:"alt_svc_h3"`
 	H3Direct bool `json:"h3_direct"`
 }
 
-// QuicRecord is the QUIC plane block; nil when the probe never ran.
+// QuicRecord is the QUIC plane block. The engine populates it on every
+// record it builds: the error paths ride the zero halves like the
+// -quic-off plane (PQ-60's uniform contract, issue #157); a nil block is
+// a hand-built or legacy-journal record only.
 //
 // PQ-25 (spec §5.3) lands the discovery facts ADDITIVELY: Discovered
 // carries the hint/truth halves, Mismatch marks the hint-vs-truth

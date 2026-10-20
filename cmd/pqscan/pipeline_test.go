@@ -92,12 +92,13 @@ func mustParse(t *testing.T, specs []string) []grammar.Target {
 
 // wantRec is one expected record. class pins handshake.group_class (""
 // for an error record, whose handshake must be zero); wantError pins a
-// probe-failure record (error, zero handshake, no verdict blocks);
-// wantScanError pins the rubric's zero-PQ-signal scan-error record (the
-// verdict block is present with the scan-error label and score 0; the
-// record's error is EMPTY — PQ-43: the state lives in the pq block and
-// the rubric's error stays the classifier's internal path). Every record
-// is pinned to schema 1 / fast mode.
+// probe-failure record (error, zero handshake, the schema-required
+// blocks zero-populated — PQ-60's uniform contract); wantScanError pins
+// the rubric's zero-PQ-signal scan-error record (the verdict block is
+// present with the scan-error label and score 0; the record's error is
+// EMPTY — PQ-43: the state lives in the pq block and the rubric's error
+// stays the classifier's internal path). Every record is pinned to
+// schema 1 / fast mode.
 type wantRec struct {
 	class         string
 	wantError     bool
@@ -202,12 +203,27 @@ func TestPipelineMultiTarget(t *testing.T) {
 						t.Fatalf("record %d (%s): negotiated = %d on an error record, want zero",
 							i, rec.Target.Input, rec.Handshake.Negotiated)
 					}
-					// A failed probe presents no verdict blocks: the
-					// record's error path carries it (score 0 lives in
-					// the zero value, never an invented rubric).
-					if rec.Pq != nil || rec.Cert != nil {
-						t.Fatalf("record %d (%s): probe failure carries verdict blocks (pq=%v cert=%v), want nil",
-							i, rec.Target.Input, rec.Pq, rec.Cert)
+					// The failed probe's blocks ride the zero halves
+					// (PQ-60's uniform record contract: the
+					// schema-required blocks stand on every record
+					// class): score 0 stays the zero value and the
+					// label stays empty — the rubric never ran, never
+					// an invented verdict on the error path.
+					if rec.Pq == nil || rec.Cert == nil || rec.Quic == nil {
+						t.Fatalf("record %d (%s): error record misses a schema-required block (pq=%v cert=%v quic=%v), want all three present zero-populated",
+							i, rec.Target.Input, rec.Pq, rec.Cert, rec.Quic)
+					}
+					if rec.Pq.Score != 0 || rec.Pq.Label != "" {
+						t.Fatalf("record %d (%s): pq = {%d %q} on the error path, want the zero half (the rubric never ran)",
+							i, rec.Target.Input, rec.Pq.Score, rec.Pq.Label)
+					}
+					if rec.Cert.SigAlg != "" || rec.Cert.KeyAlg != "" {
+						t.Fatalf("record %d (%s): cert = {%q %q} on the error path, want the zero halves (no leaf was analyzed)",
+							i, rec.Target.Input, rec.Cert.SigAlg, rec.Cert.KeyAlg)
+					}
+					if rec.Quic.Attempted {
+						t.Fatalf("record %d (%s): quic attempted on the error path, want the zero half (the plane never ran)",
+							i, rec.Target.Input)
 					}
 				case want.wantScanError:
 					if rec.Error != "" {
@@ -316,9 +332,10 @@ func TestPipelineVerdictWireIn(t *testing.T) {
 		})
 	}
 
-	// The failed probe is the record's error path, not a verdict: no
-	// cert/pq block (score 0 stays the zero value — the rubric never
-	// ran), the error field carries the failure.
+	// The failed probe is the record's error path, not a verdict: the
+	// schema-required blocks ride the zero halves (PQ-60's uniform
+	// contract — the rubric never ran, no leaf was analyzed, the QUIC
+	// plane made no attempt), and the error field carries the failure.
 	recs, err := (&Engine{}).Run(mustParse(t, []string{deadAddr}),
 		Options{QuicOff: true, ProbeTimeout: 500 * time.Millisecond}, nil)
 	if err != nil {
@@ -331,8 +348,11 @@ func TestPipelineVerdictWireIn(t *testing.T) {
 	if rec.Handshake.Negotiated != 0 {
 		t.Fatalf("failed probe: negotiated = %d, want zero", rec.Handshake.Negotiated)
 	}
-	if rec.Pq != nil || rec.Cert != nil {
-		t.Fatalf("failed probe: pq/cert blocks invented (%v/%v), want nil", rec.Pq, rec.Cert)
+	if rec.Pq == nil || rec.Cert == nil || rec.Quic == nil {
+		t.Fatalf("failed probe: a schema-required block is nil (pq=%v cert=%v quic=%v), want all three present zero-populated", rec.Pq, rec.Cert, rec.Quic)
+	}
+	if rec.Pq.Score != 0 || rec.Pq.Label != "" || rec.Cert.SigAlg != "" || rec.Quic.Attempted {
+		t.Fatalf("failed probe: block values invented (pq=%+v cert=%+v quic=%+v), want the zero halves", rec.Pq, rec.Cert, rec.Quic)
 	}
 }
 
@@ -699,9 +719,13 @@ func TestBreakerOpens(t *testing.T) {
 					}
 					continue
 				}
-				if rec.Pq != nil || rec.Cert != nil {
-					t.Fatalf("record %d: error record carries verdict blocks (pq=%v cert=%v), want nil",
+				if rec.Pq == nil || rec.Cert == nil {
+					t.Fatalf("record %d: error record misses a schema-required block (pq=%v cert=%v), want both present zero-populated (PQ-60: the uniform contract — no invented verdict)",
 						i, rec.Pq, rec.Cert)
+				}
+				if rec.Pq.Score != 0 || rec.Pq.Label != "" || rec.Cert.SigAlg != "" {
+					t.Fatalf("record %d: error record carries invented verdict values (pq={%d %q} cert.sig_alg=%q), want the zero halves",
+						i, rec.Pq.Score, rec.Pq.Label, rec.Cert.SigAlg)
 				}
 				if row.wantBreaker {
 					if rec.Error != "breaker open" {

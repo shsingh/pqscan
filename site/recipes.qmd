@@ -764,10 +764,12 @@ refusal mass as the expected default:
   - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.
 ```
 
-and a refused dial gets the error-class hint:
+and a refused dial gets the error-class hint (the record's zero-populated
+probe blocks read as their never-ran lines):
 
 ```text
-  - error: dial tcp 127.0.0.1:64440: connect: connection refused — no handshake was reached: the endpoint is unreachable on this port (closed or filtered); no cipher verdict is possible.
+  - quic: the lane never ran on this record.
+  - error: dial tcp 127.0.0.1:65000: connect: connection refused — no handshake was reached: the endpoint is unreachable on this port (closed or filtered); no cipher verdict is possible.
 ```
 
 **Discussion.** `-explain` is a `-text`-only selector: the machine
