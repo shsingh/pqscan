@@ -749,8 +749,16 @@ google.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256
   - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum verdict applies to h3 traffic.
 ```
 
-Deep and pq runs get the plan reading — `-mode pq` names the accepted
-rungs and treats the refusal mass as the expected default:
+Deep and pq runs get the plan reading. On `-mode deep` the executed plan
+reads in operator words — the probe roll-up, the offered-one matrix and
+the accepted rows (live, `pqscan -u google.com -mode deep -explain`):
+
+```text
+  - deep: the executed standard plan ran 22 probes: 2 accepted, 8 refused with the server's reasons, 12 not-offerable; the offered-one matrix read: group ladder 1/10, quic rungs 0/5, sigalg ladder 0/3, resumption vectors 0/3, hrr probe 1/1; accepted: group/29; hrr/x25519-shareless — the per-probe detail lives in the jsonl findings.
+```
+
+On `-mode pq` the ladder wording names the accepted rungs and treats the
+refusal mass as the expected default:
 
 ```text
   - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.
