@@ -305,6 +305,52 @@ func violated(c mCase, assign map[string]string, doc mDomains) []string {
 	return out
 }
 
+// materializeToken expands one placeholder token from domains.json's
+// placeholder_semantics into its per-case materialized form: $TARGET → the
+// fixture's addr:port, @tmp files → real files in dir (the list/adapter
+// payloads written, the certs dir created, out/diag paths stamped). label
+// names the calling case in error messages. Shared by the array runner
+// (run_test.go) and the PQ-54 battery (both run REAL binary vectors against
+// the same fixture plumbing).
+func materializeToken(t *testing.T, label, dir, addr, tok string) string {
+	t.Helper()
+	stamp := func(name string) string { return filepath.Join(dir, name) }
+	switch tok {
+	case "$TARGET":
+		return addr
+	case "@tmp/diag.json", "@tmp/out.txt":
+		return stamp(strings.TrimPrefix(tok, "@tmp/"))
+	case "@tmp/certs":
+		d := stamp("certs")
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatalf("%s: certs dir: %v", label, err)
+		}
+		return d
+	case "@tmp/targets-l.txt":
+		p := stamp("targets-l.txt")
+		if err := os.WriteFile(p, []byte(addr+"\n"), 0o644); err != nil {
+			t.Fatalf("%s: list file: %v", label, err)
+		}
+		return p
+	case "@tmp/targets-httpx.txt":
+		p := stamp("targets-httpx.txt")
+		if err := os.WriteFile(p, []byte("tcp://"+addr+"\n"), 0o644); err != nil {
+			t.Fatalf("%s: httpx file: %v", label, err)
+		}
+		return p
+	case "@tmp/targets-naabu.txt":
+		p := stamp("targets-naabu.txt")
+		if err := os.WriteFile(p, []byte(addr+"\n"), 0o644); err != nil {
+			t.Fatalf("%s: naabu file: %v", label, err)
+		}
+		return p
+	}
+	if strings.HasPrefix(tok, "@tmp/") {
+		t.Fatalf("%s: unknown materialized-file token: %q", label, tok)
+	}
+	return tok
+}
+
 // pair is one unordered (paramA, paramB) pair of values from two different
 // parameters (t=2).
 type pair struct {

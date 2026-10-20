@@ -179,47 +179,12 @@ func TestFlagMatrixRun(t *testing.T) {
 
 			// the placeholder expansion: the target spec and the
 			// materialized per-case files (list file: the fixture target
-			// line; adapter files: their own dialect's line)
-			expandToken := func(tok string) string {
-				switch tok {
-				case "$TARGET":
-					return addr
-				case "@tmp/diag.json", "@tmp/out.txt":
-					return stamp(strings.TrimPrefix(tok, "@tmp/"))
-				case "@tmp/certs":
-					d := stamp("certs")
-					if err := os.MkdirAll(d, 0o755); err != nil {
-						t.Fatalf("certs dir: %v", err)
-					}
-					return d
-				case "@tmp/targets-l.txt":
-					p := stamp("targets-l.txt")
-					if err := os.WriteFile(p, []byte(addr+"\n"), 0o644); err != nil {
-						t.Fatalf("list file: %v", err)
-					}
-					return p
-				case "@tmp/targets-httpx.txt":
-					p := stamp("targets-httpx.txt")
-					if err := os.WriteFile(p, []byte("tcp://"+addr+"\n"), 0o644); err != nil {
-						t.Fatalf("httpx file: %v", err)
-					}
-					return p
-				case "@tmp/targets-naabu.txt":
-					p := stamp("targets-naabu.txt")
-					if err := os.WriteFile(p, []byte(addr+"\n"), 0o644); err != nil {
-						t.Fatalf("naabu file: %v", err)
-					}
-					return p
-				}
-				if strings.HasPrefix(tok, "@tmp/") {
-					t.Fatalf("case %s: unknown materialized-file token: %q", c.ID, tok)
-				}
-				return tok
-			}
+			// line; adapter files: their own dialect's line) — the shared
+			// materializer (harness_test.go)
 			argv := make([]string, 0, len(c.Args)+2)
 			argv = append(argv, "-u", addr) // the runner's unconditional -u
 			for _, tok := range c.Args {
-				argv = append(argv, expandToken(tok))
+				argv = append(argv, materializeToken(t, c.ID, dir, addr, tok))
 			}
 			stdin := strings.ReplaceAll(c.Stdin, "$TARGET", addr)
 
