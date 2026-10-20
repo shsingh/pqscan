@@ -1,7 +1,5 @@
 # Design and architecture
 
-Design source: [`docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class) — the normative text; this page is the end-user view.
-
 ## Where the time goes
 
 A fast-mode handshake is RTT-bound, not CPU-bound:
@@ -78,8 +76,7 @@ on the current registry snapshot, auto-tracked to `crypto/tls`).
 ## PQC classification
 
 Every negotiated or observed parameter scores `pq | pq_hybrid |
-classic | draft | unknown` from generated registry tables
-([Appendix A](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot)),
+classic | draft | unknown` from generated registry tables,
 and the readiness verdict rides the record as `pq=<label>(<score>)` —
 the bands `pq-ready`, `pq-ready-hybrid`, `pq-partial`, `pq-missing` —
 with an **HNDL flag** — classic-only

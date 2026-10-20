@@ -11,7 +11,7 @@ a new stamp in the same cell.
 | `nuclei-findings.jsonl` | `nuclei -l hosts.txt -silent -j` | nuclei v3.11.1 | `-from-nuclei` (the -j findings JSONL: matched-at/url → host:port) |
 | `naabu-text.txt` | `naabu -l domains.txt -p 443,8443,465,993 -silent` | naabu 2.6.1 | `-from-naabu` (the host:port text dialect) |
 | `httpx-text.txt` | `httpx -silent -ports 443,8443 -p 443,8443 -no-color` (targets on stdin) | httpx v1.12.0 | `-from-httpx` (the text dialect) |
-| `httpx-csv.csv` | `httpx -silent -ports 443,8443 -p 443,8443 -no-color -csv` (targets on stdin) | httpx v1.12.0 | today's `-from-httpx` REFUSES these rows: the v1.12.0 `-csv` capture is a 50-column table (first column `timestamp`), not the `url,status` shape; the chains suite pins that documented refusal — a csv adapter remains a planned adapter (USAGE.md) |
+| `httpx-csv.csv` | `httpx -silent -ports 443,8443 -p 443,8443 -no-color -csv` (targets on stdin) | httpx v1.12.0 | today's `-from-httpx` REFUSES these rows: the v1.12.0 `-csv` capture is a 50-column table (first column `timestamp`), not the `url,status` shape; the chains suite pins that documented refusal — the csv direction is out of contract by decision; the boundary stands |
 
 Capture facts (all recorded, never invented): every capture's stderr is empty
 and its exit code 0. The nuclei capture holds 28 findings that collapse to two

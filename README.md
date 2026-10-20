@@ -8,12 +8,11 @@ A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
 readiness scanner. One static binary that enumerates protocol versions, cipher
 suites, key-exchange groups, signature algorithms and certificate properties —
 scores every observation on a PQC-readiness rubric — and speaks the
-Project Discovery dialect (stdin → stdout, streaming JSONL, chainable with
+import toolset's dialect (stdin → stdout, streaming JSONL, chainable with
 `subfinder` → `httpx` → `naabu` → `nuclei`).
 
 **Status:** the `2026.01-rc3` release-candidate cut is live and attested; the
-specification ([`docs/spec.md`](docs/spec.md)) is in force and the milestone
-register is closed ([register](https://github.com/shsingh/pqscan/issues/4)).
+specification ([`docs/spec.md`](docs/spec.md)) is in force.
 
 ## What it does
 
@@ -35,7 +34,7 @@ register is closed ([register](https://github.com/shsingh/pqscan/issues/4)).
 
 (Rows tagged *historical* were captured at their evidence run; google.com is the live reference target for re-measurement.)
 
-M0-gate measurements (spec
+Measured baselines (spec
 [`§7.8`](docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class)):
 the SLO suite is re-run on every perf-suite merge and this table tracks the
 current evidence. Issue comments on the linked evidence carry the verbatim
@@ -90,14 +89,9 @@ via heading anchors.
 | Test and verification | [`docs/spec.md#10-test-and-verification-strategy`](docs/spec.md#10-test-and-verification-strategy) |
 | PQC codepoints (registry snapshot) | [`docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot`](docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot) |
 
-Roadmap milestones (no time claims — acceptance-criteria driven):
-
-- **M0** — engine spike + measurement report (Go/Rust decision gate)
-- **M1** — fast mode + the output dialect
-- **M2** — PQC classification + deep mode
-- **M3** — scale hardening (budgets, breakers, WAL resume, SLO suite)
-- **M4** — QUIC plane + PTR enrichment
-- **M5** — release packaging
+The milestone ladder is historical — its record lives in the
+repository's milestones and the closed issues; the current truth is the
+releases and the live CLI surface.
 
 ## Contributing
 

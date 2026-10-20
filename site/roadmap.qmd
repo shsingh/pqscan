@@ -1,30 +1,11 @@
 # Roadmap
 
 Live work runs on the [pqscan Roadmap board](https://github.com/users/shsingh/projects/6)
-(Target = milestone, Status = execution state) with the M0 register on
-[issue #4](https://github.com/shsingh/pqscan/issues/4) — native
+(Target and Status fields set execution order and state) with the work
+register on [issue #4](https://github.com/shsingh/pqscan/issues/4) — native
 `blocked-by` edges enforce the order.
 
-## Milestones
-
-| Milestone | Scope | State |
-|---|---|---|
-| **M0** — measurement and decision gate | Engine spikes measured (TCP matrix, QUIC plane, microbench), language verdict re-scored (re-affirm ADR-0001 or fire the kill-switch) | gate closing — report: [m0-report](https://github.com/shsingh/pqscan/blob/main/docs/m0-report.md) |
-| **M1** — fast mode + output dialect | Target grammar, fast handshakes, JSONL/CSV/text/URLs out, exit codes, `-stats`, docs drift check | pending |
-| **M2** — PQC classification + deep mode | IANA regen pipeline, scoring rubric + verdicts, deep plan executor, differential vs gnutls-cli-debug | pending |
-| **M3** — scale hardening | Budgets/AIMD/breakers, WAL resume, SLO suite in CI, shard mode | pending |
-| **M4** — QUIC plane + enrichment | h3 via direct QUIC handshake, PQ-in-QUIC, PTR pool + SNI strategies, `-certs-dir` | pending |
-| **M5** — release | goreleaser binaries with SLSA provenance (ADR-0003), JSON schema, fixture results publish | pending |
-
-Acceptance criteria per milestone live in
-[`docs/spec.md#9-milestones`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#9-milestones)
-— no milestones are time-bound; the gates are criteria, not dates.
-
-## Current gate (M0)
-
-The measurement and decision gate: every engine claim is measured, not
-asserted. The leaf lanes and their live statuses are on the
-[register](https://github.com/shsingh/pqscan/issues/4); first-live-run
-findings (forced 4588 negotiated against a hybrid endpoint; the obsolete-Kyber
-oracle provoking an HRR demanding the draft group) are recorded on the
-respective issues as verbatim run comments.
+The milestone ladder lived on this page through the `2026.01`
+candidates; the record lives in the repository's milestones and the
+closed issue register. The current truth is the releases and the live
+CLI surface.

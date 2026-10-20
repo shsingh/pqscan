@@ -1,7 +1,7 @@
 # Planned CLI surface (USAGE.md rows ahead of the engine; PQ-17).
 # A flag leaves this list when its implementation lands: then the src->usage
 # check enforces its documented row instead. Source of truth:
-# docs/spec.md#8-cli-surface (M1-M5 leaves).
+# docs/spec.md#8-cli-surface (the planned surface).
 c
 cidr
 client-fingerprint
