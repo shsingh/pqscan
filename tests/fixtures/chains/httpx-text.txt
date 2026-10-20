@@ -1,0 +1,5 @@
+# pinned-capture (PQ-55 chain cell): httpx -silent -ports 443,8443 -p 443,8443 -no-color
+# (targets on stdin)
+# httpx v1.12.0 — captured 2026-10-20; stdin = scanme.sh. 1 result line
+# (scheme, no explicit port); stderr empty.
+https://scanme.sh
