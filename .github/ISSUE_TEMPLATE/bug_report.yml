@@ -16,6 +16,13 @@ body:
         stderr (copy it too) carry the run's engine decisions: probe states,
         rejections, alerts, classifications, timeouts and effective flags.
         Redact anything the output may expose that you cannot share.
+
+        **Name the reproducing matrix cell.** The landed cells live in
+        `tests/matrix/LEDGER.md` (the per-build checkbox registry is
+        [issue #150](https://github.com/shsingh/pqscan/issues/150)'s body), and
+        the Matrix cell field below must carry one: pick the reproducing id, or
+        `new` when no cell reproduces the report yet — the fixer derives the row
+        and lands the cell in the fix PR.
   - type: input
     id: version
     attributes:
@@ -31,6 +38,46 @@ body:
       description: The exact invocation (redact sensitive targets) and what you were scanning.
       placeholder: |
         pqscan -mode fast -jsonl example.com
+    validations:
+      required: true
+  - type: dropdown
+    id: matrix-cell
+    attributes:
+      label: Matrix cell (combination ledger)
+      description: >-
+        The ledger cell that reproduces this report — an array id
+        (`M0001`–`M0020`, `tests/matrix/cases.jsonl`), the battery, the refusal
+        or the chains suite, or `new` when the reproducing combination is not
+        yet a cell: the fixer then derives the row and lands the cell, its
+        registry checkbox and its ledger row in the fix PR
+        ([issue #150](https://github.com/shsingh/pqscan/issues/150));
+        `tests/matrix/LEDGER.md` is the ledger of what each cell pins.
+      multiple: true
+      options:
+        - M0001
+        - M0002
+        - M0003
+        - M0004
+        - M0005
+        - M0006
+        - M0007
+        - M0008
+        - M0009
+        - M0010
+        - M0011
+        - M0012
+        - M0013
+        - M0014
+        - M0015
+        - M0016
+        - M0017
+        - M0018
+        - M0019
+        - M0020
+        - battery
+        - refusal
+        - chains
+        - new
     validations:
       required: true
   - type: textarea
