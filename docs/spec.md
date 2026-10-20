@@ -289,6 +289,14 @@ pqscan -l assets.txt -mode fast -urls \
   | nuclei -silent -tags tls
 ```
 
+- **nuclei → pqscan (import: the findings' hosts).** The import joins the adapter contract with the pinned-capture doctrine's one command, version-stamped — `nuclei -l hosts.txt -silent -j` (nuclei's captured help confirms `-l`, `-silent`, `-j`):
+
+```bash
+nuclei -l hosts.txt -silent -j > findings.jsonl
+```
+
+  pqscan's import side is the planned `-from-nuclei` adapter (§8's Targeting row): the pinned findings JSONL reads as target lines under the one dedupe. Until it lands, the reverse direction carries the traffic (`pqscan -urls | nuclei -silent -tags tls`, above).
+
 - **Whole-organization PQ calendar job:** weekly `pqscan -l targets.txt -mode pq -jsonl | diff yesterday.jsonl -` or run in CI against a pinned list; pqscan's deterministic ordering (`-sorted`) makes diffs meaningful.
 
 ## 7. The hard part: async architecture and throughput (first-class)
@@ -423,13 +431,18 @@ Comparative baselines recorded at M3: zgrab2, sslyze, cryptonice, gnutls-cli-deb
 
 ## 8. CLI surface
 
+The standing parity census — every §8 flag ↔ its USAGE row ↔ its implemented
+state, with the pinned reference-tool captures — lives in
+[`docs/surface-census.md`](surface-census.md), guarded by
+`scripts/check_spec_usage_parity.sh`.
+
 - `pqscan -u example.com` — the zero-configuration entry.
-- Targeting: `-u`, `-l`, `-cidr`, `-p`, `-from-httpx`, `-from-naabu`, `-shard i/n`, `-resume`
-- Modes: `-mode fast|deep|pq|selftest`, `-deep standard|full`, `-quic`, `-quic-always`, `-http`
-- Probes: `-probe-suite`, `-probe-version`, `-probe-group`, `-probe-sigalg` (force sets), `-client-fingerprint chrome|firefox|safari|ios|gotls`, `-ja4`, `-jarm`
-- TLS knobs: `-sni auto|ptr-then-ip|ip-only|strict-sni`, `-ptr`, `-no-ptr`, `-timeout`, `-connect-timeout`, `-retries`, `-verify`, `-ca-bundle`
-- Performance: `-threads` (engine workers), `-c` (in-flight cap), `-rate`, `-dns-threads`, `-stats`, `-no-color`
-- Output: `-json`, `-jsonl`, `-csv`, `-urls`, `-text` (default; the format-parity surface: `deep=<plan|pq>:<N>p/<N>ok/<N>rej` — the executed deep plan's counts, the forced PQ ladder's counts riding the same tail on `-mode pq` —, `cert=<sig>/<key>` with `+pq-sig/+pq-key/+dual`, `ptr=/sni=`, `pq=<label>(<score>)` all ride the line when present so the human format tells the same story jsonl does), `-o`, `-fields`, `-certs-dir`, `-explain` (the plain-language reading under each `-text` line), `-silent`, `-stream`/`-sorted`
+- Targeting: `-u`, `-l`, `-cidr`, `-p`, `-from-httpx`, `-from-naabu`, `-from-nuclei` (the pinned nuclei capture: `nuclei -l hosts.txt -silent -j`), `-shard i/n`, `-resume`
+- Modes: `-mode fast|deep|pq|selftest`, `-deep standard|full`, `-quic-always`, `-quic-off`, `-http`
+- Probes: `-probe-suite`, `-probe-version`, `-probe-group`, `-probe-sigalgs` (force sets), `-client-fingerprint chrome|firefox|safari|ios|gotls`, `-jarm`
+- TLS knobs: `-sni auto|ptr-then-ip|ip-only|strict-sni`, `-ptr`, `-timeout`, `-connect-timeout`, `-retries`
+- Performance: `-threads` (engine workers), `-c` (in-flight cap), `-rate`, `-dns-threads`, `-stats`
+- Output: `-json`, `-jsonl`, `-csv`, `-urls`, `-text` (default; the format-parity surface: `deep=<plan|pq>:<N>p/<N>ok/<N>rej` — the executed deep plan's counts, the forced PQ ladder's counts riding the same tail on `-mode pq` —, `cert=<sig>/<key>` with `+pq-sig/+pq-key/+dual`, `ptr=/sni=`, `pq=<label>(<score>)` all ride the line when present so the human format tells the same story jsonl does), `-o`, `-fields`, `-certs-dir`, `-explain` (the plain-language reading under each `-text` line), `-silent`, `-sorted` (output streams unordered by completion — the §5.7 default — so the unordered case carries no flag; `-sorted` buffers input order for review and diffs)
 - Shells: `-completion bash|zsh` (the completion script on stdout, generated from the same surface the help renders)
 - Legacy module: `-legacy module=heartbleed,ccs,robot,sslv3` (opt-in, off by default)
 - Config: `-config pqscan.yaml` (org profiles: default ports, budgets, probes, output path); env overrides `PQSCAN_*`; `-h2c`/`-http2` never needed (ALPN is automatic).

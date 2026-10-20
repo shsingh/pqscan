@@ -110,6 +110,10 @@ DESCRIPTION
                          Composes with -u/-l/-- under the one dedupe;
                          # comments skip. A read or parse failure
                          refuses the run named by its flag (exit 64).
+    -from-nuclei file    Planned adapter: a nuclei -j findings JSONL (the
+                         pinned capture `nuclei -l hosts.txt -silent -j`)
+                         read as target lines under the one dedupe (§6's
+                         import chain).
     -shard i/n           Scan only shard i of n (zgrab2-style, for
                          multi-box passes; 1 <= i <= n): the composed
                          targets (post-composition, after the one
@@ -159,7 +163,6 @@ DESCRIPTION
                           ladders, the full signature-scheme ladder and
                           the feature probes — observed facts never prune
                           it.
-    -quic                 QUIC/h3 probing on domain workloads.
     -quic-always          QUIC probing regardless of Alt-Svc hints.
     -quic-off             Skip the QUIC plane probe entirely (TCP-only
                           runs; IP targets).
@@ -169,6 +172,8 @@ DESCRIPTION
     -probe-group groups   Force supported-groups list (PQC ladder).
     -probe-sigalgs algs   Force signature-algorithms list.
     -probe-version v      Force protocol version.
+    -jarm                 JARM server-fingerprint hash (§5.4's optional
+                          flag; httpx -jarm is the captured convention).
 
     HELLO AND TLS
     -client-fingerprint p   chrome | firefox | safari | ios | gotls
@@ -191,13 +196,11 @@ DESCRIPTION
                           hostname targets never consult the pool
                           (their SNI is the host). default off (an
                           IP target's SNI stays the bare literal
-                          without the flag); -no-ptr remains a
-                          planned spelling.
+                          without the flag.
     -timeout secs           Per-probe timeout (default 8s with +-20%% jitter).
     -connect-timeout secs   TCP/UDP connect timeout (default 2s).
     -retries n              Transient-only retries (default 1; protocol
                             rejections never retried).
-    -verify / -ca-bundle f  Certificate verification posture.
 
     PERFORMANCE
     -threads n        AIMD window ceiling: max target probes in flight;
