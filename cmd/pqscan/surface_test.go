@@ -383,6 +383,54 @@ func TestCLISurfaceContract(t *testing.T) {
 		t.Errorf("-h misses the doubled-dash equivalence note: the doubled spellings parse, the help must say so")
 	}
 	t.Logf("── -h carries the --word ≡ -word equivalence note ──")
+
+	// ---- 9. the -from-nuclei import surface (PQ-55, issue #149): the
+	// findings adapter rides the same contract every input flag ships —
+	// registered on the single surface with a both-dash parse, a
+	// TARGETS AND INPUT help group, a filesystem-path completion entry,
+	// its man-page IMPLEMENTED row, and planned-list exit.
+	t.Logf("── the -from-nuclei import surface ──")
+	if f := fs.Lookup("from-nuclei"); f == nil {
+		t.Errorf("-from-nuclei does not register on the single flag surface")
+	} else {
+		if f.DefValue != "" {
+			t.Errorf("-from-nuclei's default is %q, want the empty file default", f.DefValue)
+		}
+		grp, pos := helpGroupFor("from-nuclei")
+		if grp != "TARGETS AND INPUT" || pos < 0 {
+			t.Errorf("-from-nuclei help group = %q (pos %d), want TARGETS AND INPUT", grp, pos)
+		} else {
+			t.Logf("-from-nuclei group=%s (row %d of the group), man=%v", grp, pos+1, usageRows["-from-nuclei"])
+		}
+	}
+	for _, spell := range []string{"-from-nuclei", "--from-nuclei"} {
+		var o, e bytes.Buffer
+		absent := filepath.Join(t.TempDir(), "absent-findings.jsonl")
+		if code := run([]string{spell, absent}, &o, &e); code != 64 {
+			t.Errorf("%s <absent file>: exit = %d, want 64 (the adapter's usage refusal)", spell, code)
+		} else if strings.Contains(e.String(), "flag provided but not defined") || !strings.Contains(e.String(), "-from-nuclei") {
+			t.Errorf("%s <absent file>: stderr %q — want the adapter refusal naming -from-nuclei", spell, e.String())
+		} else {
+			t.Logf("%s refusal ✓ (both dash spellings parse to the same usage class)", spell)
+		}
+	}
+	if !usageRows["-from-nuclei"] {
+		t.Errorf("-from-nuclei has no USAGE.md OPTIONS row (the standing duty: usage = src)")
+	}
+	if planned["from-nuclei"] {
+		t.Errorf("-from-nuclei still rides the planned allowlist: an implemented flag leaves the list in the same change")
+	}
+	inFileFlags := false
+	for _, n := range flagFiles {
+		if n == "from-nuclei" {
+			inFileFlags = true
+		}
+	}
+	if !inFileFlags {
+		t.Errorf("from-nuclei is not in flagFiles: the completions would not offer filesystem paths for its file argument")
+	} else {
+		t.Logf("-from-nuclei file-completion entry ✓; man row ✓; planned-list exit ✓")
+	}
 }
 
 // fsLookup is the flag-set lookup shaped for the map-driven row check.

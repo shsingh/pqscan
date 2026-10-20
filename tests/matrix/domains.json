@@ -17,6 +17,7 @@
     "@tmp/targets-l.txt": "-l target-list file the runner materializes per case (one line: the fixture target spec)",
     "@tmp/targets-httpx.txt": "-from-httpx adapter file the runner materializes per case (httpx dialect: tcp://<$TARGET>)",
     "@tmp/targets-naabu.txt": "-from-naabu adapter file the runner materializes per case (naabu dialect: one host:port line)",
+    "@tmp/targets-nuclei.txt": "-from-nuclei adapter file the runner materializes per case (nuclei -j finding line: matched-at https://<$TARGET>)",
     "@tmp/out.txt": "-o output path (per-case temp dir)",
     "@tmp/diag.json": "-debug-out diagnostics report path (per-case temp dir)",
     "@tmp/certs": "-certs-dir export directory (per-case temp dir)"
@@ -71,6 +72,16 @@
       "spell": {"unset": "absent", "set": "-from-naabu @tmp/targets-naabu.txt"},
       "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations",
       "note": "naabu input dialect (host:port lines, or a host line followed by bare ports); composes with -u/-l/--"
+    },
+    {
+      "id": "from-nuclei",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "set"],
+      "default": "unset",
+      "spell": {"unset": "absent", "set": "-from-nuclei @tmp/targets-nuclei.txt"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations",
+      "note": "nuclei -j findings JSONL import (the pinned capture `nuclei -l hosts.txt -silent -j`): each finding contributes its matched-at host:port (the url field falls back; scheme/path stripped); composes with -u/-l/-- — the adapter never dedupes, the composition's one layer does"
     },
     {
       "id": "shard",
@@ -332,6 +343,7 @@
         {"param": "l", "value": "stdin"},
         {"param": "from-naabu", "value": "set"},
         {"param": "from-httpx", "value": "set"},
+        {"param": "from-nuclei", "value": "set"},
         {"param": "--", "value": "present"}
       ],
       "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",

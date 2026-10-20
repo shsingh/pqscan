@@ -1,0 +1,5 @@
+# pinned-capture (PQ-55 chain cell): naabu -l domains.txt -p 443,8443,465,993 -silent
+# naabu 2.6.1 — captured 2026-10-20; domains.txt = scanme.sh. 2 result lines,
+# both scanme.sh:443 (the composition dedupes to one host:port); stderr empty.
+scanme.sh:443
+scanme.sh:443

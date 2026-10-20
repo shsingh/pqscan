@@ -570,11 +570,19 @@ func TestRateLimiterEnforced(t *testing.T) {
 			wantMin: 350 * time.Millisecond,
 		},
 		{
-			name:    "default rate 0 stays uncapped",
+			name:    "default rate 0 stays uncapped (the relative contract: the run must beat the paced run's own wall; the 2 s ceiling is the CI runner's contention guard only)",
 			rate:    "",
-			wantMax: 200 * time.Millisecond,
+			wantMax: 2 * time.Second,
 		},
 	}
+	// The relative contract (the cure for the CI wall race — the 5-rps
+	// run's (k-1)/rps = 2/5 s launch cadence is a floor timers never fire
+	// under, so the paced run's wall is real margin): the uncapped run's
+	// elapsed must beat the PACED run's measured wall for the same
+	// fixture work. The old absolute 200 ms bound read 295 ms on the
+	// CI runner's 2-core contention (run 39396784189) — a wall number
+	// cannot carry this contract; the paced-vs-uncapped comparison can.
+	var pacedElapsed, uncappedElapsed time.Duration
 	for _, row := range rows {
 		row := row
 		t.Run(row.name, func(t *testing.T) {
@@ -616,11 +624,22 @@ func TestRateLimiterEnforced(t *testing.T) {
 				t.Fatalf("elapsed = %s (< %s): -rate %s does not pace the launches",
 					elapsed, row.wantMin, row.rate)
 			}
+			switch {
+			case row.rate != "":
+				pacedElapsed = elapsed
+			default:
+				uncappedElapsed = elapsed
+			}
 			if row.wantMax > 0 && elapsed > row.wantMax {
-				t.Fatalf("elapsed = %s (> %s): the uncapped default paces anyway",
+				t.Fatalf("elapsed = %s (> %s): beyond the runner-contention guard — the uncapped default paces anyway",
 					elapsed, row.wantMax)
 			}
 		})
+	}
+	if uncappedElapsed > 0 && pacedElapsed > 0 && uncappedElapsed >= pacedElapsed {
+		t.Fatalf("the uncapped run's elapsed %s >= the paced run's %s: the uncapped default paces anyway "+
+			"(the relative contract: the 5-rps cadence's 2/5 s launch floor is the margin, no wall number)",
+			uncappedElapsed, pacedElapsed)
 	}
 }
 

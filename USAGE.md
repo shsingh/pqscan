@@ -110,10 +110,18 @@ DESCRIPTION
                          Composes with -u/-l/-- under the one dedupe;
                          # comments skip. A read or parse failure
                          refuses the run named by its flag (exit 64).
-    -from-nuclei file    Planned adapter: a nuclei -j findings JSONL (the
-                         pinned capture `nuclei -l hosts.txt -silent -j`)
-                         read as target lines under the one dedupe (§6's
-                         import chain).
+    -from-nuclei file    nuclei -j findings JSONL (the pinned capture
+                         `nuclei -l hosts.txt -silent -j`): one JSON
+                         finding per line; each finding contributes its
+                         matched-at host:port (the url field is the
+                         fallback where matched-at is empty), scheme and
+                         path stripped to the spec. The findings enter
+                         the ONE composition (-u, -l, -- and the other
+                         adapters share), deduped by host:port (findings
+                         repeat one host:port; the dedupe collapses);
+                         # comments skip. A line that is not a finding
+                         (no matched-at/url) or a read failure refuses
+                         the run named by its flag (exit 64).
     -shard i/n           Scan only shard i of n (zgrab2-style, for
                          multi-box passes; 1 <= i <= n): the composed
                          targets (post-composition, after the one

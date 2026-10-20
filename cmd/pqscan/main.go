@@ -62,7 +62,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs, vals := newFlagSet()
 	wireFlagSetOutput(fs, stderr)
 	showVersion, debug, debugOut := vals.ShowVersion, vals.Debug, vals.DebugOut
-	target, listFile, httpxFile, naabuFile := vals.Target, vals.ListFile, vals.HTTPX, vals.Naabu
+	target, listFile, httpxFile, naabuFile, nucleiFile := vals.Target, vals.ListFile, vals.HTTPX, vals.Naabu, vals.Nuclei
 	shardSpec, outFile := vals.ShardSpec, vals.OutFile
 	quicOff, quicAlways, resume := vals.QuicOff, vals.QuicAlways, vals.Resume
 	rate, threads := vals.Rate, vals.Threads
@@ -175,7 +175,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	targets, code := composeTargets(*target, *listFile, *httpxFile, *naabuFile, args, stderr)
+	targets, code := composeTargets(*target, *listFile, *httpxFile, *naabuFile, *nucleiFile, args, stderr)
 	if code != 0 {
 		return code
 	}

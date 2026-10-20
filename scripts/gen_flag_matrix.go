@@ -24,8 +24,8 @@
 //
 //   - prereq (B requires A): explain=on → text=on; deep=full → mode=deep;
 //     resume=on → o=file; and the source floor (≥1 of u/l/from-naabu/
-//     from-httpx/'--'), satisfied per row through the runner's unconditional
-//     -u injection.
+//     from-httpx/from-nuclei/'--'), satisfied per row through the runner's
+//     unconditional -u injection.
 //   - conflict (mutually exclusive members): quic-always=on ⊕ quic-off=on.
 //
 // -json/-jsonl stay CONFLICT-free (the alias pair; both resolve to the

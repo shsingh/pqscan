@@ -344,6 +344,17 @@ func materializeToken(t *testing.T, label, dir, addr, tok string) string {
 			t.Fatalf("%s: naabu file: %v", label, err)
 		}
 		return p
+	case "@tmp/targets-nuclei.txt":
+		// The nuclei -j finding dialect (the pinned capture's observed
+		// shape): one JSON finding per line, matched-at the canonical
+		// host field (the parser's url fallback covers the empty
+		// matched-at; the materialized line never needs it).
+		p := stamp("targets-nuclei.txt")
+		finding := `{"template-id":"pqscan-matrix","matcher-status":true,"matched-at":"https://` + addr + `"}` + "\n"
+		if err := os.WriteFile(p, []byte(finding), 0o644); err != nil {
+			t.Fatalf("%s: nuclei finding file: %v", label, err)
+		}
+		return p
 	}
 	if strings.HasPrefix(tok, "@tmp/") {
 		t.Fatalf("%s: unknown materialized-file token: %q", label, tok)
