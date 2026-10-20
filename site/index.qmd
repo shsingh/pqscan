@@ -11,7 +11,7 @@ cipher suites, key-exchange groups, signature algorithms and certificate
 properties — scores every observation on a PQC-readiness rubric — and
 speaks the Project Discovery dialect (stdin → stdout, streaming JSONL).
 
-**Status:** the `2026.01-rc2` release-candidate cut is live and attested; the
+**Status:** the `2026.01-rc3` release-candidate cut is live and attested; the
 specification
 ([`docs/spec.md`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md)) is
 in force and the milestone register is closed
@@ -54,7 +54,7 @@ verification steps, Windows — lives in
 
 ```bash
 brew tap shsingh/tap && brew install pqscan        # macOS
-go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc2   # any platform with Go
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3   # any platform with Go
 gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
 ```
 

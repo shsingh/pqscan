@@ -7,7 +7,7 @@ platforms (linux/amd64+arm64, darwin/amd64+arm64, windows/amd64) plus
 ([ADR-0003](docs/adr/0003-slsa-provenance-attestations.md)).
 
 The tagged version used in the examples below is always the current
-release: substitute `2026.01-rc2` with the latest tag from the release
+release: substitute `2026.01-rc3` with the latest tag from the release
 page.
 
 ## Verify before you run
@@ -33,7 +33,7 @@ Manual install without Homebrew (Apple Silicon):
 
 ```bash
 curl -fsSL -o pqscan \
-  https://github.com/shsingh/pqscan/releases/download/2026.01-rc2/pqscan-darwin-arm64
+  https://github.com/shsingh/pqscan/releases/download/2026.01-rc3/pqscan-darwin-arm64
 chmod +x pqscan && sudo mv pqscan /usr/local/bin/
 ```
 
@@ -42,7 +42,7 @@ chmod +x pqscan && sudo mv pqscan /usr/local/bin/
 ```bash
 ARCH=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)
 curl -fsSL -o pqscan \
-  "https://github.com/shsingh/pqscan/releases/download/2026.01-rc2/pqscan-linux-${ARCH}"
+  "https://github.com/shsingh/pqscan/releases/download/2026.01-rc3/pqscan-linux-${ARCH}"
 sha256sum -c <(grep "pqscan-linux-${ARCH}" CHECKSUMS-sha256.txt)   # after fetching CHECKSUMS-sha256.txt
 gh attestation verify "pqscan-linux-${ARCH}" -R shsingh/pqscan
 chmod +x pqscan && sudo mv pqscan /usr/local/bin/
@@ -52,11 +52,11 @@ chmod +x pqscan && sudo mv pqscan /usr/local/bin/
 
 ```powershell
 curl.exe -L -o pqscan.exe `
-  "https://github.com/shsingh/pqscan/releases/download/2026.01-rc2/pqscan-windows-amd64.exe"
+  "https://github.com/shsingh/pqscan/releases/download/2026.01-rc3/pqscan-windows-amd64.exe"
 # verify: sha256 against CHECKSUMS-sha256.txt, then
 #   gh attestation verify pqscan-windows-amd64.exe -R shsingh/pqscan
 
-go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc2   # from source instead
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3   # from source instead
 ```
 
 ## From source (all platforms)
@@ -65,7 +65,7 @@ The module path is `github.com/shsingh/pqscan`; installing by tag pins
 the version (recommended over `@latest` until v1):
 
 ```bash
-go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc2
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3
 ```
 
 Requirements: Go 1.25+ (the toolchain floor in `go.mod`). The binary is
