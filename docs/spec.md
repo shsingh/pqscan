@@ -73,7 +73,7 @@ There is no modern, fast, small, dependency-free tool that (a) enumerates cipher
 
 ## 4. Language decision: Go or Rust
 
-Both are viable for a scanner of this shape. The decision matrix below is written so it can be re-scored at M0 (Section 10) when facts change.
+Both are viable for a scanner of this shape. The decision matrix below is written so it can be re-scored when facts change (Section 10).
 
 ### 4.1 Go
 
@@ -109,7 +109,7 @@ Both are viable for a scanner of this shape. The decision matrix below is writte
 
 ### 4.3 Verdict
 
-**Go, with uTLS as the Hello-construction escape hatch, and quic-go for the UDP plane.** The binding constraint for a cipher scanner is *socket-parallelism and latency*, not per-connection CPU (Section 7's math), so Rust's throughput edge is mostly theoretical here; Go's ecosystem (PD conventions, goreleaser, crypto/tls MLKEM defaults, uTLS) buys the PD-like feel the PRD treats as a requirement. The Rust option stays scored in M0 and revisited only if real measurements show Go missing its throughput SLOs with no fix in reach. This choice is recorded with its kill-switch criteria so switching is a decision, not a vibe.
+**Go, with uTLS as the Hello-construction escape hatch, and quic-go for the UDP plane.** The binding constraint for a cipher scanner is *socket-parallelism and latency*, not per-connection CPU (Section 7's math), so Rust's throughput edge is mostly theoretical here; Go's ecosystem (PD conventions, goreleaser, crypto/tls MLKEM defaults, uTLS) buys the PD-like feel the PRD treats as a requirement. The Rust option is revisited only if real measurements show Go missing its throughput SLOs with no fix in reach. This choice is recorded with its kill-switch criteria so switching is a decision, not a vibe.
 
 ## 5. Feature set
 
@@ -260,10 +260,11 @@ subfinder -d example.com -silent \
 ```
 
   (httpx text-mode lines are host-URI-ish; the built-in parser strips
-  scheme/status decorations. `-from-httpx` reads the TEXT dialect only:
-  the pinned v1.12.0 `-csv` capture is a 50-column table whose first column
-  is `timestamp` — not a `url,status` pair — so these rows refuse through
-  the text adapter; a csv adapter stays a planned row.)
+  scheme/status decorations. `-from-httpx` reads the TEXT dialect only,
+  the contract of the pinned capture command `httpx -silent -ports
+  443,8443 -p 443,8443 -no-color` (targets on stdin); one-line note:
+  a httpx `-csv` run refuses per the documented boundary — the import
+  contract is the pinned text command.
 
 - **naabu (port truth) → pqscan (cipher truth):**
 
@@ -322,7 +323,7 @@ L ≈ connect_rtt (1) + tls13_handshake_rtt (1)   [2-RTT floor; TLS 1.2 = 2 hand
     + client_crypto (MLKEM-768 encap ~0.05–0.15 ms; negligible)
 ```
 
-At RTT 60 ms: L ≈ 170–400 ms. Throughput for a pool of W concurrent connections is `T ≈ W / L` — *not* cores × something. Concretely: W = 50,000 in-flight, L = 0.3 s ⇒ ~165k handshakes/s ceiling, of which real-world caps (DNS, dial syscalls, client crypto + GC, etiquette) bind first. Client-side crypto is ~0.2–0.6 ms/handshake in Go ⇒ CPU-bound ceiling ≈ 2–4k handshakes/s/core. **Conclusion: the design is a bounded-parallel pipeline with W tuned to the CPU and ethics caps, and the language choice is not the bottleneck.** This math drives every budget below and is re-measured, not assumed, in M0.
+At RTT 60 ms: L ≈ 170–400 ms. Throughput for a pool of W concurrent connections is `T ≈ W / L` — *not* cores × something. Concretely: W = 50,000 in-flight, L = 0.3 s ⇒ ~165k handshakes/s ceiling, of which real-world caps (DNS, dial syscalls, client crypto + GC, etiquette) bind first. Client-side crypto is ~0.2–0.6 ms/handshake in Go ⇒ CPU-bound ceiling ≈ 2–4k handshakes/s/core. **Conclusion: the design is a bounded-parallel pipeline with W tuned to the CPU and ethics caps, and the language choice is not the bottleneck.** This math drives every budget below and is re-measured, not assumed.
 
 ### 7.2 Pipeline shape (five stages, all bounded, all streaming)
 
@@ -409,7 +410,7 @@ flowchart TD
 
 - quic-go v0.5x with `tls.Config` sharing the same group/sig control story as TCP; version v1/v2, ALPN `h3`.
 - QUIC probes trigger on: explicit `-quic-always`, `-quic` on domain workloads, or an Alt-Svc h3 hint from fast mode. Raw-internet mode does QUIC only for hinted hosts by default (UDP half-open scans elsewhere are a v2 idea, not the default).
-- In-flight budget separate (10k) because quic-go's per-conn goroutine + timer cost ≈ 5× TCP; measured at M2, budget auto-derived at startup (like TCP's).
+- In-flight budget separate (10k) because quic-go's per-conn goroutine + timer cost ≈ 5× TCP; budget auto-derived at startup from the measured constants (like TCP's).
 - UDP-outbound-blocked networks detected in probes ⇒ `udp_blocked` reported rather than retried.
 
 ### 7.6 No head-of-line anywhere (the discipline list)
@@ -420,12 +421,12 @@ DNS/PTR enrichment never delays the handshake stream (SNI-less IP handshakes run
 
 - Handshake buffers via `sync.Pool` (4–16 KB), pre-sized hello templates per fingerprint preset; codepoint→name maps as static arrays, no Sprintf in the hot path.
 - JSONL encoder is hand-rolled for the hot record (no reflection): ~3× less alloc than `encoding/json` marshal paths.
-- `GOMEMLIMIT` set by default from the W budget; `GOGC` 300; optional `GOGC=off` + `FreeOSMemory` in long internet passes (benchmarked before M5, not by taste).
+- `GOMEMLIMIT` set by default from the W budget; `GOGC` 300; optional `GOGC=off` + `FreeOSMemory` in long internet passes (benchmarked before release, not by taste).
 - Target: < 4 GB RSS at 50k TCP + 10k QUIC in-flight including result/WAL buffers — measured in CI perf suite (Section 10.3).
 
 ### 7.8 Benchmarks and SLOs (CI-enforced)
 
-| Metric | SLO (measured, M0/M2/M3) |
+| Metric | SLO (measured) |
 |---|---|
 | fast-mode handshakes/s/core vs cloudflare.com | ≥ 2,500 |
 | fast-mode aggregate, 16 cores, rate 20k/s | sustained 30 min, W stable |
@@ -436,7 +437,7 @@ DNS/PTR enrichment never delays the handshake stream (SNI-less IP handshakes run
 | RSS @ 50k/10k in-flight | < 4 GB |
 | Resume replay of a 10 M-record WAL | < 60 s |
 
-Comparative baselines recorded at M3: zgrab2, sslyze, cryptonice, gnutls-cli-debug (per-target depth), httpx (raw churn). We publish the harness and numbers, and expect to lose to zgrab2 on raw churn while winning decisively on per-target depth at chainable scale.
+Comparative baselines recorded: zgrab2, sslyze, cryptonice, gnutls-cli-debug (per-target depth), httpx (raw churn). We publish the harness and numbers, and expect to lose to zgrab2 on raw churn while winning decisively on per-target depth at chainable scale.
 
 ## 8. CLI surface
 
@@ -458,16 +459,10 @@ state, with the pinned reference-tool captures — lives in
 
 ## 9. Milestones
 
-| # | Milestone | Acceptance criteria |
-|---|---|---|
-| M0 | Engine spike + measurement report | crypto/tls + uTLS capability matrix proven (group forcing incl. 4588 + HRR observation; suite forcing); quic-go handshake with group control working; throughput microbench ≥ 2.5k/s/core; **Go-vs-Rust decision re-scored with numbers** |
-| M1 | fast mode + output dialect | grammar-in (hosts/naabu/httpx/masscan), fast handshakes on TCP, JSONL/text/csv/urls out, exit codes, `-stats` |
-| M2 | PQC classification + deep mode | IANA regen pipeline live, scoring rubric + verdicts, deep plan executor (≤ 24-probe default), sig-alg + cert PQ analytics, differential correctness vs gnutls-cli-debug on fixture matrix |
-| M3 | Scale hardening | budgets/AIMD/breakers as specced, WAL resume, SLO suite green in CI, shard mode |
-| M4 | QUIC plane + enrichment | h3 via direct QUIC handshake, PQ-in-QUIC observed, PTR pool + SNI strategies, `-certs-dir` |
-| M5 | Release | goreleaser static binaries (linux/macos amd64+arm64, 1 MB–15 MB), docs, JSON schema published, fixture matrix results published, `-deep full` verified against badssl + PQC ground-truth hosts |
-
-Sequencing rule: M0 is the measurement and decision gate; each subsequent milestone depends only on its predecessor's acceptance criteria.
+The milestone ladder lived in this section through the `2026.01`
+candidates; the record lives in the repository's milestones and the
+closed issue register — the current truth is the releases and the live
+CLI surface.
 
 ## 10. Test and verification strategy
 
@@ -498,10 +493,10 @@ Sequencing rule: M0 is the measurement and decision gate; each subsequent milest
 
 | Risk | Mitigation |
 |---|---|
-| crypto/tls/uTLS drift or API changes break group forcing | M0 pins both stacks; CI runs the capability matrix nightly; vendor-lock fences in go.mod; IANA regen pipeline makes codepoint drift a rebuild |
+| crypto/tls/uTLS drift or API changes break group forcing | the pinned capability run re-proves both stacks; CI runs the capability matrix nightly; vendor-lock fences in go.mod; IANA regen pipeline makes codepoint drift a rebuild |
 | SNI-less IP handshakes return CDN default certs → misleading verdicts | `-strict-sni` verdict flag; SNI-less records carry `sni_used=false` and get verdict-badged `provisional` unless strict mode |
 | Middleboxes choke on large PQ ClientHello (tldr.fail class) | Recorded as `clienthello_too_large` observed state; fast mode can fall back to classic hello and re-probe (flag `-pq-fallback`, default on fast mode for raw IP scans) |
-| quic-go budget blowout on internet scale | Separate QUIC budget, hint-gated probing, M2 measurements drive W_q |
+| quic-go budget blowout on internet scale | Separate QUIC budget, hint-gated probing, live measurements drive W_q |
 | Deep mode on millions of hosts is nonsense time | Explicit guidance + `-mode fast` default; docs include the sampling recipe (deep on top-N ASNs, fast everywhere); rate/etiquette docs |
 | Legal/abuse of mass scanning | Defaults + docs per Section 10.4; no bundled 'internet scan' one-liner; shard support but the user owns the ethics |
 | Single-maintainer risk | MIT, small module surface, probe matrix as data (not code) so contributors add probes without touching engines |
@@ -510,7 +505,7 @@ Sequencing rule: M0 is the measurement and decision gate; each subsequent milest
 
 - **Adoption:** used as the TLS/PQC stage in real chains (GitHub stars is not one — watch: external issues, recipe PRs).
 - **Correctness:** fixture-matrix pass rate 100 %; differential exceptions documented and < 5 % of categories.
-- **Performance:** SLO table green in CI at M3+; real-world: one box, fast mode, 10 M targets < 24 h at default caps.
+- **Performance:** SLO table green in CI per cut; real-world: one box, fast mode, 10 M targets < 24 h at default caps.
 - **Utility:** estate calendar job (mode `pq`) produces diff-able verdicts adopted by at least one organisation, beginning with the maintainers' own estate.
 
 ## 13. Repository layout (initial)

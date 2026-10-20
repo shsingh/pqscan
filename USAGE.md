@@ -5,7 +5,7 @@ NAME
     scanner. One static binary enumerating protocol versions, cipher suites,
     key-exchange groups, signature algorithms and certificate properties,
     classifying every observation on a PQC-readiness rubric, and chaining
-    with the Project Discovery toolset (subfinder, httpx, naabu, nuclei).
+    with the import toolset (subfinder, httpx, naabu, nuclei).
 
 SYNOPSIS
     pqscan [-mode fast|deep|pq|selftest] [-u target | -l list | -cidr range]
@@ -79,7 +79,7 @@ DESCRIPTION
     --                   Read target specs from stdin: the bare marker
                          after the options, AND the implicit default
                          input when a pipe feeds a run with no other
-                         target source given (the PD-chain convention,
+                         target source given (the import-chain convention,
                          e.g. subfinder -silent | pqscan -jsonl). A
                          character device (an interactive terminal,
                          /dev/null) never triggers the implicit read;
@@ -90,9 +90,9 @@ DESCRIPTION
                          regular FILE does not trigger the implicit
                          read (that is what -l - and -- are for).
                          Piped spec lines accept scheme://host[:port].
-                         CIDR specs refuse with the PQ-16 deferral
-                         notice (exit 64) until per-address expansion
-                         ships. Deduped by host:port with -u and -l.
+                         CIDR specs refuse (per-address expansion is
+                         not supported; exit 64). Deduped by host:port
+                         with -u and -l.
     -cidr range          CIDR expansion (e.g. 192.0.2.0/24).
     -p port[,port...]    Ports; default 443. Ranges allowed (8000-8100).
     -from-httpx file     httpx text lines: each line is
@@ -101,8 +101,9 @@ DESCRIPTION
                          so bare host:port/host lines parse too
                          (https/443 default). Composes with -u/-l/--
                          under the one dedupe; # comments skip.
-                         (httpx's -csv url,status rows are a planned
-                         adapter.)
+                         (a httpx -csv run refuses here per the
+                         documented boundary: the pinned text command
+                         is the whole httpx import.)
     -from-naabu file     naabu lines: host:port per line, or the
                          ports block — a host line followed by
                          bare-decimal port lines — or the bare host
@@ -212,10 +213,9 @@ DESCRIPTION
 
     PERFORMANCE
     -threads n        AIMD window ceiling: max target probes in flight;
-                      default 1 = the sequential engine (the pre-PQ-23
-                      dispatch). The shared window grows one per
-                      successful target and halves per probe timeout
-                      (spec §7.3).
+                      default 1 = the sequential engine. The shared
+                      window grows one per successful target and halves
+                      per probe timeout (spec §7.3).
     -c n              Global in-flight budget (TCP 40k / QUIC 10k ceilings
                       per spec §7.3).
     -rate rps         Probe launches per second through the token-bucket
@@ -260,7 +260,7 @@ DESCRIPTION
                         ptr=/sni= enrichment, and the readiness
                         verdict as pq=<label>(<score>)).
     -explain             Under each -text line, a plain-language reading
-                         of the record (PQ-39): the verdict in words,
+                         of the record: the verdict in words,
                          what the negotiated group/class means, the
                          certificate and QUIC layers, and an error-class
                          hint when nothing negotiated. Text output
@@ -342,7 +342,7 @@ EXAMPLES
         {"events":9,"errors":0,"warnings":0}
 
     The chained walk-throughs with real tool output: the site's Recipes
-    page; the pipeline contract: docs/spec.md (the chaining sections).
+    page.
 
 EXIT STATUS
     0     Scan completed (empty or not; results in the output stream).
@@ -382,7 +382,7 @@ DIAGNOSTICS
     bugs; feature requests touching scans attach them too.
 
 SEE ALSO
-    docs/spec.md (canonical specification), naabu, subfinder, httpx,
+    docs/spec.md, naabu, subfinder, httpx,
     nuclei, masscan.
 
 AUTHOR

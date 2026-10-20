@@ -13,7 +13,7 @@ records are immutable, superseded only by newer ones.
 
 | Record | Decision | Status |
 |---|---|---|
-| [ADR-0001](https://github.com/shsingh/pqscan/blob/main/docs/adr/0001-adopt-go-over-rust.md) | Adopt Go (crypto/tls + uTLS + quic-go) over Rust; measured re-validation at the M0 gate | accepted |
+| [ADR-0001](https://github.com/shsingh/pqscan/blob/main/docs/adr/0001-adopt-go-over-rust.md) | Adopt Go (crypto/tls + uTLS + quic-go) over Rust; measured re-validation | accepted |
 | [ADR-0002](https://github.com/shsingh/pqscan/blob/main/docs/adr/0002-watched-red-merge-gate.md) | Watched RED: test-first as the merge gate; evidence verbatim in PR bodies + issue comments | accepted |
 | [ADR-0003](https://github.com/shsingh/pqscan/blob/main/docs/adr/0003-slsa-provenance-attestations.md) | SLSA provenance for every artifact via GitHub Artifact Attestations; unsigned release binaries are release-blockers | accepted |
 

@@ -77,8 +77,8 @@ guards, `detect-private-key`, shellcheck on shell scripts) runs on every PR.
 | Dependency Review | flags vulnerable or licence-incompatible dependency changes |
 | `required_signatures` | ruleset-enforced: unsigned commits block the PR |
 
-Required status checks grow as CI surfaces land (build/test legs arrive with
-the first Go tree — M0).
+Required status checks grow as CI surfaces land (the build/test legs were
+the first to arrive).
 
 ## Commits and pull requests
 
@@ -87,8 +87,8 @@ the first Go tree — M0).
   `docs/spec.md` sections it exercises (GitHub heading anchors).
 - The maintainer personally reviews and merges every PR; do not enable
   auto-merge on the maintainer's behalf.
-- Releases are signed tags; the release ladder is defined with the release
-  milestone in [`docs/spec.md`](docs/spec.md).
+- Releases are signed tags; the release sequence is defined in
+  [`docs/spec.md`](docs/spec.md).
 
 ## Reporting bugs
 

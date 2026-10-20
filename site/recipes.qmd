@@ -1,6 +1,5 @@
-# Recipes — chaining with the Project Discovery toolset
+# Recipes — tool import and chain examples
 
-Design source: [`docs/spec.md#6-chaining-reference-implementations`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations).
 Recipes follow the cookbook grammar: *Problem* states the operational
 need, *Solution* is the exact command to run, *Discussion* explains the
 mechanics behind it. Every `Solution` was executed and its `Observation`
@@ -67,10 +66,10 @@ browser-grade: the ClientHello offers the
 stdlib default group preference order (MLKEM hybrid first), offers ALPN
 `h2,http/1.1`, and records what the server SELECTED — negotiation is
 the assertion, no configuration parsing. Each upstream tool stays in
-its lane; nothing in the chain re-implements another's job. When httpx
-runs with `-csv`, its lines begin `url,status` and use the
-`-from-httpx` flag (PQ-35); the text chain above requires nothing but
-the tools.
+its lane; nothing in the chain re-implements another's job. The text
+chain requires nothing but the tools; a httpx `-csv` run's render
+refuses at import per the documented boundary — the text dialect is
+the whole import contract.
 
 ### Port truth first
 
@@ -97,9 +96,9 @@ covers naabu's bare-host-and-ports-block rendering; the `host:port`
 form above is already first-class — and a saved render scans through
 the flag form (the next recipe).
 
-### PD dialect renders as files — -from-httpx / -from-naabu / -from-nuclei (PQ-35, PQ-55)
+### Import dialects render as files — -from-httpx / -from-naabu / -from-nuclei
 
-**Problem.** The Project Discovery tools render in their own dialects —
+**Problem.** The import tools render in their own dialects —
 httpx speaks scheme-URI lines (`https://host:port`, an optional URL path
 suffix), naabu speaks `host:port` (or a host line followed by its bare-port
 block), and `nuclei -j` streams findings JSONL (one JSON finding per line,
@@ -153,8 +152,8 @@ the TCP plane reached an ssh service) and the https port's:
 the one grammar), so one dedupe — host:port, first occurrence wins —
 serves every input source in flag order; a bad line refuses the run
 named by its flag (exit 64) rather than scanning a truncated list.
-httpx's `-csv` (url,status) rows are a planned adapter
-([PQ-61](https://github.com/shsingh/pqscan/issues/159)); the block
+the httpx `-csv` direction is out of contract by decision — the
+pinned text command is the whole httpx import. The block
 rendering of a naabu multi-port run (a host line followed by
 bare-decimal port lines) parses through `-from-naabu` exactly as the
 host:port lines do (the adapter's unit fixtures pin it). The
@@ -185,7 +184,7 @@ one schema-1 record stream out the other side.
 narrow: masscan's `-oX -` and `--open-only` keep the pipe to what
 accepts; pqscan adds the negotiated group, suite, ALPN, QUIC and
 certificate blocks per host. Estate splitting is the flag's job now:
-`-shard i/n` (PQ-24) filters the composed targets to one box's slice —
+`-shard i/n` filters the composed targets to one box's slice —
 `fnv1a64(host:port) % n == i-1`, the shards disjoint and complete at a
 fixed total — so the four boxes run the same list, each with its own
 `-shard 1/4 … 4/4`, and the union of their records is the estate. The
@@ -881,7 +880,7 @@ still fires. A CI job on the same contract gates merges in the
 estate's own repos: a PR that demotes a band shows up as a failing
 parity check.
 
-### Reverse-DNS workflow — IP ranges in, domains out (PQ-26)
+### Reverse-DNS workflow — IP ranges in, domains out
 
 **Problem.** IP sweeps lose the SNI a domain run has; certificate
 analytics without hostname context loses meaning on shared
@@ -924,21 +923,20 @@ pre-filter there, hand the FQDNs forward.
 | the verdict in words | -explain (under -text; the machine formats refuse it) | live |
 | self-explanation | -version, -completion bash\|zsh | live |
 | rate/window/breakers | -rate, -threads | live |
-| PD adapters | -from-httpx, -from-naabu, -from-nuclei (one pinned capture command each, version-stamped in the recipes) | live |
+| import adapters | -from-httpx, -from-naabu, -from-nuclei (one pinned capture command each, version-stamped in the recipes) | live |
 | sharding | -shard i/n | live |
 | identity hooks | -ptr, -sni, -certs-dir | live |
-| port selection | -p ([spec §5.1](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery)) | planned |
-| profile config | -config, PQSCAN_* env ([spec §8](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface)) | planned |
-| legacy module | -legacy heartbleed,ccs,robot ([spec §8](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface)) | planned |
-| probe overrides | -probe-suite, -probe-group, -probe-sigalgs, -probe-version ([spec §5.4](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#54-handshake-engine-capability-checklist-client-plane)) | planned |
-| TLS fingerprints | -client-fingerprint, -jarm ([spec §5.4](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#54-handshake-engine-capability-checklist-client-plane)) | planned |
-| sort/fields/silent/stats | -sorted, -fields, -silent, -stats ([spec §5.7](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability)) | planned |
-| dial budgets | -timeout, -connect-timeout, -retries ([spec §7.3](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#73-budgets-and-fairness-the-numbers-that-make-it-fast-and-safe)) | planned |
-| scale ceilings | -c, -dns-threads ([spec §7.3](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#73-budgets-and-fairness-the-numbers-that-make-it-fast-and-safe)) | planned |
-| the HTTP probe | -http ([spec §5.3](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#53-protocol-coverage-matrix)) | planned |
-| CIDR expansion | -cidr and CIDR spec lines (the [PQ-16](https://github.com/shsingh/pqscan/issues/39) deferral notice) | planned |
+| port selection | -p | planned |
+| profile config | -config, PQSCAN_* env | planned |
+| legacy module | -legacy heartbleed,ccs,robot | planned |
+| probe overrides | -probe-suite, -probe-group, -probe-sigalgs, -probe-version | planned |
+| TLS fingerprints | -client-fingerprint, -jarm | planned |
+| sort/fields/silent/stats | -sorted, -fields, -silent, -stats | planned |
+| dial budgets | -timeout, -connect-timeout, -retries | planned |
+| scale ceilings | -c, -dns-threads | planned |
+| the HTTP probe | -http | planned |
+| CIDR expansion | -cidr and CIDR spec lines (per-address expansion is not supported; tracked for follow-up) | planned |
 
 The usage-drift gate in CI keeps USAGE.md and this map honest: a flag
 without a man-page row, or a row outside the implemented+planned set,
-fails the PR. Every planned row names the spec row it earns under; the
-flag map is where a new operator starts.
+fails the PR. The flag map is where a new operator starts.
