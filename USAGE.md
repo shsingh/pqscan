@@ -21,7 +21,7 @@ DESCRIPTION
       UDP : quic-go carrying TLS 1.3 inside QUIC v1 (h3), with the same
             group-control story.
 
-    Modes (spec §5.2):
+    Modes:
 
       fast : one engineered handshake per target (browser-grade hello,
              hybrid ML-KEM key share preferred); negotiated parameters,
@@ -29,7 +29,7 @@ DESCRIPTION
       deep : computed probe plan executed per target (offer-one /
              observe-accept over suites, versions, groups, signature
              algorithms; HRR detection, resumption, 0-RTT checks).
-      pq   : forced PQ-group ladder (spec Appendix A codepoints), PQ
+      pq   : forced PQ-group ladder (the registered PQ codepoints), PQ
              signature and certificate classification, readiness verdict
              with the HNDL risk flag.
       selftest : exercises the local engine stack against an embedded
@@ -67,7 +67,7 @@ DESCRIPTION
                          or scheme://host[:port] (the scheme strips:
                          here and on -l/--/piped spec lines; a URL path
                          suffix is the -from-httpx adapter's decoration
-                         and the spec path refuses it, naming the
+                         and the plain spec path refuses it, naming the
                          adapter).
     -l file              Targets from file: newline-separated specs,
                          blank lines skipped (composes with -u; deduped
@@ -116,7 +116,7 @@ DESCRIPTION
                          finding per line; each finding contributes its
                          matched-at host:port (the url field is the
                          fallback where matched-at is empty), scheme and
-                         path stripped to the spec. The findings enter
+                         path stripped to host[:port]. The findings enter
                          the ONE composition (-u, -l, -- and the other
                          adapters share), deduped by host:port (findings
                          repeat one host:port; the dedupe collapses);
@@ -143,7 +143,7 @@ DESCRIPTION
     MODES AND PROBES
     -mode m               Scan mode: fast (default) | deep | pq.
                           fast = today's single profile handshake.
-                          deep = the executed deep plan (spec §7.4): the
+                          deep = the executed deep plan: the
                           profile handshake runs first and prunes the
                           plan (a suite/group/version already negotiating
                           is never re-probed), then every planned probe
@@ -181,8 +181,8 @@ DESCRIPTION
     -probe-group groups   Force supported-groups list (PQC ladder).
     -probe-sigalgs algs   Force signature-algorithms list.
     -probe-version v      Force protocol version.
-    -jarm                 JARM server-fingerprint hash (§5.4's optional
-                          flag; httpx -jarm is the captured convention).
+    -jarm                 JARM server-fingerprint hash (a planned optional
+                          probe; httpx -jarm is the captured convention).
 
     HELLO AND TLS
     -client-fingerprint p   chrome | firefox | safari | ios | gotls
@@ -215,13 +215,12 @@ DESCRIPTION
     -threads n        AIMD window ceiling: max target probes in flight;
                       default 1 = the sequential engine. The shared
                       window grows one per successful target and halves
-                      per probe timeout (spec §7.3).
-    -c n              Global in-flight budget (TCP 40k / QUIC 10k ceilings
-                      per spec §7.3).
+                      per probe timeout.
+    -c n              Global in-flight budget (TCP 40k / QUIC 10k ceilings).
     -rate rps         Probe launches per second through the token-bucket
                       limiter (burst 1; 0 = uncapped, the default: the
-                      pre-congestion engine pace. Spec §7.3's 20k/s
-                      global cap arrives with the perf suite).
+                      pre-congestion engine pace. The 20k/s
+                      global rate cap arrives with the perf suite).
     -dns-threads n    DNS resolver pool size.
     -stats            Live progress + rate/error view.
 
@@ -278,7 +277,7 @@ DESCRIPTION
     -sorted           Buffered, input-ordered output (default streams
                       unordered as targets complete).
 
-    LEGACY MODULE (opt-in; spec §5.2)
+    LEGACY MODULE (opt-in)
     -legacy modules   heartbleed,ccs,robot,sslv3-class probes; off by
                       default.
 
@@ -358,13 +357,13 @@ ENVIRONMENT
                            enabled in CI).
     PQSCAN_*               Config overrides mirroring -config keys.
     GOMAXPROCS             Engine sizing is read-but-respected; startup
-                           probes tune budgets to the machine (spec §7.3).
+                           probes tune budgets to the machine.
 
 FILES
     pqscan.yaml     Optional profile: default ports, budgets, probe
                     selections, output path.
     <output>.wal*   Append-only run journal (resume + crash safety;
-                    fsync-batched, spec §7.6).
+                    fsync-batched).
 
 DIAGNOSTICS
     -stats prints: engine rate (handshakes/s), in-flight per plane, error
@@ -382,8 +381,8 @@ DIAGNOSTICS
     bugs; feature requests touching scans attach them too.
 
 SEE ALSO
-    docs/spec.md, naabu, subfinder, httpx,
-    nuclei, masscan.
+    naabu, subfinder, httpx,
+    nuclei, jq.
 
 AUTHOR
     Shain Singh <shain.singh@owasp.org>

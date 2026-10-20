@@ -16,7 +16,7 @@ budget table below, not threads, is what makes the tool fast.
 ## The pipeline: five bounded, streaming stages
 
 ```{mermaid}
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"#ffffff","primaryTextColor":"#2780e3","primaryBorderColor":"#111111","lineColor":"#343a40"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"edgeLabelBackground":"#ffffff","htmlLabels":true}}}%%
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"white","primaryTextColor":"rgb(39,128,227)","primaryBorderColor":"rgb(17,17,17)","lineColor":"rgb(52,58,64)"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"edgeLabelBackground":"white","htmlLabels":true}}}%%
 flowchart TB
   A2[stdin] --> A3["1 ingest: grammar parse + dedupe"]
   A3 --> B0["2 enrich: shard filter + DNS pool (A/AAAA/PTR)"]
@@ -60,13 +60,13 @@ cannot starve the run.
 ## Probe-plan model (deep mode)
 
 ```{mermaid}
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"#ffffff","primaryTextColor":"#2780e3","primaryBorderColor":"#111111","lineColor":"#343a40"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"edgeLabelBackground":"#ffffff","htmlLabels":true}}}%%
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"white","primaryTextColor":"rgb(39,128,227)","primaryBorderColor":"rgb(17,17,17)","lineColor":"rgb(52,58,64)"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"edgeLabelBackground":"white","htmlLabels":true}}}%%
 flowchart TB
   P[profile handshake<br/>version, suite, group, ALPN, cert] --> S[suite matrix<br/>1.0-1.2: offer-one/observe<br/>1.3: fixed set accepted?]
   R2[pq forced-group ladder<br/>4585–4590 + drafts] --> S
   S --> T[sigalg matrix incl. mldsa, composite]
   T --> U[feature probes: HRR, 0-RTT,<br/>resumption xN, SCSV, renegotiation]
-  U --> V[quic plane if hinted or -quic-always]
+  U --> V[quic plane if hinted<br/>or -quic-always]
   V --> W[classify + score + emit]
 ```
 

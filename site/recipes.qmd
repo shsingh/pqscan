@@ -8,14 +8,14 @@ upstream output as input lines and needs no flag unless a format requires
 disambiguation.
 
 ``` {mermaid}
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"#ffffff","primaryTextColor":"#2780e3","primaryBorderColor":"#111111","lineColor":"#343a40","clusterBkg":"#ffffff","clusterBorder":"#7126f9","clusterLabelBackground":"#ffffff"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"padding":30,"edgeLabelBackground":"#ffffff","htmlLabels":true}}}%%
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"white","primaryTextColor":"rgb(39,128,227)","primaryBorderColor":"rgb(17,17,17)","lineColor":"rgb(52,58,64)","clusterBkg":"white","clusterBorder":"rgb(113,38,249)","clusterLabelBackground":"white"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"padding":30,"subGraphTitleMargin":{"top":0,"bottom":16},"edgeLabelBackground":"white","htmlLabels":true}}}%%
 flowchart TB
   subgraph DISC["Discovery layer — compose, not rebuild"]
     S[subfinder — domains]
     N[naabu — host:port truth]
     M[masscan / zmap — internet port sweep]
   end
-  subgraph PQ["pqscan —<br/>cipher-configuration plane"]
+  subgraph PQ["pqscan — cipher-configuration plane"]
     P1["fast — 1 handshake"]
     P2["deep — the offer-one matrix (≤24 standard, 80 full)"]
     P3["pq — PQ ladder + verdicts"]
@@ -25,9 +25,7 @@ flowchart TB
     U[nuclei — tls tags]
     R[CSV / WAL / CI gate]
   end
-  S --> P1
-  N --> P1
-  M --> P1
+  DISC --> PQ
   P1 --> P2
   P1 --> P3
   P2 --> J
@@ -61,7 +59,7 @@ subfinder v2.16.0 → httpx v1.12.0):
 ```
 
 **Discussion.** subfinder streams bare domains; httpx resolves and probes
-them and answers `scheme://host` lines, which the spec grammar strips to
+them and answers `scheme://host` lines, which the input grammar strips to
 host specs natively — the chain needs no flag or adapter. The probe is
 browser-grade: the ClientHello offers the
 stdlib default group preference order (MLKEM hybrid first), offers ALPN
@@ -285,7 +283,7 @@ classical groups the stdlib cannot offer, three QUIC rungs ditto, three
 ML-DSA sigalgs, three resumption vectors — each row its own finding).
 
 **Discussion.** The profile handshake runs first and its facts PRUNE
-the plan (spec §7.4 phase 1): the negotiated group, the negotiated
+the plan: the negotiated group, the negotiated
 (suite, version) pair, the negotiated version, the certificate probe
 and the QUIC rung the profile already answered never re-probe. The
 plan then cuts to the ≤24 budget through the documented prune classes —
