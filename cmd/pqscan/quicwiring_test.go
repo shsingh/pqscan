@@ -99,8 +99,11 @@ func TestQUICHintGateMatrix(t *testing.T) {
 				if q.State != "" {
 					t.Fatalf("state = %q, want empty (the shipped -quic-off shape)", q.State)
 				}
-				if q.Discovered != nil {
-					t.Fatalf("discovered = %+v, want nil under -quic-off (the discovery never ran)", q.Discovered)
+				// PQ-54 (issue #148): the record contract never omits a
+				// required key — the plane's skipped fact rides the zero
+				// discovery halves instead of a nil block
+				if q.Discovered == nil || q.Discovered.AltSvcH3 || q.Discovered.H3Direct {
+					t.Fatalf("discovered = %+v, want both halves false under -quic-off (the discovery never ran)", q.Discovered)
 				}
 			},
 		},
@@ -144,8 +147,13 @@ func TestQUICHintGateMatrix(t *testing.T) {
 			always: true,
 			off:    true,
 			check: func(t *testing.T, q *out.QuicRecord) {
-				if q.Attempted || q.Discovered != nil {
-					t.Fatalf("-quic-off lost to -quic-always (state %q, discovered %+v)", q.State, q.Discovered)
+				// PQ-54 (issue #148): -quic-off still encodes its
+				// schema-required discovered block — the zero halves
+				if q.Attempted {
+					t.Fatal("-quic-off must keep the highest precedence")
+				}
+				if q.Discovered == nil || q.Discovered.AltSvcH3 || q.Discovered.H3Direct {
+					t.Fatalf("quic-off lost to -quic-always or dropped its discovery block (state %q, discovered %+v)", q.State, q.Discovered)
 				}
 			},
 		},

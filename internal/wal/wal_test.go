@@ -56,7 +56,7 @@ func TestCreateAppendSeqRunID(t *testing.T) {
 	if len(lines) != len(hosts) {
 		t.Fatalf("wal lines = %d, want %d", len(lines), len(hosts))
 	}
-	wantLine := `{"run_id":"0123456789abcdef","seq":1,"ts":"2026-10-15T09:30:12Z","record":{"schema":1,"mode":"fast","target":{"input":"a.example","host":"a.example","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":0},"error":""}}`
+	wantLine := `{"run_id":"0123456789abcdef","seq":1,"ts":"2026-10-15T09:30:12Z","record":{"schema":1,"mode":"fast","target":{"input":"a.example","host":"a.example","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":0,"group_name":"","group_class":"","suite":"","version":"","alpn_neg":""},"error":""}}`
 	if lines[0] != wantLine {
 		t.Fatalf("journal entry shape\n got: %s\nwant: %s", lines[0], wantLine)
 	}

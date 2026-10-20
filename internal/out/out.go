@@ -92,14 +92,17 @@ type TargetRecord struct {
 	SNIUsed string `json:"sni_used"`
 }
 
-// HandshakeRecord is the negotiated TCP/TLS handshake block.
+// HandshakeRecord is the negotiated TCP/TLS handshake block. The
+// schema-required strings carry NO omitempty (PQ-54: the writer emits the
+// required keys unconditionally — an unknown value is the empty string,
+// never a missing key), so encoding/json and the hand-rolled writer agree.
 type HandshakeRecord struct {
 	Negotiated uint32 `json:"negotiated"`
-	GroupName  string `json:"group_name,omitempty"`
-	GroupClass string `json:"group_class,omitempty"`
-	Suite      string `json:"suite,omitempty"`
-	Version    string `json:"version,omitempty"`
-	ALPNNeg    string `json:"alpn_neg,omitempty"`
+	GroupName  string `json:"group_name"`
+	GroupClass string `json:"group_class"`
+	Suite      string `json:"suite"`
+	Version    string `json:"version"`
+	ALPNNeg    string `json:"alpn_neg"`
 }
 
 // H3Discovery is the h3-discovery block (PQ-25, spec §5.3): the QUIC
@@ -124,16 +127,22 @@ type H3Discovery struct {
 // the run's exit code never moves on it); State may also carry the
 // honest information token "skipped: no alt-svc h3 hint" when the hint
 // gate itself decided the lane. CSV/text unchanged.
+//
+// PQ-54: the schema-required fields (state, negotiated, group_name,
+// group_class, discovered) carry NO omitempty — the writer emits them
+// unconditionally once the block is present (zeros and empty strings,
+// never missing keys), and encoding/json agrees.
 type QuicRecord struct {
 	Attempted  bool   `json:"attempted"`
-	State      string `json:"state,omitempty"`
-	Negotiated uint32 `json:"negotiated,omitempty"`
-	GroupName  string `json:"group_name,omitempty"`
-	GroupClass string `json:"group_class,omitempty"`
+	State      string `json:"state"`
+	Negotiated uint32 `json:"negotiated"`
+	GroupName  string `json:"group_name"`
+	GroupClass string `json:"group_class"`
 	UDPBlocked bool   `json:"udp_blocked,omitempty"`
-	// Discovered is the hint/truth discovery block (nil = the lane
-	// never evaluated the hint, e.g. -quic-off).
-	Discovered *H3Discovery `json:"discovered,omitempty"`
+	// Discovered is the hint/truth discovery block; the engine populates
+	// the zero halves wherever the plane never ran (PQ-54: the schema
+	// requires the block on every record that carries a quic block).
+	Discovered *H3Discovery `json:"discovered"`
 	// Mismatch marks the hint/truth disagreement class (true only on
 	// the mismatch states; an omitempty field — absent = consistent).
 	Mismatch bool `json:"mismatch,omitempty"`

@@ -517,7 +517,7 @@ func scanTargetFast(t grammar.Target, opts Options) (rec *scanRecord, res *tlsx.
 	// hint/truth disagreement is a FINDING: the mismatch state + flag on
 	// the record + a diagnostics finding row — the direct handshake is
 	// the truth, the hint only ever a hint.
-	rec.Quic = &quicRecord{Attempted: false}
+	rec.Quic = &quicRecord{Attempted: false, Discovered: &out.H3Discovery{}} // -quic-off: the plane skipped, its schema-required discovered block rides the zero halves (PQ-54: the record contract never omits a required key)
 	if !opts.QuicOff {
 		hint, altSvcValue, herr := discovery.ProbeHint(context.Background(), t.Host,
 			uint16(t.Port), discovery.Options{Timeout: timeout})

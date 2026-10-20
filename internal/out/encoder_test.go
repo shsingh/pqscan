@@ -26,8 +26,12 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 			Negotiated: 4588, GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid",
 			Suite: "TLS_AES_128_GCM_SHA256", Version: "tls-1.3", ALPNNeg: "h2",
 		},
+		// PQ-54: a quic block always carries the discovery block (the
+		// engine populates the zero halves where the plane never ran) —
+		// the equality rows cover reachable record shapes only
 		Quic: &QuicRecord{Attempted: true, State: "handshaked", Negotiated: 4588,
-			GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", UDPBlocked: true},
+			GroupName: "X25519MLKEM768", GroupClass: "pq_hybrid", UDPBlocked: true,
+			Discovered: &H3Discovery{}},
 	}
 	rows := []struct {
 		name string
@@ -35,7 +39,7 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 	}{
 		{"full record", func(r *Record) {}},
 		{"zero handshake, nil quic", func(r *Record) { r.Handshake = HandshakeRecord{}; r.Quic = nil }},
-		{"quic attempted, no state", func(r *Record) { r.Quic = &QuicRecord{Attempted: true} }},
+		{"quic attempted, no state", func(r *Record) { r.Quic = &QuicRecord{Attempted: true, Discovered: &H3Discovery{}} }},
 		{"quic udp-blocked", func(r *Record) {
 			r.Quic.Negotiated = 0
 			r.Quic.GroupName = ""
@@ -58,8 +62,8 @@ func TestJSONLMatchesStdlibMarshal(t *testing.T) {
 				Discovered: &H3Discovery{AltSvcH3: false, H3Direct: false},
 			}
 		}},
-		{"quic -quic-off record: no discovery block", func(r *Record) {
-			r.Quic = &QuicRecord{Attempted: false}
+		{"quic -quic-off record: the plane's zero discovery halves (PQ-54: the engine populates them; the writer never omits a required key)", func(r *Record) {
+			r.Quic = &QuicRecord{Attempted: false, Discovered: &H3Discovery{}}
 		}},
 		{"pq + cert blocks", func(r *Record) {
 			r.Cert = &CertRecord{SigAlg: "MLDSA65-ECDSA-P256-SHA512", SigPQ: true, KeyAlg: "ECDSA", KeyPQ: false, Dual: true}
