@@ -67,6 +67,24 @@ import (
 var binaryPath string
 
 func TestMain(m *testing.M) {
+	// The suite's designed 8-slot parallel pool also needs the testing
+	// SCHEDULER's cap at 8: t.Parallel resumes up to -parallel
+	// (= GOMAXPROCS by default), and on a 4-core CI runner that quietly
+	// halves the pool — the PQ-54 battery's budget caught it (the battery
+	// ran 4-way for 186s where the pool intends ~90s). Raise the cap to
+	// the pool when the operator did not set a parallelism themselves;
+	// an explicit -parallel/-test.parallel always wins.
+	hasParallel := false
+	for _, arg := range os.Args {
+		trimmed := strings.TrimLeft(arg, "-")
+		if trimmed == "test.parallel" || trimmed == "parallel" || strings.HasPrefix(trimmed, "test.parallel=") || strings.HasPrefix(trimmed, "parallel=") {
+			hasParallel = true
+			break
+		}
+	}
+	if !hasParallel {
+		os.Args = append(os.Args, "-test.parallel=8")
+	}
 	flag.StringVar(&binaryPath, "matrix-binary", "", "spawn this prebuilt pqscan binary instead of building one")
 	flag.Parse()
 	code := func() int {

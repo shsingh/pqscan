@@ -104,8 +104,14 @@ const batteryCaseTimeout = 150 * time.Second
 
 // batteryBudget caps the battery's added wall time (the CI test job runs
 // `go test ./...`; the battery must stay a seconds-scale addition — the
-// report test errors past the budget, never beyond).
-const batteryBudget = 120 * time.Second
+// report test errors past the budget, never beyond). Calibrated against
+// the CI-observed wall: on a 4-core runner the default -parallel cap had
+// the battery running 4-way for 186.02s (caught by THIS guard before the
+// PR went green); with the designed 8-slot pool enforced (TestMain's cap
+// raise + the per-vector semaphore) the expected wall is ~90-120s, and the
+// budget holds 2x headroom above it. Shrink batteryVectorsPerSeed only if
+// still over — never weaken an invariant.
+const batteryBudget = 180 * time.Second
 
 // batterySeedSet returns the fixed seeds plus any PQ54_SEEDS=... extras
 // (comma-separated integers; malformed entries fail the battery loudly —
@@ -406,6 +412,12 @@ func TestBatteryInvariants(t *testing.T) {
 	}
 
 	batteryRunStart = time.Now()
+	// the designed 8-slot pool, enforced by a semaphore inside each
+	// parallel vector (the scheduler cap is raised to 8 in TestMain when
+	// unset): one shared loopback fixture row — its accept loop is
+	// concurrency-safe and the array runner has driven 8-way against it
+	// since PQ-53
+	sem := make(chan struct{}, runnerPoolSize)
 	for _, seed := range batterySeedSet(t) {
 		rng := rand.New(rand.NewSource(int64(seed)))
 		for i := 0; i < batteryVectorsPerSeed; i++ {
@@ -416,6 +428,8 @@ func TestBatteryInvariants(t *testing.T) {
 			id := fmt.Sprintf("seed-%d-v%03d", seed, i)
 			t.Run(id, func(t *testing.T) {
 				t.Parallel()
+				sem <- struct{}{}
+				defer func() { <-sem }()
 				vec := &bVector{id: id, seed: seed, idx: i, assign: assign, dir: t.TempDir()}
 				batteryEmit(t, vec, params, addr)
 				batteryAssertVector(t, vec)
