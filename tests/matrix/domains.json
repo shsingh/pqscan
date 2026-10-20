@@ -1,0 +1,368 @@
+{
+  "schema": "pqscan.matrix.domains/1",
+  "title": "PQ-53 flag-matrix domain table: the significant value domain + constraint classes for every flag on the pqscan CLI surface",
+  "source_of_truth": {
+    "registrations": "cmd/pqscan/*.go (the fs.(Bool|String|Float64|Int)( shapes — the same grep basis the usage-drift gate reads)",
+    "generator": "scripts/gen_flag_matrix.go (go run scripts/gen_flag_matrix.go; -write rewrites tests/matrix/cases.jsonl)",
+    "array": "tests/matrix/cases.jsonl",
+    "consumers": [
+      "tests/matrix/coverage_test.go (the self-verifying t=2 coverage gate)",
+      "tests/matrix/run_test.go (the per-case fixture runner)",
+      "PQ-54's L0 invariant battery (this table is the shared source)"
+    ]
+  },
+  "strength": 2,
+  "placeholder_semantics": {
+    "$TARGET": "the fixture's loopback addr:port; the runner binds its test fixture per case and expands the placeholder in argv and in the case's stdin payload",
+    "@tmp/targets-l.txt": "-l target-list file the runner materializes per case (one line: the fixture target spec)",
+    "@tmp/targets-httpx.txt": "-from-httpx adapter file the runner materializes per case (httpx dialect: tcp://<$TARGET>)",
+    "@tmp/targets-naabu.txt": "-from-naabu adapter file the runner materializes per case (naabu dialect: one host:port line)",
+    "@tmp/out.txt": "-o output path (per-case temp dir)",
+    "@tmp/diag.json": "-debug-out diagnostics report path (per-case temp dir)",
+    "@tmp/certs": "-certs-dir export directory (per-case temp dir)"
+  },
+  "parameters": [
+    {
+      "id": "debug",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-debug"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface",
+      "note": "arms the diagnostics sink (human stream on stderr + the machine report under -debug-out); stderr-side only — stdout stays results-only"
+    },
+    {
+      "id": "debug-out",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "set"],
+      "default": "unset",
+      "spell": {"unset": "absent", "set": "-debug-out @tmp/diag.json"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface",
+      "note": "arms the sink and writes the machine report even without -debug (main.go's *debug || *debugOut != \"\"): no constraint class needed — the pair (debug=on, debug-out=set) IS the 'on+report' state a 3-state -debug draft would have modeled"
+    },
+    {
+      "id": "l",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "file", "stdin"],
+      "default": "unset",
+      "spell": {"unset": "absent", "file": "-l @tmp/targets-l.txt", "stdin": "-l -"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "'-' = stdin, the stdin-file alias (PQ-41); composes with -u/-- and dedupes by host:port"
+    },
+    {
+      "id": "from-httpx",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "set"],
+      "default": "unset",
+      "spell": {"unset": "absent", "set": "-from-httpx @tmp/targets-httpx.txt"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations",
+      "note": "httpx input dialect (scheme://host:port with an optional URL path); composes with -u/-l/--"
+    },
+    {
+      "id": "from-naabu",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "set"],
+      "default": "unset",
+      "spell": {"unset": "absent", "set": "-from-naabu @tmp/targets-naabu.txt"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations",
+      "note": "naabu input dialect (host:port lines, or a host line followed by bare ports); composes with -u/-l/--"
+    },
+    {
+      "id": "shard",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "slice"],
+      "default": "unset",
+      "spell": {"unset": "absent", "slice": "-shard 1/2"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "'i/n' shard spec; the composed list filters to fnv1a64(host:port) % n == i-1 membership, so a one-target case may degenerate to the honestly-empty run (exit 0, zero records)"
+    },
+    {
+      "id": "json",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-json"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "ALIAS PAIR with -jsonl: the help's contract ('alias of -jsonl'); both parse and both resolve to the JSONL encoder (chooseFormat: last selector on the line wins); modeled CONFLICT-free, never a conflict edge"
+    },
+    {
+      "id": "jsonl",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-jsonl"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "the selector -json spells; both-on is a well-formed normalization (same encoder), last-on-line wins"
+    },
+    {
+      "id": "csv",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-csv"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "CSV rows, header line first (the header precedes the first row only: a zero-record -csv stream is empty)"
+    },
+    {
+      "id": "urls",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-urls"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "one scheme://host:port line per target"
+    },
+    {
+      "id": "text",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-text"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "one human line per target; the absent-selector default format"
+    },
+    {
+      "id": "explain",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-explain"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "the plain-language reading under each -text line; a command-line mistake under any machine format (exit 64) — hence the prereq below"
+    },
+    {
+      "id": "o",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "file"],
+      "default": "unset",
+      "spell": {"unset": "absent", "file": "-o @tmp/out.txt"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "single sink: with -o set, stdout stays empty and the file carries the selector's stream; the WAL rides beside it as <basename>.wal"
+    },
+    {
+      "id": "quic-off",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-quic-off"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#53-protocol-coverage-matrix",
+      "note": "skips the QUIC plane (highest precedence among the QUIC surface)"
+    },
+    {
+      "id": "quic-always",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-quic-always"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#53-protocol-coverage-matrix",
+      "note": "the Alt-Svc hint gate's override: the direct QUIC probe regardless of the hint; conflicts with -quic-off"
+    },
+    {
+      "id": "resume",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-resume"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "replays the run journal (<basename>.wal next to -o); exit 64 without -o — hence the prereq below; a fresh WAL-less resume scans every target"
+    },
+    {
+      "id": "rate",
+      "kind": "flag",
+      "shape": "Float64",
+      "domain": ["uncapped", "capped"],
+      "default": "uncapped",
+      "spell": {"uncapped": "absent", "capped": "-rate 100"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#73-budgets-and-fairness-the-numbers-that-make-it-fast-and-safe",
+      "note": "token-bucket launch pace, burst 1 (the pace is the cadence); 0 = uncapped default; a one-target case never buys a second token"
+    },
+    {
+      "id": "threads",
+      "kind": "flag",
+      "shape": "Int",
+      "domain": ["1", "4"],
+      "default": "1",
+      "spell": {"1": "absent", "4": "-threads 4"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#73-budgets-and-fairness-the-numbers-that-make-it-fast-and-safe",
+      "note": "AIMD window ceiling; 1 = the sequential engine default"
+    },
+    {
+      "id": "mode",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["fast", "deep", "pq"],
+      "default": "fast",
+      "spell": {"fast": "absent", "deep": "-mode deep", "pq": "-mode pq"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#52-modes",
+      "note": "the per-target scan mode; 'fast' is the default spelling (the flag stays absent)"
+    },
+    {
+      "id": "deep",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["standard", "full"],
+      "default": "standard",
+      "spell": {"standard": "absent", "full": "-deep full"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#74-deep-mode-scheduling-the-probe-plan-dag",
+      "note": "the deep-mode plan cap; 'standard' is the default spelling (flag absent) and is inert outside -mode deep; the EXPLICIT cap ('full') requires -mode deep — the deep-cap prereq below; an explicit -deep standard under a non-deep mode is a silent no-op in the binary, so the array holds the absent spelling"
+    },
+    {
+      "id": "ptr",
+      "kind": "flag",
+      "shape": "Bool",
+      "domain": ["off", "on"],
+      "default": "off",
+      "spell": {"off": "absent", "on": "-ptr"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "PTR enrichment pre-probe for IP targets; the pool consults the -sni strategy — only -ptr runs ever read it"
+    },
+    {
+      "id": "sni",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["auto", "ip-only", "ptr-then-ip"],
+      "default": "auto",
+      "spell": {"auto": "absent", "ip-only": "-sni ip-only", "ptr-then-ip": "-sni ptr-then-ip"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "the three implemented strategies (internal/resolver); the CLI refuses unknown values with exit 64 — spec's 'strict-sni' token (Sections 5.1/8) is an authored-ahead row, NOT an accepted value today, so it is outside the valid domain until its implementing lane lands"
+    },
+    {
+      "id": "certs-dir",
+      "kind": "flag",
+      "shape": "String",
+      "domain": ["unset", "set"],
+      "default": "unset",
+      "spell": {"unset": "absent", "set": "-certs-dir @tmp/certs"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface",
+      "note": "end-entity PEM export per scanned host (<dir>/<host>.pem)"
+    },
+    {
+      "id": "--",
+      "kind": "argv-marker",
+      "shape": "raw-argv token (not an fs flag)",
+      "domain": ["absent", "present"],
+      "default": "absent",
+      "spell": {"absent": "absent", "present": "--"},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "the stdin marker: a bare '--' in the raw argv marks target data on STDIN (the raw-argv pre-scan; fs.Parse stops at the terminator and the tokens after it are target data). composeTargets admits the stdin class exactly once (a bare marker, -l -- , -l - and the piped-stdin dialect all share the once-only admission, deduped). When present, the case ends with the marker and its stdin payload carries the expanded $TARGET spec line; NOT a flag — the usage-drift gate maps the literal '--' row to the synthetic token 'stdin'"
+    },
+    {
+      "id": "u",
+      "kind": "runner-injected",
+      "shape": "String",
+      "domain": ["single"],
+      "default": "single",
+      "spell": {},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "kept OUT of the static array (mission: targets ride the fixture plumbing): the runner binds -u to the test fixture's addr:port for EVERY case and records the injection in the per-case run log; the source-floor prereq below counts it in the effective source set"
+    },
+    {
+      "id": "version",
+      "kind": "meta",
+      "shape": "Bool",
+      "domain": ["on"],
+      "default": "on",
+      "spell": {},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface",
+      "note": "META, EXCLUDED from the array: the exit-early path (pqscan <version> + exit 0) is already pinned by cmd/pqscan surface_test.go (TestCLISurfaceContract); a scan array cell over -version would describe the help/version plane, not the scan plane"
+    },
+    {
+      "id": "completion",
+      "kind": "meta",
+      "shape": "String",
+      "domain": ["bash", "zsh"],
+      "default": "bash",
+      "spell": {},
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface",
+      "note": "META, EXCLUDED from the array; its arg shape is documented here: '-completion bash' or '-completion zsh' prints the shell's completion script to stdout and exits early (also pinned by the surface contract)"
+    }
+  ],
+  "constraints": [
+    {
+      "class": "prereq",
+      "given": [{"param": "explain", "value": "on"}],
+      "require": [{"param": "text", "value": "on"}],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "explain is a text-presentation surface: refused (exit 64) under any machine format. The emitter's fixed registration-order args put -text last among the selectors, so a generated explain=on row always resolves text (last-on-line wins can never out-select text)"
+    },
+    {
+      "class": "prereq",
+      "given": [{"param": "deep", "value": "full"}],
+      "require": [{"param": "mode", "value": "deep"}],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#74-deep-mode-scheduling-the-probe-plan-dag",
+      "note": "the deep-cap reads -mode deep: an explicit plan only matters there; the generator holds -deep full out of every fast/pq row"
+    },
+    {
+      "class": "prereq",
+      "given": [{"param": "resume", "value": "on"}],
+      "require": [{"param": "o", "value": "file"}],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "-resume without -o has no journal path to read (exit 64, the printed refusal); the array always resumes beside a materialized output file (a WAL-less replay scans every target and exits 0)"
+    },
+    {
+      "class": "conflict",
+      "members": [
+        {"param": "quic-always", "value": "on"},
+        {"param": "quic-off", "value": "on"}
+      ],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#53-protocol-coverage-matrix",
+      "note": "quic-always is the -quic-off plane's opposite override: mutually exclusive on one command line (both-on must never appear in a case; the CLI's own precedence resolves the flags, the array's contract keeps the pair out)"
+    },
+    {
+      "class": "prereq",
+      "at_least_one": [
+        {"param": "u", "value": "single"},
+        {"param": "l", "value": "file"},
+        {"param": "l", "value": "stdin"},
+        {"param": "from-naabu", "value": "set"},
+        {"param": "from-httpx", "value": "set"},
+        {"param": "--", "value": "present"}
+      ],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery",
+      "note": "the source floor: at least one target source per run (the binary refuses 'no target specified' with exit 64). The effective set includes u=single on every case — the runner's unconditional -u injection — so the floor holds by construction for every generated row and is recorded in the per-case run log; PQ-54's L0 battery re-enforces the same floor when runs are built without the runner's injection"
+    },
+    {
+      "class": "alias",
+      "members": [
+        {"param": "json", "value": "on"},
+        {"param": "jsonl", "value": "on"}
+      ],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability",
+      "note": "NOT a conflict: -json is the help-documented alias of -jsonl; both parse and both resolve to the JSONL encoder (chooseFormat's raw scan picks the last selector on the line). Both-on is a well-formed normalization — the emitted stream is the same schema-1 JSONL either way — so the pair stays coverable and the emitted rows are asserted identical in shape"
+    },
+    {
+      "class": "meta-exclusion",
+      "members": [
+        {"param": "version", "value": "on"},
+        {"param": "completion", "value": "bash"},
+        {"param": "completion", "value": "zsh"}
+      ],
+      "anchor": "https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface",
+      "note": "the meta paths exit before any composition or scan; they are already pinned by cmd/pqscan surface_test.go, so they join the scan-plane array in no case — their exclusion is the documented contract of this table"
+    }
+  ],
+  "normalization": [
+    "-json and -jsonl: alias pair, conflict-free (the help wording is the contract; chooseFormat maps both to the JSONL encoder; last selector on the line wins).",
+    "-debug's three-state draft reading (off / on / on+report) decomposes into the two independent parameters -debug and -debug-out: -debug-out arms the sink alone, and the (debug=on, debug-out=set) pair IS the on+report state, pair-covered without a constraint class.",
+    "-deep's two listed states keep the mission's names: 'standard' = the default spelling (flag absent, inert outside -mode deep) and 'full' = the explicit cap under the deep-cap prereq — so -deep full never rides a fast or pq row.",
+    "-sni keeps the three implemented strategies; the spec's authored-ahead 'strict-sni' is refused by the live CLI (exit 64) and stays out of the valid domain until implemented.",
+    "The '-u' target rides the fixture plumbing: the runner injects it per case and records it in the run log; the array's static args never carry a literal target.",
+    "The '--' stdin marker is a raw-argv token, not an fs flag: cases exercise it as their marker-present cells, with the target specs expanded through stdin exactly once."
+  ]
+}
