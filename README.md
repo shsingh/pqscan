@@ -11,7 +11,7 @@ scores every observation on a PQC-readiness rubric — and speaks the
 Project Discovery dialect (stdin → stdout, streaming JSONL, chainable with
 `subfinder` → `httpx` → `naabu` → `nuclei`).
 
-**Status:** the `2026.01-rc2` release-candidate cut is live and attested; the
+**Status:** the `2026.01-rc3` release-candidate cut is live and attested; the
 specification ([`docs/spec.md`](docs/spec.md)) is in force and the milestone
 register is closed ([register](https://github.com/shsingh/pqscan/issues/4)).
 

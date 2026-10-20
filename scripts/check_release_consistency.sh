@@ -12,6 +12,9 @@
 #      Any reference to a DIFFERENT tag = stale = listed, exit 1. Whitelists:
 #        - docs/release-notes-<other>.md (files pin their own version)
 #        - the checker's own history comment block
+#        - reference-tool capture pins: a bare three-component vx.y.z
+#          (digits at the tail) is the version-stamp convention of the
+#          captured help surfaces in site/recipes.qmd, not a repo tag
 #   3. NOTES FILE PRESENT: docs/release-notes-<tag>.md exists in the tree.
 #   4. SITE STATE: quarto render site --quiet succeeds and the rendered
 #      index carries the tag where the source does (install examples).
@@ -58,6 +61,13 @@ for f in "${targets[@]}"; do
   { grep -oE "$pattern" "$f" 2>/dev/null || true; } | sort -u | while IFS= read -r ref; do
     case "$ref" in
       "$TAG"|*"$TAG"*) : ;;
+      # Reference-tool capture pins (site/recipes.qmd version-stamps the
+      # captured help surfaces: subfinder v2.16.0 / httpx v1.12.0 /
+      # nuclei v3.11.1) are tag-SHAPED but not repo tags: a bare
+      # three-component vx.y.z with a digit tail is the capture
+      # convention. Annotated repo tags (v0.0.2-alpha) do not match this
+      # shape and stay swept.
+      v[0-9]*.[0-9]*.[0-9]) : ;;
       *) printf '%s\t%s\n' "$f" "$ref" >> "$stale" ;;
     esac
   done

@@ -32,12 +32,46 @@ pre-BinaryOptim bound, the corrected gate passed at 6,840,480 < 8,000,000
 
 Sizes are toolchain-dependent. The CI `size-gate` job builds linux/amd64 with
 the go.mod-pinned toolchain (`go-version-file`, GOTOOLCHAIN=local):
-go1.26.0 measures **6,230,178 bytes** (`size OK: 6230178 < 8000000` — check
+go1.26.0 measures **6,230,178 bytes** (the rc1-era tree — `size OK: 6230178 <
+8000000` — check
 run [38706131466](https://github.com/shsingh/pqscan/actions/runs/38706131466)),
 while the go1.27.2 baseline row above measures 6,840,480 bytes. Both sit under
 the 8 MB SLO; the gate binds the toolchain in CI (go-version-file), so the CI
 number is the enforcement number. The t.Logf helper carries the test-run
-number too, and the dedicated job's log lines carry the CI number.
+number too, and the dedicated job's log lines carry the CI number — the
+2026.01-rc3 prep's read is below.
+
+### The 2026.01-rc3 release-prep measurement (2026-10-20, the to-be-cut tree)
+
+Measured live on the rc3 release-prep tree (`8d87da5` + this PR's docs, no
+engine or package changes) at release flags `-s -w -trimpath`,
+`CGO_ENABLED=0`, host toolchain go1.27.2 (`go test ./internal/microbench/
+-run TestSizeSLO -v` plus fresh manual builds of `./cmd/pqscan`):
+
+| target | build | size |
+|---|---|---|
+| linux/amd64 | release flags | 7,643,296 B (7.64 MB) |
+| darwin/arm64 | release flags | 7,220,402 B (7.22 MB) |
+
+The tree has grown since the 2026-10-15 baseline row (the matrix, adapter and
+error-contract lanes added packages, zero handshake-plane changes):
+linux/amd64 is 802,816 bytes heavier, darwin/arm64 is 774,464 bytes heavier.
+Headroom at this tree: linux/amd64 keeps 356,704 bytes (~4.5%) under the
+8,000,000-byte SLO.
+
+The CI enforcement number moved with the tree: the same go1.26.0
+`size-gate` build binds at **7,131,298 bytes** (`7131298 bytes (7.13
+MB)` — run
+[39406285869](https://github.com/shsingh/pqscan/actions/runs/39406285869),
+job 118572894846, 2026-10-20 — the dedicated run's log; the shared
+`TestSizeSLO` in the perf suite's own run read the identical byte count),
+868,702 bytes (~10.9%) under the SLO. CI stays the enforcement number.
+
+The darwin/arm64 SLO row above is a measured-and-reported reference, not a
+CI-enforced gate — and at this tree the reference is exceeded: 7,220,402
+bytes is 220,402 bytes above the 7,000,000-byte reference target. Recorded
+here as the honest reading; a size-lever pass for the reference target is a
+separate filed lane, not a silently relaxed row.
 
 ## Levers — priority order
 
