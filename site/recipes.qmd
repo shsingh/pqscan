@@ -8,13 +8,14 @@ upstream output as input lines and needs no flag unless a format requires
 disambiguation.
 
 ``` {mermaid}
-flowchart LR
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"#ffffff","primaryTextColor":"#2780e3","primaryBorderColor":"#111111","lineColor":"#343a40","clusterBkg":"#ffffff","clusterBorder":"#7126f9","clusterLabelBackground":"#ffffff"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"padding":30,"edgeLabelBackground":"#ffffff","htmlLabels":true}}}%%
+flowchart TB
   subgraph DISC["Discovery layer — compose, not rebuild"]
     S[subfinder — domains]
     N[naabu — host:port truth]
     M[masscan / zmap — internet port sweep]
   end
-  subgraph PQ["pqscan — cipher-configuration plane"]
+  subgraph PQ["pqscan —<br/>cipher-configuration plane"]
     P1["fast — 1 handshake"]
     P2["deep — the offer-one matrix (≤24 standard, 80 full)"]
     P3["pq — PQ ladder + verdicts"]
