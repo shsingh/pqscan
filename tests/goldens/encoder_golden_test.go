@@ -99,8 +99,10 @@ func goldenRecord() *out.Record {
 	}
 }
 
-// errorRecord is the unreachable-endpoint record: zero handshake, no QUIC
-// block, an error containing a comma (CSV quoting) — the error.* goldens.
+// errorRecord is the unreachable-endpoint record: zero handshake (the
+// schema-required strings ride empty, PQ-54: the writer never omits a
+// required key), no QUIC/cert/pq blocks, an error containing a comma (CSV
+// quoting) — the error.* goldens.
 func errorRecord() *out.Record {
 	return &out.Record{
 		Schema: out.SchemaVersion,

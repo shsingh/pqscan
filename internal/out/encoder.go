@@ -214,59 +214,58 @@ func AppendRecordJSON(dst []byte, r *Record) []byte {
 	dst = AppendJSONString(dst, r.Target.SNIUsed)
 	dst = append(dst, `},"handshake":{"negotiated":`...)
 	dst = strconv.AppendUint(dst, uint64(r.Handshake.Negotiated), 10)
-	if r.Handshake.GroupName != "" {
-		dst = append(dst, `,"group_name":`...)
-		dst = AppendJSONString(dst, r.Handshake.GroupName)
-	}
-	if r.Handshake.GroupClass != "" {
-		dst = append(dst, `,"group_class":`...)
-		dst = AppendJSONString(dst, r.Handshake.GroupClass)
-	}
-	if r.Handshake.Suite != "" {
-		dst = append(dst, `,"suite":`...)
-		dst = AppendJSONString(dst, r.Handshake.Suite)
-	}
-	if r.Handshake.Version != "" {
-		dst = append(dst, `,"version":`...)
-		dst = AppendJSONString(dst, r.Handshake.Version)
-	}
-	if r.Handshake.ALPNNeg != "" {
-		dst = append(dst, `,"alpn_neg":`...)
-		dst = AppendJSONString(dst, r.Handshake.ALPNNeg)
-	}
+	// The schema-required fields encode UNCONDITIONALLY once the block is
+	// present (the writer contract above): an unknown value is the empty
+	// string, never a missing key — a no-ALPN scan (and any other
+	// zero-valued handshake field) used to omit the key entirely, emitting
+	// a record outside docs/schema-v1.json's required list (the PQ-54
+	// battery's first catch).
+	dst = append(dst, `,"group_name":`...)
+	dst = AppendJSONString(dst, r.Handshake.GroupName)
+	dst = append(dst, `,"group_class":`...)
+	dst = AppendJSONString(dst, r.Handshake.GroupClass)
+	dst = append(dst, `,"suite":`...)
+	dst = AppendJSONString(dst, r.Handshake.Suite)
+	dst = append(dst, `,"version":`...)
+	dst = AppendJSONString(dst, r.Handshake.Version)
+	dst = append(dst, `,"alpn_neg":`...)
+	dst = AppendJSONString(dst, r.Handshake.ALPNNeg)
 	dst = append(dst, '}')
 	if q := r.Quic; q != nil {
 		dst = append(dst, `,"quic":{"attempted":`...)
 		dst = strconv.AppendBool(dst, q.Attempted)
-		if q.State != "" {
-			dst = append(dst, `,"state":`...)
-			dst = AppendJSONString(dst, q.State)
-		}
-		if q.Negotiated != 0 {
-			dst = append(dst, `,"negotiated":`...)
-			dst = strconv.AppendUint(dst, uint64(q.Negotiated), 10)
-		}
-		if q.GroupName != "" {
-			dst = append(dst, `,"group_name":`...)
-			dst = AppendJSONString(dst, q.GroupName)
-		}
-		if q.GroupClass != "" {
-			dst = append(dst, `,"group_class":`...)
-			dst = AppendJSONString(dst, q.GroupClass)
-		}
+		// the schema-required quic fields encode unconditionally, like the
+		// handshake block: a skipped plane carries its zeros and empty
+		// strings, never a missing key
+		dst = append(dst, `,"state":`...)
+		dst = AppendJSONString(dst, q.State)
+		dst = append(dst, `,"negotiated":`...)
+		dst = strconv.AppendUint(dst, uint64(q.Negotiated), 10)
+		dst = append(dst, `,"group_name":`...)
+		dst = AppendJSONString(dst, q.GroupName)
+		dst = append(dst, `,"group_class":`...)
+		dst = AppendJSONString(dst, q.GroupClass)
 		if q.UDPBlocked {
 			dst = append(dst, `,"udp_blocked":true`...)
 		}
+		// The PQ-25 h3-discovery facts: the hint half and the direct-truth
+		// half as the lane observed them (JSONL-only addition; the CSV/text
+		// projections carry no new columns). The block encodes
+		// UNCONDITIONALLY once the quic block is present (the schema
+		// requires discovered): a nil Discovered — the -quic-off plane that
+		// never discovered anything — emits its zero halves, never a
+		// missing key (the PQ-54 battery's catch on quic-off rows).
+		dst = append(dst, `,"discovered":{"alt_svc_h3":`...)
 		if q.Discovered != nil {
-			// The PQ-25 h3-discovery facts: the hint half and the
-			// direct-truth half as the lane observed them (JSONL-only
-			// addition; the CSV/text projections carry no new columns).
-			dst = append(dst, `,"discovered":{"alt_svc_h3":`...)
 			dst = strconv.AppendBool(dst, q.Discovered.AltSvcH3)
 			dst = append(dst, `,"h3_direct":`...)
 			dst = strconv.AppendBool(dst, q.Discovered.H3Direct)
-			dst = append(dst, '}')
+		} else {
+			dst = append(dst, "false"...)
+			dst = append(dst, `,"h3_direct":`...)
+			dst = append(dst, "false"...)
 		}
+		dst = append(dst, '}')
 		if q.Mismatch {
 			dst = append(dst, `,"mismatch":true`...)
 		}
