@@ -67,6 +67,24 @@ import (
 var binaryPath string
 
 func TestMain(m *testing.M) {
+	// The suite's designed 8-slot parallel pool also needs the testing
+	// SCHEDULER's cap at 8: t.Parallel resumes up to -parallel
+	// (= GOMAXPROCS by default), and on a 4-core CI runner that quietly
+	// halves the pool — the PQ-54 battery's budget caught it (the battery
+	// ran 4-way for 186s where the pool intends ~90s). Raise the cap to
+	// the pool when the operator did not set a parallelism themselves;
+	// an explicit -parallel/-test.parallel always wins.
+	hasParallel := false
+	for _, arg := range os.Args {
+		trimmed := strings.TrimLeft(arg, "-")
+		if trimmed == "test.parallel" || trimmed == "parallel" || strings.HasPrefix(trimmed, "test.parallel=") || strings.HasPrefix(trimmed, "parallel=") {
+			hasParallel = true
+			break
+		}
+	}
+	if !hasParallel {
+		os.Args = append(os.Args, "-test.parallel=8")
+	}
 	flag.StringVar(&binaryPath, "matrix-binary", "", "spawn this prebuilt pqscan binary instead of building one")
 	flag.Parse()
 	code := func() int {
@@ -179,47 +197,12 @@ func TestFlagMatrixRun(t *testing.T) {
 
 			// the placeholder expansion: the target spec and the
 			// materialized per-case files (list file: the fixture target
-			// line; adapter files: their own dialect's line)
-			expandToken := func(tok string) string {
-				switch tok {
-				case "$TARGET":
-					return addr
-				case "@tmp/diag.json", "@tmp/out.txt":
-					return stamp(strings.TrimPrefix(tok, "@tmp/"))
-				case "@tmp/certs":
-					d := stamp("certs")
-					if err := os.MkdirAll(d, 0o755); err != nil {
-						t.Fatalf("certs dir: %v", err)
-					}
-					return d
-				case "@tmp/targets-l.txt":
-					p := stamp("targets-l.txt")
-					if err := os.WriteFile(p, []byte(addr+"\n"), 0o644); err != nil {
-						t.Fatalf("list file: %v", err)
-					}
-					return p
-				case "@tmp/targets-httpx.txt":
-					p := stamp("targets-httpx.txt")
-					if err := os.WriteFile(p, []byte("tcp://"+addr+"\n"), 0o644); err != nil {
-						t.Fatalf("httpx file: %v", err)
-					}
-					return p
-				case "@tmp/targets-naabu.txt":
-					p := stamp("targets-naabu.txt")
-					if err := os.WriteFile(p, []byte(addr+"\n"), 0o644); err != nil {
-						t.Fatalf("naabu file: %v", err)
-					}
-					return p
-				}
-				if strings.HasPrefix(tok, "@tmp/") {
-					t.Fatalf("case %s: unknown materialized-file token: %q", c.ID, tok)
-				}
-				return tok
-			}
+			// line; adapter files: their own dialect's line) — the shared
+			// materializer (harness_test.go)
 			argv := make([]string, 0, len(c.Args)+2)
 			argv = append(argv, "-u", addr) // the runner's unconditional -u
 			for _, tok := range c.Args {
-				argv = append(argv, expandToken(tok))
+				argv = append(argv, materializeToken(t, c.ID, dir, addr, tok))
 			}
 			stdin := strings.ReplaceAll(c.Stdin, "$TARGET", addr)
 
