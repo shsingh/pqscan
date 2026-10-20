@@ -24,8 +24,8 @@ package matrix
 //     recovers a SET-EQUAL record set — equality derived from the PARSED
 //     sets, never a pinned count;
 //  5. dedupe: one record per host:port across ALL source composition
-//     (u ∨ l ∨ from-naabu ∨ from-httpx ∨ stdin ' -- ') — no duplicate keys
-//     in any parsed stream;
+//     (u ∨ l ∨ from-naabu ∨ from-httpx ∨ from-nuclei ∨ stdin ' -- ') — no
+//     duplicate keys in any parsed stream;
 //  6. multiple format selectors compose per the documented precedence
 //     (last selector on the line wins, chooseFormat) without error; the
 //     -json/-jsonl alias pair is CONFLICT-FREE (both-on normalizes to one
@@ -162,7 +162,7 @@ type bVector struct {
 
 // bSourceMembers is the source-member vocabulary the floor is enforced
 // against (domains.json's at_least_one list, in its member order).
-var bSourceMembers = []string{"u", "l", "from-naabu", "from-httpx", "--"}
+var bSourceMembers = []string{"u", "l", "from-naabu", "from-httpx", "from-nuclei", "--"}
 
 // batterySourcePresent reports whether the assignment holds at least one
 // source member (the table's source-floor prereq, re-enforced here because
@@ -170,7 +170,7 @@ var bSourceMembers = []string{"u", "l", "from-naabu", "from-httpx", "--"}
 func batterySourcePresent(assign map[string]string) bool {
 	return assign["u"] == "single" || assign["l"] != "unset" ||
 		assign["from-naabu"] == "set" || assign["from-httpx"] == "set" ||
-		assign["--"] == "present"
+		assign["from-nuclei"] == "set" || assign["--"] == "present"
 }
 
 // batterySample draws one valid vector: every flag param independently
@@ -189,7 +189,7 @@ func batterySample(params []mParam, rng *rand.Rand) map[string]string {
 	// flag draws, table order (text is emitted after every machine
 	// selector — the ordering the explain prereq's resolution depends on)
 	for _, p := range params {
-		if p.Kind != "flag" || p.ID == "l" || p.ID == "from-naabu" || p.ID == "from-httpx" {
+		if p.Kind != "flag" || p.ID == "l" || p.ID == "from-naabu" || p.ID == "from-httpx" || p.ID == "from-nuclei" {
 			continue // l/from-* are sources drawn separately
 		}
 		if rng.Float64() < batteryWeightFor(p.ID) {
@@ -222,6 +222,8 @@ func batterySample(params []mParam, rng *rand.Rand) map[string]string {
 			assign["from-naabu"] = "set"
 		case "from-httpx":
 			assign["from-httpx"] = "set"
+		case "from-nuclei":
+			assign["from-nuclei"] = "set"
 		case "--":
 			assign["--"] = "present"
 		}

@@ -177,7 +177,7 @@ Verdict banding (the readiness rubric, clamped 0–100): **pq-ready ≥ 80, pq-r
 
 **Dialect rules (non-negotiable):** stdin→stdout all the way; one JSON object per line in `-jsonl`/`-json`; human text default is single-line-per-target like httpx; `-csv` for spreadsheets; exit codes documented; a `--silent` that means *only results*.
 
-- Grammar in: hostname, `host:port`, `ip`, `ip:port`, `scheme://host[:port]`, CIDR notation, and the three explicit parsers `-from-httpx` (httpx text mode lines), `-from-naabu` (`host:port`), and masscan stdin auto-parse. Raw pipes "just work" without a flag (first recipe below is two plain pipes).
+- Grammar in: hostname, `host:port`, `ip`, `ip:port`, `scheme://host[:port]`, CIDR notation, and the explicit parsers `-from-httpx` (httpx text mode lines), `-from-naabu` (`host:port`), `-from-nuclei` (the pinned nuclei `-j` findings), and masscan stdin auto-parse. Raw pipes "just work" without a flag (first recipe below is two plain pipes).
 - JSONL record (versioned `schema: 1`), full example (captured live on
   google.com; the machine-readable published schema lives at
   [`docs/schema-v1.json`](docs/schema-v1.json), generated from the goldens
@@ -259,7 +259,11 @@ subfinder -d example.com -silent \
   | pqscan -mode deep -jsonl -o deep.jsonl
 ```
 
-  (httpx text-mode lines are host-URI-ish; the built-in parser strips scheme/status decorations. `-from-httpx` exists for httpx `-csv` output whose lines start with url,status.)
+  (httpx text-mode lines are host-URI-ish; the built-in parser strips
+  scheme/status decorations. `-from-httpx` reads the TEXT dialect only:
+  the pinned v1.12.0 `-csv` capture is a 50-column table whose first column
+  is `timestamp` — not a `url,status` pair — so these rows refuse through
+  the text adapter; a csv adapter stays a planned row.)
 
 - **naabu (port truth) → pqscan (cipher truth):**
 
@@ -295,7 +299,12 @@ pqscan -l assets.txt -mode fast -urls \
 nuclei -l hosts.txt -silent -j > findings.jsonl
 ```
 
-  pqscan's import side is the planned `-from-nuclei` adapter (§8's Targeting row): the pinned findings JSONL reads as target lines under the one dedupe. Until it lands, the reverse direction carries the traffic (`pqscan -urls | nuclei -silent -tags tls`, above).
+  pqscan's import side is the implemented `-from-nuclei` adapter (§8's
+  Targeting row; the pinned capture `nuclei -l hosts.txt -silent -j`): the
+  findings JSONL reads as target lines — each finding's `matched-at` (the
+  `url` field the fallback) contributes its host:port under the one dedupe.
+  The reverse direction (`pqscan -urls | nuclei -silent -tags tls`, above)
+  keeps carrying its traffic out.
 
 - **Whole-organization PQ calendar job:** weekly `pqscan -l targets.txt -mode pq -jsonl | diff yesterday.jsonl -` or run in CI against a pinned list; pqscan's deterministic ordering (`-sorted`) makes diffs meaningful.
 

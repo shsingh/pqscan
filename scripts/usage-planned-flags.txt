@@ -9,7 +9,6 @@ config
 connect-timeout
 dns-threads
 fields
-from-nuclei
 http
 jarm
 legacy

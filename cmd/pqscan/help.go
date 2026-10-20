@@ -207,7 +207,7 @@ type flagGroup struct {
 // complete to filesystem paths.
 var helpGroups = []flagGroup{
 	{"GENERAL", []string{"version", "completion"}},
-	{"TARGETS AND INPUT", []string{"u", "l", "--", "from-httpx", "from-naabu"}},
+	{"TARGETS AND INPUT", []string{"u", "l", "--", "from-httpx", "from-naabu", "from-nuclei"}},
 	{"SCAN MODE", []string{"mode", "deep", "quic-off", "quic-always"}},
 	{"PACING", []string{"rate", "threads"}},
 	{"MULTI-BOX AND RECOVERY", []string{"shard", "resume"}},
@@ -219,21 +219,22 @@ var helpGroups = []flagGroup{
 // flagTokens: the typed-argument flags' display forms (the token a
 // reader types), shared with the completion generator.
 var flagTokens = map[string]string{
-	"u":          "-u target",
-	"l":          "-l file",
-	"from-httpx": "-from-httpx file",
-	"from-naabu": "-from-naabu file",
-	"shard":      "-shard i/n",
-	"o":          "-o file",
-	"rate":       "-rate rps",
-	"threads":    "-threads n",
-	"mode":       "-mode fast|deep|pq",
-	"deep":       "-deep standard|full",
-	"sni":        "-sni auto|ptr-then-ip|ip-only",
-	"certs-dir":  "-certs-dir dir",
-	"completion": "-completion shell",
-	"debug-out":  "-debug-out file",
+	"u":           "-u target",
+	"l":           "-l file",
+	"from-httpx":  "-from-httpx file",
+	"from-naabu":  "-from-naabu file",
+	"from-nuclei": "-from-nuclei file",
+	"shard":       "-shard i/n",
+	"o":           "-o file",
+	"rate":        "-rate rps",
+	"threads":     "-threads n",
+	"mode":        "-mode fast|deep|pq",
+	"deep":        "-deep standard|full",
+	"sni":         "-sni auto|ptr-then-ip|ip-only",
+	"certs-dir":   "-certs-dir dir",
+	"completion":  "-completion shell",
+	"debug-out":   "-debug-out file",
 }
 
 // flagFiles: the flags whose argument is a filesystem path.
-var flagFiles = []string{"l", "o", "certs-dir", "from-httpx", "from-naabu", "debug-out"}
+var flagFiles = []string{"l", "o", "certs-dir", "from-httpx", "from-naabu", "from-nuclei", "debug-out"}

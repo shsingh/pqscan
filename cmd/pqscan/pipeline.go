@@ -629,14 +629,17 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // []grammar.Target, in first-occurrence order (dedupe key: host:port).
 //
 // The spec sources stay -u / -l / the bare "--" marker; the PD-dialect
-// adapter files (PQ-35, issue #80) join them through internal/target:
-// -from-httpx (httpx lines: scheme://host:port with an optional URL path
-// suffix) and -from-naabu (the naabu render: host:port lines, a host line
-// followed by its bare-decimal ports block, or the bare host) strip the
-// dialect decoration and hand every line to grammar.Parse exactly as -u
-// does — ONE grammar and ONE dedupe layer serve every input source.
+// adapter files (PQ-35, issue #80; PQ-55's nuclei import, issue #149) join
+// them through internal/target: -from-httpx (httpx lines: scheme://host:port
+// with an optional URL path suffix), -from-naabu (the naabu render: host:port
+// lines, a host line followed by its bare-decimal ports block, or the bare
+// host) and -from-nuclei (the pinned `nuclei -l hosts.txt -silent -j`
+// findings JSONL: one finding per line, its matched-at — url fallback —
+// contributing the host:port, scheme/path stripped) strip the dialect
+// decoration and hand every line to grammar.Parse exactly as -u does — ONE
+// grammar and ONE dedupe layer serve every input source.
 // Source order is the flag order: -u, then -l, then the stdin marker,
-// then the adapter files (-from-httpx before -from-naabu).
+// then the adapter files (-from-httpx, then -from-naabu, then -from-nuclei).
 //
 // The "--" marker is detected in the RAW argument list: Go's flag package
 // consumes the terminator and it never lands in fs.Args() (surfaced by the
@@ -656,7 +659,7 @@ func rubricNegotiatedClass(c classify.Class, known bool) string {
 // and refuses before anything is scanned (per-address expansion is PQ-16;
 // the grammar yields one Target per network, so the loop rejects the class
 // directly). No partial list ever scans.
-func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
+func composeTargets(uSpec, listFile, httpxFile, naabuFile, nucleiFile string, rawArgs []string, stderr io.Writer) ([]grammar.Target, int) {
 	var specs []string
 	implicitStdin := false // the piped stdin composed as the only source (PQ-41)
 	if uSpec != "" {
@@ -703,6 +706,8 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 			ts, err = target.FromHTTPX(f)
 		case "-from-naabu":
 			ts, err = target.FromNaabu(f)
+		case "-from-nuclei":
+			ts, err = target.FromNuclei(f)
 		}
 		if err != nil {
 			diag.Emit(diag.Error, diag.DomTarget, "compose", "", flag+" parse failed", err, map[string]string{"file": path})
@@ -714,6 +719,7 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 	for _, src := range []struct{ flag, path string }{
 		{"-from-httpx", httpxFile},
 		{"-from-naabu", naabuFile},
+		{"-from-nuclei", nucleiFile},
 	} {
 		if src.path == "" {
 			continue
@@ -733,7 +739,7 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile string, rawArgs []stri
 	// An EMPTY pipe still refuses exit 64 below with its own honest
 	// line — nothing arrived, nothing scanned — and a piped-open
 	// never-terminating stdin blocks by contract (USAGE.md).
-	if len(specs) == 0 && httpxFile == "" && naabuFile == "" && stdinIsPipe() {
+	if len(specs) == 0 && httpxFile == "" && naabuFile == "" && nucleiFile == "" && stdinIsPipe() {
 		specs = append(specs, "--")
 		implicitStdin = true
 	}

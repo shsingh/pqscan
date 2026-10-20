@@ -40,20 +40,21 @@ import (
 // flag, so the parity pins bind something observable (a bare -mode parse
 // would leave the default and render equal to an unparsed run).
 var doubledDashProbes = map[string]string{
-	"u":          "10.0.0.0/24",
-	"l":          "-",
-	"from-httpx": "hx.txt",
-	"from-naabu": "nb.txt",
-	"shard":      "1/2",
-	"o":          "out.txt",
-	"completion": "zsh",
-	"debug-out":  "diag.json",
-	"mode":       "pq",
-	"deep":       "full",
-	"sni":        "ip-only",
-	"certs-dir":  "certs",
-	"rate":       "5",
-	"threads":    "50",
+	"u":           "10.0.0.0/24",
+	"l":           "-",
+	"from-httpx":  "hx.txt",
+	"from-naabu":  "nb.txt",
+	"from-nuclei": "findings.jsonl",
+	"shard":       "1/2",
+	"o":           "out.txt",
+	"completion":  "zsh",
+	"debug-out":   "diag.json",
+	"mode":        "pq",
+	"deep":        "full",
+	"sni":         "ip-only",
+	"certs-dir":   "certs",
+	"rate":        "5",
+	"threads":     "50",
 }
 
 // parseForDash parses one dash form through the registration surface run()
@@ -271,6 +272,9 @@ func TestDoubledDashRunParity(t *testing.T) {
 			[]string{"-from-httpx", absent}, []string{"--from-httpx", absent})
 		runDashPair(t, "from-naabu",
 			[]string{"-from-naabu", absent}, []string{"--from-naabu", absent})
+		// the same adapter class for PQ-55's -from-nuclei import
+		runDashPair(t, "from-nuclei",
+			[]string{"-from-nuclei", absent}, []string{"--from-nuclei", absent})
 	})
 
 	t.Run("silent values: the offline-observable behavior rows", func(t *testing.T) {

@@ -24,6 +24,7 @@ type flagVals struct {
 	ListFile    *string
 	HTTPX       *string
 	Naabu       *string
+	Nuclei      *string
 	ShardSpec   *string
 	JSON        *bool
 	JSONL       *bool
@@ -63,6 +64,11 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		// serves every input source.
 		HTTPX: fs.String("from-httpx", "", "read httpx-format input lines from this file (scheme://host:port with an optional URL path; composes with -u/-l/--; deduped by host:port)"),
 		Naabu: fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines, or a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)"),
+		// The nuclei import (PQ-55/issue #149): the pinned capture
+		// `nuclei -l hosts.txt -silent -j` feeds the same ONE composition —
+		// every finding's matched-at (url fallback) contributes its
+		// host:port, scheme/path stripped by the same dialect rule.
+		Nuclei: fs.String("from-nuclei", "", "read nuclei -j findings JSONL from this file (one JSON finding per line; its matched-at — url as the fallback — contributes the host:port, scheme/path stripped; composes with -u/-l/--; deduped by host:port)"),
 		// Multi-box partition (PQ-24/issue #47): -shard i/n names this box's
 		// slice of the composed list — the deterministic fnv1a64(host:port)
 		// % n == i-1 rule, so the n boxes' shards are disjoint and complete.
