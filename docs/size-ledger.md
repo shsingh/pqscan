@@ -11,7 +11,7 @@ verbatim output. Issue: [#62](https://github.com/shsingh/pqscan/issues/62).
 | target | SLO | enforced by |
 |---|---|---|
 | linux/amd64 | < 8,000,000 bytes (8 MB) — the gate | `TestSizeSLO` in `internal/microbench/sizegate_test.go` + the `size-gate` CI job (`.github/workflows/build.yml`) |
-| darwin/arm64 | < 7,000,000 bytes (7 MB) | measured and reported; CI enforces linux/amd64 (the SLO reference target) |
+| darwin/arm64 | < 7,000,000 bytes (7 MB) | measured and reported; CI enforces linux/amd64 (the SLO reference target); on the rc3-era tree the reference is exceeded by 220,402 bytes and a target amendment is proposed for review — the PQ-63 lever evaluation below |
 
 ## Measured sizes
 
@@ -73,12 +73,89 @@ bytes is 220,402 bytes above the 7,000,000-byte reference target. Recorded
 here as the honest reading; a size-lever pass for the reference target is a
 separate filed lane, not a silently relaxed row.
 
+## The PQ-63 size-lever evaluation (2026-10-20, the rc3-era tree)
+
+The lever lane measured whether the release-flag recipe still has headroom to
+give on darwin/arm64 or whether the 7,000,000-byte reference needs a reviewed
+amendment. Read fresh: issue [#167](https://github.com/shsingh/pqscan/issues/167).
+The tree under measurement is the rc3 cut's tree (`61d1287` — the rc3 tree plus
+the docs-only zero-reference sweep, no package or build-recipe changes),
+toolchain go1.27.2, `CGO_ENABLED=0`, every row a fresh `go build -o` of
+`./cmd/pqscan` measured on the same host.
+
+The recipe state first: the strip lever is ALREADY everywhere the release
+recipe builds — `.goreleaser.yaml` (`flags: -trimpath`, `ldflags: -s -w -X
+main.version={{ .Version }}`), the `size-gate` job (`CGO_ENABLED=0 GOOS=linux
+GOARCH=amd64 go build -trimpath -ldflags "-s -w"`), `attest.yml`
+(`-trimpath -ldflags="-s -w -X main.version=..."`), and the `TestSizeSLO`
+helper. The bake-off below therefore measures the lever's VALUE, not a missing
+application.
+
+darwin/arm64 bake-off:
+
+| build | flags | bytes |
+|---|---|---|
+| unstripped reference | none | 10,751,938 |
+| trimpath only | `-trimpath` | 10,702,354 |
+| strip only | `-ldflags "-s -w"` | 7,253,426 |
+| release flags (the recipe) | `-trimpath -ldflags "-s -w"` | 7,220,402 |
+| release flags + dead-DWARF compile pass | + `-gcflags=all=-dwarf=false` | 7,220,402 (+0) |
+| release flags + the release version stamp | + `-ldflags "-X main.version=<stamp>"` | 7,220,402 (+0) |
+| release flags + buildid override | + `-ldflags "-B 0x00"` | 7,220,402 (+0) |
+
+linux/amd64, the CI-equivalent build (the exact command shape the `size-gate`
+job runs):
+
+| build | flags | bytes |
+|---|---|---|
+| unstripped reference | none | 11,346,104 |
+| release flags, host toolchain go1.27.2 | `-trimpath -ldflags "-s -w"` | 7,643,296 |
+| release flags, GOTOOLCHAIN=go1.26.0 (the CI-pinned toolchain) | release flags | 7,131,298 |
+
+The go1.26.0 local build reproduces the CI enforcement number byte-for-byte
+(`7131298 < 8000000` — run
+[39406285869](https://github.com/shsingh/pqscan/actions/runs/39406285869)):
+the lane's CI-equivalent row and the CI gate now agree on every byte, not just
+"under the SLO".
+
+Verdict:
+
+- The lever is worth 3,531,536 bytes on darwin/arm64 (10,751,938 → 7,220,402,
+  −32.8%) and 3,702,808 bytes on linux/amd64 (11,346,104 → 7,643,296) — and it
+  is already applied: its delta is consumed in every recorded row, not pending.
+- The residual knobs measure +0: `-gcflags=all=-dwarf=false` (the linker's `-w`
+  already drops the DWARF), the `-X` stamp and the buildid override
+  (byte-identical outputs). No flag-level lever remains that honestly reaches
+  7,000,000: the measured-best darwin/arm64 build IS the recipe's build,
+  7,220,402 bytes.
+- What the growth is: the stripped release binary's section anatomy (`size -m`)
+  is `__text` 3,051,348, `__gopclntab` 2,632,652, `__go_type` 734,744,
+  `__rodata` 222,137, `__noptrdata` 256,705, `__data` 55,794 — machine mass,
+  not repo text. Symbol-attributed text on the same tree: the largest repo
+  packages are `internal/out` 29,296, `internal/tlsx` 13,008, `internal/deepplan`
+  12,544 (the record/finding encode and the adapter/plan surfaces the issue
+  names); all repo packages sum ≈ 92 KB; quic-go ≈ 374 KB. The +774,464-byte
+  growth rides the wider reachable surface the new lanes register (more
+  dep/stdlib surface and its metadata for the adapter, finding and
+  error-contract work), and carries a toolchain share on the SAME tree and
+  flags of +511,998 bytes (go1.27.2 vs go1.26.0 on linux/amd64: 7,643,296 vs
+  7,131,298).
+- The honest path to the 7,000,000 reference therefore runs through (a) the
+  `-tags lite` QUIC-plane drop (lever 2 — its own paired lane; the saving is
+  measured there, not asserted here), or (b) a REVIEWED reference-target
+  amendment. Neither is applied here: this lane does not relax the gate. The
+  amendment question goes to review in the PQ-63 PR with the measured-best
+  above; the darwin/arm64 SLO row keeps binding 7,000,000 until that review.
+
 ## Levers — priority order
 
 1. **`-s -w -trimpath` with `CGO_ENABLED=0` — IN PLACE.** Applied to the
    release build, to `TestSizeSLO`, and to the CI `size-gate` job. The
    zero-risk lever: strips symbol/DWARF tables (`-s -w`) and build-path noise
    (`-trimpath`) with no runtime cost; the baseline numbers above carry it.
+   The PQ-63 evaluation measured the lever's value on the rc3-era tree:
+   3,531,536 bytes on darwin/arm64 and 3,702,808 bytes on linux/amd64 (the
+   unstripped-vs-release deltas); the residual flags measure +0.
 2. **`-tags lite` no-QUIC build — PLANNED (lands with its own pair later).**
    A TLS-only build tag that drops the QUIC plane (`internal/quicx`) for
    scanners that never probe QUIC. Estimated savings will be measured in that
