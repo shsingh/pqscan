@@ -194,11 +194,11 @@ in the JSONL matches):
 |---|---|
 | `target` | `input`, `host`, `ip`, `port`, `ptr`, `sni_used` |
 | `handshake` | `negotiated` (group id), `group_name`, `group_class`, `suite`, `version`, `alpn_neg` |
-| `quic` | `attempted`, `state` (negotiated · handshaked · refused · mismatch · skipped · udp_blocked), `negotiated`, `group_name`, `group_class`, `discovered{alt_svc_h3, h3_direct}` (present when the hint plane ran) |
+| `quic` | `attempted`, `state` (negotiated · handshaked · refused · mismatch · skipped · udp_blocked), `negotiated`, `group_name`, `group_class`, `discovered{alt_svc_h3, h3_direct}` |
 | `cert` | `sig_alg`, `sig_pq`, `key_alg`, `key_pq`, `dual` |
 | `pq` | `score` (0–100), `label` (bands: `pq-ready` ≥ 80, `pq-ready-hybrid` ≥ 60, `pq-partial` ≥ 40, `pq-missing` ≥ 1; a scan-error surfaces as 0 with `error`), `hndl` (the harvest-now-decrypt-later flag on an obsolete-draft acceptance), `summary` (the rule trail) |
 | `deep` | deep mode and the pq ladder: `mode` (standard · full · pq), `attempted`, `ok`, `rejected`, `findings[]{probe, result (accepted · rejected · refused · error), detail} — on `mode: "pq"` the findings are the forced PQ ladder's per-probe observations |
-| `error` | per-target error string (an unreachable endpoint is a record, not a process failure) |
+| `error` | per-target error string (an unreachable endpoint is a record, not a process failure; the `quic`/`cert`/`pq` blocks above ride zero-populated on error records — every record class validates against [`docs/schema-v1.json`](docs/schema-v1.json) as-is) |
 
 The CSV form is the flat 25-column projection of the same record (the header
 order is the contract, also pinned by the goldens): `target, host, port,

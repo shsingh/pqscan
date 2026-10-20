@@ -45,7 +45,13 @@ func WithExplain() EncoderOption {
 // that case is defence in depth).
 func explainBlock(r *Record) []string {
 	lines := []string{}
-	if p := r.Pq; p != nil {
+	// The zero-populated blocks (PQ-60's uniform record contract: the
+	// schema-required blocks stand zero-populated on error records) yield
+	// NO prose: an empty label means the rubric never ran and unnamed
+	// algorithms mean no leaf was analyzed — reading either would invent
+	// a claim past what the scan observed. The quic block's zero halves
+	// render their own honest line ("the lane never ran").
+	if p := r.Pq; p != nil && p.Label != "" {
 		lines = append(lines, verdictLine(p))
 		if p.HNDL {
 			lines = append(lines, hndlLine)
@@ -57,7 +63,7 @@ func explainBlock(r *Record) []string {
 	if r.Handshake.Negotiated > 0 {
 		lines = append(lines, keyExchangeLine(r.Handshake.GroupName, r.Handshake.GroupClass))
 	}
-	if c := r.Cert; c != nil {
+	if c := r.Cert; c != nil && (c.SigAlg != "" || c.KeyAlg != "") {
 		lines = append(lines, certificateLine(c))
 	}
 	if q := r.Quic; q != nil {

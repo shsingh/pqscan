@@ -101,8 +101,12 @@ func goldenRecord() *out.Record {
 
 // errorRecord is the unreachable-endpoint record: zero handshake (the
 // schema-required strings ride empty, PQ-54: the writer never omits a
-// required key), no QUIC/cert/pq blocks, an error containing a comma (CSV
-// quoting) — the error.* goldens.
+// required key), the schema-required probe blocks ZERO-POPULATED
+// (PQ-60's uniform contract: the quic/cert/pq blocks docs/schema-v1.json
+// requires at top level stand on the error class too — the plane never
+// attempted, no leaf was analyzed, the rubric never ran, no observation
+// invented), an error containing a comma (CSV quoting) — the error.*
+// goldens.
 func errorRecord() *out.Record {
 	return &out.Record{
 		Schema: out.SchemaVersion,
@@ -113,6 +117,9 @@ func errorRecord() *out.Record {
 			Port:    8443,
 			SNIUsed: "",
 		},
+		Quic:  &out.QuicRecord{Discovered: &out.H3Discovery{}},
+		Cert:  &out.CertRecord{},
+		Pq:    &out.PqRecord{},
 		Error: "connect: no route to host, retry 2",
 		Ts:    "2026-10-15T09:30:13Z",
 	}

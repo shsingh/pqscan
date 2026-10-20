@@ -191,10 +191,14 @@ var jsonSafeByte = func() [utf8.RuneSelf]bool {
 // these same bytes) and the exact field set the encode surface carries:
 // schema, mode, target, handshake (every omitempty corner), the quic
 // block, the cert (PQ-21) and pq (PQ-19) blocks — spec §5.7's block
-// order, both omitempty at the block level (a probe that failed before
-// the step presents no block) with every inner field encoded
-// unconditionally once a block is present — and error. The WAL composes
-// this same body into its entries.
+// order, the required blocks present on every record the ENGINE builds
+// (PQ-60's uniform contract: the error paths populate the zero halves,
+// so every emitted line validates against docs/schema-v1.json as-is)
+// with every inner field encoded unconditionally once a block is
+// present — and error. A nil block (hand-built or legacy-journal
+// records the engine never produces) still omits, so the hand-rolled
+// writer and encoding/json agree for every reachable shape. The WAL
+// composes this same body into its entries.
 func AppendRecordJSON(dst []byte, r *Record) []byte {
 	dst = append(dst, `{"schema":`...)
 	dst = strconv.AppendInt(dst, int64(r.Schema), 10)
