@@ -53,10 +53,11 @@ subfinder -d shain.io -silent \
 ```
 
 **Observation.** One schema-1 record per endpoint; this run's chain found
-4 alive endpoints and the first record:
+4 alive endpoints and the first record (the tools stamped at capture time:
+subfinder v2.16.0 → httpx v1.12.0):
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"oi.shain.io","host":"oi.shain.io","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"RSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"oi.shain.io","host":"oi.shain.io","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"RSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 **Discussion.** subfinder streams bare domains; httpx resolves and probes
@@ -85,7 +86,8 @@ naabu -l domains.txt -p 443,8443,465,993 -silent \
 ```
 
 **Observation.** naabu's `host:port` lines are first-class target
-specs — one probe handshake, one record, per surviving socket.
+specs — one probe handshake, one record, per surviving socket (naabu 2.6.1
+at capture time).
 
 **Discussion.** naabu is the port-discovery plane: it answers with the
 sockets that accept, which is exactly the input pqscan wants.
@@ -95,27 +97,32 @@ covers naabu's bare-host-and-ports-block rendering; the `host:port`
 form above is already first-class — and a saved render scans through
 the flag form (the next recipe).
 
-### PD dialect renders as files — -from-httpx / -from-naabu (PQ-35)
+### PD dialect renders as files — -from-httpx / -from-naabu / -from-nuclei (PQ-35, PQ-55)
 
-**Problem.** httpx and naabu render in their own dialects — httpx speaks
-scheme-URI lines (`https://host:port`, an optional URL path suffix),
-naabu speaks `host:port` (or a host line followed by its bare-port
-block). When the render is already on disk the operator must not have
+**Problem.** The Project Discovery tools render in their own dialects —
+httpx speaks scheme-URI lines (`https://host:port`, an optional URL path
+suffix), naabu speaks `host:port` (or a host line followed by its bare-port
+block), and `nuclei -j` streams findings JSONL (one JSON finding per line,
+its `matched-at` carrying the probed host). When the render is already on
+disk the operator must not have
 to clean it just to scan: the adapters accept the render the way any
 target file is accepted.
 
 **Solution.**
 
 ```bash
-httpx -silent -no-color -l domains.txt -o discovered.httpx   # the render
+cat domains.txt | httpx -silent -ports 443,8443 -p 443,8443 -no-color > discovered.httpx   # the pinned capture (httpx v1.12.0)
 pqscan -from-httpx discovered.httpx -jsonl
 
-naabu -host example.com -p 443,8443 -o naabu.naabu -silent   # the render
+naabu -l domains.txt -p 443,8443,465,993 -silent > naabu.naabu   # the pinned capture (naabu 2.6.1)
 pqscan -from-naabu naabu.naabu -jsonl
+
+nuclei -l hosts.txt -silent -j > nuclei.jsonl   # the pinned capture (nuclei v3.11.1)
+pqscan -from-nuclei nuclei.jsonl -jsonl
 ```
 
-**Observation.** Both chains executed with the real tools; the renders
-upstream were verbatim, the records from the pqscan legs — the httpx
+**Observation.** The imports executed with the real tools (each against its
+pinned capture of that exact command); the renders upstream were verbatim, the records from the pqscan legs — the httpx
 render's scheme/URI lines strip to host:port specs:
 
 ```json
@@ -127,7 +134,18 @@ and the naabu render's doubled `host:port` lines (`example.com:8443`,
 dedupe to one record per socket:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+```
+
+and the nuclei import: the pinned capture (nuclei v3.11.1, `hosts.txt =
+scanme.sh`, the default template set) answers 28 findings on stdout; the
+import walks the file and the one dedupe collapses them to the two
+sockets the findings repeat — the ssh port's record (real error record:
+the TCP plane reached an ssh service) and the https port's:
+
+```json
+{"schema":1,"mode":"fast","target":{"input":"scanme.sh:22","host":"scanme.sh","ip":"","port":22,"ptr":"","sni_used":""},"handshake":{"negotiated":0,"group_name":"","group_class":"","suite":"","version":"","alpn_neg":""},"quic":{"attempted":false,"state":"","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"","sig_pq":false,"key_alg":"","key_pq":false,"dual":false},"pq":{"score":0,"label":"","hndl":false,"summary":""},"error":"tls: first record does not look like a TLS handshake"}
+{"schema":1,"mode":"fast","target":{"input":"scanme.sh:443","host":"scanme.sh","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":29,"group_name":"x25519","group_class":"classic","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":0,"label":"scan-error","hndl":false,"summary":"weak_classical_preferred(-5)"},"error":""}
 ```
 
 **Discussion.** The adapters feed the SAME composition -u/-l/-- use
@@ -135,10 +153,16 @@ dedupe to one record per socket:
 the one grammar), so one dedupe — host:port, first occurrence wins —
 serves every input source in flag order; a bad line refuses the run
 named by its flag (exit 64) rather than scanning a truncated list.
-httpx's `-csv` (url,status) rows are a planned adapter; the block
+httpx's `-csv` (url,status) rows are a planned adapter
+([PQ-61](https://github.com/shsingh/pqscan/issues/159)); the block
 rendering of a naabu multi-port run (a host line followed by
 bare-decimal port lines) parses through `-from-naabu` exactly as the
-host:port lines do (the adapter's unit fixtures pin it).
+host:port lines do (the adapter's unit fixtures pin it). The
+`-from-*` adapters walk files: the findings arrive on stdout of the
+pinned `nuclei -j` capture, so the recipe redirects to the file the
+import reads — a `-from-nuclei -` value is tried as a file name
+(`open -: no such file or directory`, exit 64); `nuclei ... -j` writes
+JSONL to stdout, `> findings.jsonl` puts it on disk.
 
 ### Internet scale — one box of a four-box pass
 
@@ -197,7 +221,7 @@ per target; `example.com:8443` negotiates and the unreachable v6
 literal is a record with `error` set, never a refusal:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 What refuses (exit 64, nothing scanned) — a URL path suffix on the
@@ -513,21 +537,22 @@ pqscan -u 127.0.0.1:64444 -debug
 **Observation.** (live, stderr + the record on stdout)
 
 ```text
-  15:37:56.648 [info][config] run : diagnostics armed  positional_args= version=0.0.1
-  15:37:56.648 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
-  15:37:56.648 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
-  15:37:56.648 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
-127.0.0.1:64444 group=- class=- suite=- version=- error=dial tcp 127.0.0.1:64444: connect: connection refused
-  15:37:56.648 [info][output] emit 127.0.0.1: record emitted  format=text
+  21:43:45.775 [info][config] run : diagnostics armed  positional_args= version=0.0.1
+  21:43:45.775 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
+  21:43:45.776 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
+  21:43:45.776 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
+pqscan: progress: 1/1 targets scanned
+127.0.0.1:64444 group=- class=- suite=- version=- cert=-/- error=dial tcp 127.0.0.1:64444: connect: connection refused
+  21:43:45.776 [info][output] emit 127.0.0.1: record emitted  format=text
 ── pqscan diagnostics ── schema 1 ── 0.0.1 (go1.27.2, darwin/arm64)
-run: 2026-10-16T15:37:56.648304+11:00 → 2026-10-16T15:37:56.648564+11:00
+run: 2026-10-20T21:43:45.775767+11:00 → 2026-10-20T21:43:45.776132+11:00
 flags: debug=true u=127.0.0.1:64444
 events (5):
-  15:37:56.648 [info][config] run : diagnostics armed  positional_args= version=0.0.1
-  15:37:56.648 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
-  15:37:56.648 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
-  15:37:56.648 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
-  15:37:56.648 [info][output] emit 127.0.0.1: record emitted  format=text
+  21:43:45.775 [info][config] run : diagnostics armed  positional_args= version=0.0.1
+  21:43:45.775 [info][engine] pipeline : multi-target scan started  max_window=1 progress_every=50 rate=0 total=1
+  21:43:45.776 [error][tls] scan 127.0.0.1: TCP probe refused (dial tcp 127.0.0.1:64444: connect: connection refused)
+  21:43:45.776 [info][engine] pipeline 127.0.0.1:64444: progress reported  done=1 total=1
+  21:43:45.776 [info][output] emit 127.0.0.1: record emitted  format=text
 summary: 5 events (1 errors, 0 warnings)
 ```
 
@@ -683,7 +708,7 @@ columns, header on the first line:
 
 ```text
 target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts
-google.com,google.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,sha256WithRSAEncryption,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-16T04:28:04.197287Z
+google.com,google.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,ecdsa-with-SHA256,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-20T10:25:32.034802Z
 ```
 
 **Discussion.** The writers are hand-rolled — no reflection, no
@@ -742,10 +767,10 @@ pqscan -u google.com -explain
 **Observation.** (live) Under each text line, one reading block:
 
 ```text
-google.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 quic_neg=X25519MLKEM768 quic_class=pq_hybrid cert=sha256WithRSAEncryption/ECDSA pq=pq-partial(40)
+google.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 quic_neg=X25519MLKEM768 quic_class=pq_hybrid cert=ecdsa-with-SHA256/ECDSA pq=pq-partial(40)
   - verdict: pq-partial 40/100. The negotiated key exchange is post-quantum; the certificate layer is classical — see the lines below.
   - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. Session traffic is protected from later decryption by a quantum computer; the harvest-now-decrypt-later risk does not apply while this group negotiates.
-  - certificate: classical identity (ECDSA key, sha256WithRSAEncryption signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.
+  - certificate: classical identity (ECDSA key, ecdsa-with-SHA256 signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.
   - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum verdict applies to h3 traffic.
 ```
 
@@ -874,7 +899,7 @@ the answer verbatim — the PTR-derived candidate is the SNI, the record's
 behind for downstream tools:
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"8.8.8.8:443","host":"8.8.8.8","ip":"","port":443,"ptr":"dns.google","sni_used":"dns.google"},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"8.8.8.8:443","host":"8.8.8.8","ip":"","port":443,"ptr":"dns.google","sni_used":"dns.google"},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 **Discussion.** `-ptr` builds the run's pool (bounded: 4 workers, a 2s
@@ -893,22 +918,27 @@ pre-filter there, hand the FQDNs forward.
 
 | Recipe topic | Flags / mode | State |
 |---|---|---|
-| one handshake, both planes | -u, -l and -l - (the stdin-file alias), the implicit piped stdin, -- (the bare marker), -jsonl or -json, -csv, -urls, -o, -resume, -quic-off, -debug, -debug-out | live |
+| one handshake, both planes | -u, -l and -l - (the stdin-file alias), the implicit piped stdin, -- (the bare marker), -jsonl or -json, -csv, -urls, -o, -resume, -quic-always, -quic-off, -debug, -debug-out | live |
 | deep modes | -mode deep with -deep standard\|full | live |
 | forced PQ ladder | -mode pq | live |
 | the verdict in words | -explain (under -text; the machine formats refuse it) | live |
 | self-explanation | -version, -completion bash\|zsh | live |
 | rate/window/breakers | -rate, -threads | live |
-| PD adapters | -from-httpx, -from-naabu | live |
+| PD adapters | -from-httpx, -from-naabu, -from-nuclei (one pinned capture command each, version-stamped in the recipes) | live |
 | sharding | -shard i/n | live |
 | identity hooks | -ptr, -sni, -certs-dir | live |
-| profile config | -config, PQSCAN_* env | planned |
-| legacy module | -legacy heartbleed,ccs,robot | planned |
-| probe overrides | -probe-suite, -probe-group, -probe-sigalgs, -probe-version | planned |
-| sort/fields/silent/stats | -sorted, -fields, -silent, -stats | planned |
-| CIDR expansion | -cidr and CIDR spec lines (the PQ-16 deferral notice) | planned |
+| port selection | -p ([spec §5.1](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#51-targeting-and-discovery)) | planned |
+| profile config | -config, PQSCAN_* env ([spec §8](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface)) | planned |
+| legacy module | -legacy heartbleed,ccs,robot ([spec §8](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#8-cli-surface)) | planned |
+| probe overrides | -probe-suite, -probe-group, -probe-sigalgs, -probe-version ([spec §5.4](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#54-handshake-engine-capability-checklist-client-plane)) | planned |
+| TLS fingerprints | -client-fingerprint, -jarm ([spec §5.4](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#54-handshake-engine-capability-checklist-client-plane)) | planned |
+| sort/fields/silent/stats | -sorted, -fields, -silent, -stats ([spec §5.7](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#57-output-and-chainability)) | planned |
+| dial budgets | -timeout, -connect-timeout, -retries ([spec §7.3](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#73-budgets-and-fairness-the-numbers-that-make-it-fast-and-safe)) | planned |
+| scale ceilings | -c, -dns-threads ([spec §7.3](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#73-budgets-and-fairness-the-numbers-that-make-it-fast-and-safe)) | planned |
+| the HTTP probe | -http ([spec §5.3](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#53-protocol-coverage-matrix)) | planned |
+| CIDR expansion | -cidr and CIDR spec lines (the [PQ-16](https://github.com/shsingh/pqscan/issues/39) deferral notice) | planned |
 
 The usage-drift gate in CI keeps USAGE.md and this map honest: a flag
 without a man-page row, or a row outside the implemented+planned set,
-fails the PR. Every `-probe-*` and `-legacy` recipe above notes its
-lane; the flag map is where a new operator starts.
+fails the PR. Every planned row names the spec row it earns under; the
+flag map is where a new operator starts.
