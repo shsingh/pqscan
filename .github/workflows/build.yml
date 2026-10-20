@@ -80,6 +80,31 @@ jobs:
       - name: spec §8 <-> USAGE.md flag check
         run: ./scripts/check_spec_usage_parity.sh .
 
+  flag-matrix:
+    name: flag-matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: go build ./...
+      # PQ-53: regenerate the covering array twice and pin the checked-in
+      # bytes — a surface change without a same-PR regeneration fails here
+      - name: Regenerate the array (determinism = checked-in bytes)
+        run: |
+          go run scripts/gen_flag_matrix.go > /tmp/matrix-gen1.jsonl
+          go run scripts/gen_flag_matrix.go > /tmp/matrix-gen2.jsonl
+          cmp /tmp/matrix-gen1.jsonl /tmp/matrix-gen2.jsonl
+          cmp /tmp/matrix-gen1.jsonl tests/matrix/cases.jsonl
+      # the self-verifying coverage gate + the per-case fixture runner
+      - name: Coverage gate + array runs
+        run: go test ./tests/matrix/... -run 'TestFlagMatrix|TestCoverage' -count=1 -v
+
   schema-sync:
     name: schema-v1 sync (published schema == the golden contract)
     runs-on: ubuntu-latest
