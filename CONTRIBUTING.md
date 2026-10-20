@@ -97,6 +97,18 @@ version or commit, the mode and probe surface hit, host OS, and the relevant
 output excerpt. Security issues never go here — [SECURITY.md](SECURITY.md)
 instead.
 
+### The matrix-cell duty: fix a bug, add the cell
+
+Every bug fix and every feature touching a flag combination lands its
+reproducing combination as a new matrix cell in the same PR — an array case, a
+battery vector class, a refusal row or a chain cell — with its row in
+[tests/matrix/LEDGER.md](tests/matrix/LEDGER.md) (origin, landing date, the
+invariant it pins) and its checkbox in
+[issue #150](https://github.com/shsingh/pqscan/issues/150)'s body registry, an
+unticked box being the standing drift signal the next build must clear. Bug
+reports name the cell through the required Matrix cell field of the bug report
+template; `new` there means the fixer derives the row and lands the cell.
+
 ## Licence
 
 The project is licensed under **MIT** — see [LICENSE](LICENSE). Contributions
