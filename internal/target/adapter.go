@@ -13,6 +13,7 @@ package target
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -252,4 +253,17 @@ func StripScheme(line string) (string, error) {
 		return "", fmt.Errorf("target spec %q: nothing after the scheme prefix (want scheme://host[:port])", line)
 	}
 	return rest, nil
+}
+
+// errNotImplemented marks a declared-but-unwired surface: the watched-RED
+// pair's stub (ADR-0002) — the tests above compile against the real
+// signature and fail on their assertions until the engine commit lands.
+var errNotImplemented = errors.New("not implemented")
+
+// FromNuclei parses nuclei -j findings JSONL into grammar targets (PQ-55,
+// issue #149). STUB for the watched-RED pair: the engine commit replaces
+// this body; the contract the tests pin is described in adapter_nuclei_test.go.
+func FromNuclei(r io.Reader) ([]grammar.Target, error) {
+	_ = r
+	return nil, errNotImplemented
 }
