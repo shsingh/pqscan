@@ -83,7 +83,7 @@ func fileFlagTokens() []string {
 // words.
 func bashScript() string {
 	var b strings.Builder
-	b.WriteString("# bash completion for pqscan (generated: pqscan -completion bash; PQ-40)\n")
+	b.WriteString("# bash completion for pqscan (generated: pqscan -completion bash)\n")
 	b.WriteString("# Session: source <(pqscan -completion bash)\n")
 	b.WriteString("# Persist: pqscan -completion bash > \"$(bash-completion-writable-dir)/pqscan\"\n\n")
 	fmt.Fprintf(&b, "_pqscan_flags=\"%s\"\n", strings.Join(allDashForms(), " "))
@@ -138,7 +138,7 @@ func zshScript() string {
 	}
 	var b strings.Builder
 	b.WriteString("#compdef pqscan\n")
-	b.WriteString("# Completion for pqscan (generated: pqscan -completion zsh; PQ-40).\n")
+	b.WriteString("# Completion for pqscan (generated: pqscan -completion zsh).\n")
 	b.WriteString("# Install: pqscan -completion zsh > /usr/local/share/zsh/site-functions/_pqscan\n")
 	b.WriteString("# (compinit picks it up); for the session: eval \"$(pqscan -completion zsh)\".\n\n")
 	b.WriteString("_pqscan() {\n  local -a opts\n  opts=(\n")

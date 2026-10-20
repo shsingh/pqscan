@@ -112,7 +112,7 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		// PQ-40: the shell-completion emission (bash|zsh); the script
 		// prints to stdout, the same surface table the help renders
 		// generates it.
-		Completion: fs.String("completion", "", "emit the shell completion script to stdout (bash | zsh); install one-liners ride the help and INSTALL.md"),
+		Completion: fs.String("completion", "", "emit the shell completion script to stdout (bash | zsh); install one-liners ride the help"),
 	}
 	return fs, v
 }
