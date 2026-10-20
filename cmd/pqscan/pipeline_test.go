@@ -154,9 +154,9 @@ func TestPipelineMultiTarget(t *testing.T) {
 			wantRecs: nil,
 		},
 		{
-			name:    "cidr targets are refused until PQ-16",
+			name:    "cidr targets are refused (expansion is not supported)",
 			specs:   []string{"192.0.2.0/24"},
-			wantErr: "cidr expansion lands with PQ-16",
+			wantErr: "cidr expansion is not supported",
 		},
 	}
 
@@ -507,7 +507,7 @@ func TestFlagComposition(t *testing.T) {
 			if code != row.wantCode {
 				t.Fatalf("exit = %d, want %d (stderr: %s)", code, row.wantCode, errOut.String())
 			}
-			if code == 64 && !bytes.Contains(errOut.Bytes(), []byte("cidr expansion lands with PQ-16")) {
+			if code == 64 && !bytes.Contains(errOut.Bytes(), []byte("cidr expansion is not supported")) {
 				t.Fatalf("stderr missing the cidr deferral message: %q", errOut.String())
 			}
 			if out.Len() != 0 {
@@ -1159,7 +1159,7 @@ func TestSchemeSpecs(t *testing.T) {
 		if code != 64 {
 			t.Fatalf("exit = %d, want 64 (the CIDR class refuses until expansion ships)", code)
 		}
-		if !bytes.Contains(errOut.Bytes(), []byte("cidr expansion lands with PQ-16")) {
+		if !bytes.Contains(errOut.Bytes(), []byte("cidr expansion is not supported")) {
 			t.Fatalf("stderr missing the cidr deferral message: %q", errOut.String())
 		}
 		if out.Len() != 0 {

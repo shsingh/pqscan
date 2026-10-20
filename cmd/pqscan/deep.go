@@ -347,7 +347,7 @@ func deepFindingFor(p deepplan.Probe, t grammar.Target, opts Options) out.DeepFi
 		return deepGroupFinding(p.Name, addr, t.Host, p.Payload.(uint32), timeout)
 	case deepplan.KindSigalg:
 		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteRefused,
-			Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)"}
+			Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)"}
 	case deepplan.KindCert:
 		// The cert probe observes the profile handshake's own surface
 		// (the chain is in hand — the profile handshake IS the cert
@@ -356,7 +356,7 @@ func deepFindingFor(p deepplan.Probe, t grammar.Target, opts Options) out.DeepFi
 			Detail: "the profile handshake delivered the certificate chain (analyzed in the record's cert block)"}
 	case deepplan.KindResumption:
 		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteRefused,
-			Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)"}
+			Detail: "not-offerable: no resumption surface is instrumented in the tlsx plane"}
 	case deepplan.KindHRR:
 		return deepHRRFinding(p.Name, addr, t.Host, timeout)
 	case deepplan.KindQuic:
@@ -489,7 +489,7 @@ func deepQuicFinding(name, addr, host string, group uint32, timeout time.Duratio
 	if !tlsx.StdlibGroup(group) {
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
 			Detail: "not-offerable on quic: no stdlib share for " + groupDetailToken(group) +
-				" (the UDP plane offers no share-less raw path; exotic construction deferred to v2, spec §5.3)"}
+				" (the UDP plane offers no share-less raw path)"}
 	}
 	qr, err := quicx.ProbeQUIC(addr, host, []uint32{group}, timeout)
 	if err != nil {

@@ -282,17 +282,18 @@ func TestParityDraftHybridAgreesWithReference(t *testing.T) {
 	}
 }
 
-func TestParityPQOnlyGroupIsDocumentedException(t *testing.T) {
+func TestParityPQOnlyGroupIsPqscanOnlyProbe(t *testing.T) {
 	// gnutls-cli-debug cannot construct PQ groups: no reference row for
-	// X25519MLKEM768. Not a divergence — a recorded exception with a note.
+	// X25519MLKEM768. Not a divergence — the pqscan-only probe is recorded
+	// in the note.
 	pqscan := []Obs{{Tool: "pqscan", Check: GroupCheck("X25519MLKEM768"), Detail: "X25519MLKEM768"}}
 	refs := []Obs{{Tool: "gnutls-cli-debug", Check: CheckProtocol, Detail: "TLS1.3"}}
 	rows := Parity(pqscan, refs)
 	row := findRow(t, rows, GroupCheck("X25519MLKEM768"))
 	if !row.Agree {
-		t.Fatalf("row = %+v, want agree (documented exception)", row)
+		t.Fatalf("row = %+v, want agree (the pqscan-only probe note)", row)
 	}
-	for _, sub := range []string{"no reference observation", "pqscan-only", "documented exception"} {
+	for _, sub := range []string{"no reference observation", "pqscan-only"} {
 		if !strings.Contains(row.Note, sub) {
 			t.Errorf("Note = %q, want it to contain %q", row.Note, sub)
 		}

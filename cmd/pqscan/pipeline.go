@@ -70,7 +70,7 @@ var errNoTargets = errors.New("no targets")
 
 // errCidrTargets refuses CIDR-class targets: the per-address expansion is
 // PQ-16 scope (the CLI composes the clean message around it).
-var errCidrTargets = errors.New("cidr expansion lands with PQ-16")
+var errCidrTargets = errors.New("cidr expansion is not supported")
 
 // progressEvery is the default progress interval: a report line every 50
 // targets processed (standing user convention), plus one final report.
@@ -196,7 +196,7 @@ func (e *Engine) Run(targets []grammar.Target, opts Options, progress func(done,
 	}
 	for _, t := range targets {
 		if t.Class == "cidr" {
-			diag.Emit(diag.Warn, diag.DomEngine, "pipeline", t.Input, "cidr target refused (expansion is PQ-16)", nil, nil)
+			diag.Emit(diag.Warn, diag.DomEngine, "pipeline", t.Input, "cidr target refused (expansion is not supported)", nil, nil)
 			return nil, fmt.Errorf("cidr target %q: %w", t.Input, errCidrTargets)
 		}
 	}
@@ -782,7 +782,7 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile, nucleiFile string, ra
 			stdinDrained = true
 			return parseSpecs(readSpecs(stdin))
 		case "cidr":
-			diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is PQ-16)", nil, nil)
+			diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is not supported)", nil, nil)
 			fmt.Fprintf(stderr, "pqscan: -cidr target %q: %v\n", t.Input, errCidrTargets)
 			return errCidrTargets
 		default:

@@ -209,7 +209,7 @@ pqscan: URL path "/api" in target spec "https://example.org:443/api": a URL path
 ```
 
 ```text
-pqscan: -cidr target "198.51.100.0/24": cidr expansion lands with PQ-16
+pqscan: -cidr target "198.51.100.0/24": cidr expansion is not supported
 ```
 
 **Discussion.** The grammar takes bare hosts (443 default), `host:port`
@@ -221,8 +221,8 @@ Every flag also parses under two dashes (`--mode` is `-mode`), and the
 completions offer both spellings. Specs dedupe by host:port in input
 order. Unreachable endpoints are NOT refusals —
 they are records with `error` set, which the failure-taxonomy recipe
-below classifies. CIDR spec lines refuse with the PQ-16 deferral notice
-until per-address expansion ships.
+below classifies. CIDR spec lines refuse — per-address expansion is not
+supported (the grammar parses the class; the expansion is the boundary).
 
 ## Modes: fast, deep, pq
 
@@ -251,7 +251,7 @@ group/4589    rejected   remote error: tls: handshake failure
 group/4590    rejected   alert 40
 group/25      rejected   remote error: tls: handshake failure
 group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
-sigalg/mldsa65 refused    not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
+sigalg/mldsa65 refused    not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)
 hrr/x25519-shareless  accepted   hrr: the server requested group x25519 (29)
 ```
 
@@ -483,9 +483,9 @@ pqscan -u google.com -mode deep -jsonl \
 **Observation.** (live; every sigalg row refuses with its reason)
 
 ```text
-sigalg/mldsa44   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
-sigalg/mldsa65   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
-sigalg/mldsa87   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)
+sigalg/mldsa44   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)
+sigalg/mldsa65   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)
+sigalg/mldsa87   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)
 ```
 
 **Discussion.** What IS provable today: the certificate analytics in

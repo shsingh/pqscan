@@ -217,13 +217,13 @@ func TestDeepModeStandardExecutesPlan(t *testing.T) {
 	}
 	for _, id := range []string{"sigalg/rsa_pss_rsae_sha256", "sigalg/mldsa44", "sigalg/mldsa65", "sigalg/mldsa87"} {
 		got := findingsBy(rec, id)
-		if got == nil || got.Result != "refused" || got.Detail != "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)" {
+		if got == nil || got.Result != "refused" || got.Detail != "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)" {
 			t.Fatalf("%s: %+v, want the honest not-offerable refusal", id, got)
 		}
 	}
 	for _, id := range []string{"resumption/ticket-tls12", "resumption/psk-tls13", "resumption/0rtt-tls13"} {
 		got := findingsBy(rec, id)
-		if got == nil || got.Result != "refused" || got.Detail != "not-offerable: no resumption surface is instrumented in the tlsx plane (planned)" {
+		if got == nil || got.Result != "refused" || got.Detail != "not-offerable: no resumption surface is instrumented in the tlsx plane" {
 			t.Fatalf("%s: %+v, want the honest not-offerable refusal", id, got)
 		}
 	}

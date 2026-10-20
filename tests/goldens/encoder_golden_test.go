@@ -92,7 +92,7 @@ func goldenRecord() *out.Record {
 				{Probe: "suite/TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256@1.2", Result: "rejected",
 					Detail: "remote error: tls: protocol version not supported"},
 				{Probe: "sigalg/mldsa44", Result: "refused",
-					Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are a planned surface)"},
+					Detail: "not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)"},
 			},
 		},
 		Ts: "2026-10-15T09:30:12Z",

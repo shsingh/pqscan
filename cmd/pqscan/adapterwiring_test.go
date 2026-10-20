@@ -108,7 +108,7 @@ func TestAdapterComposition(t *testing.T) {
 			args:       []string{},
 			naabu:      "192.0.2.0/24\n",
 			wantCode:   64,
-			wantStderr: "cidr expansion lands with PQ-16",
+			wantStderr: "cidr expansion is not supported",
 		},
 		{
 			name:       "an httpx line whose stripped spec is a bare port refuses (exit 64)",
