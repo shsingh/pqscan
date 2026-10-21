@@ -300,7 +300,7 @@ func TestCLISurfaceContract(t *testing.T) {
 	}
 	for _, want := range []string{
 		" pq=pq-partial(40)",
-		"  - verdict: pq-partial 40/100",
+		"  - rating: pq-partial 40/100",
 		"  - key exchange: X25519MLKEM768 (pq_hybrid)",
 		"  - certificate: classical identity",
 		"  - quic: ",
@@ -347,8 +347,8 @@ func TestCLISurfaceContract(t *testing.T) {
 	if !strings.Contains(pqOut.String(), " deep=pq:") {
 		t.Errorf("the pq-mode text line lost the ladder's counts tail:\n%s", pqOut.String())
 	}
-	if !strings.Contains(pqOut.String(), "  - deep: the forced PQ ladder made ") ||
-		!strings.Contains(pqOut.String(), "each forced PQ-only group came back refused unless the server truly speaks it") {
+	if !strings.Contains(pqOut.String(), "  - deep: the forced PQ offer set sent ") ||
+		!strings.Contains(pqOut.String(), "each forced PQ-only group refused unless the server supports that group") {
 		t.Errorf("the pq-mode -explain block lost the PQ-50 ladder reading line:\n%s", pqOut.String())
 	}
 	if testing.Verbose() {
@@ -398,7 +398,7 @@ func TestCLISurfaceContract(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(help.String(), "--word spells the same as -word") {
+	if !strings.Contains(help.String(), "--word and -word name the same flag") {
 		t.Errorf("-h misses the doubled-dash equivalence note: the doubled spellings parse, the help must say so")
 	}
 	t.Logf("── -h carries the --word ≡ -word equivalence note ──")
@@ -570,7 +570,7 @@ func TestCLISurfaceContract(t *testing.T) {
 					face.face, row.class, steWindow(plain, loc[0], loc[1]))
 			}
 		}
-		if testing.Verbose() {
+		if testing.Verbose() && strings.HasPrefix(face.face, "-explain") {
 			long := 0
 			for _, s := range steSentences(plain) {
 				if n := len(strings.Fields(s)); n > 20 {

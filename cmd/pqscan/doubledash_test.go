@@ -330,14 +330,14 @@ func TestCompletionsListBothSpellings(t *testing.T) {
 
 // TestHelpDocumentsTheEquivalence: the -h help carries the PQ-48
 // equivalence note, prominently (near the top, before the flag rows) —
-// "--word spells the same as -word everywhere".
+// "--word and -word name the same flag".
 func TestHelpDocumentsTheEquivalence(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if code := run([]string{"-h"}, &out, &errOut); code != 0 {
 		t.Fatalf("-h: rc=%d (stderr: %q)", code, errOut.String())
 	}
 	help := out.String()
-	note := "--word spells the same as -word"
+	note := "--word and -word name the same flag"
 	if !strings.Contains(help, note) {
 		t.Errorf("-h misses the doubled-dash equivalence note %q — the doubled dashes already parse, the help must say so", note)
 	}

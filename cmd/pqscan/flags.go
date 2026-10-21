@@ -53,22 +53,22 @@ type flagVals struct {
 func newFlagSet() (*flag.FlagSet, flagVals) {
 	fs := flag.NewFlagSet("pqscan", flag.ContinueOnError)
 	v := flagVals{
-		ShowVersion: fs.Bool("version", false, "print pqscan version and exit"),
-		Debug:       fs.Bool("debug", false, "full diagnostics: human stream on stderr + machine report"),
-		DebugOut:    fs.String("debug-out", "", "write the machine-parsable diagnostics report (schema 1) to this JSON file"),
-		Target:      fs.String("u", "", "single target: hostname, host:port, ip, ip:port, or scheme://host[:port] (composes with -l and --)"),
+		ShowVersion: fs.Bool("version", false, "report the pqscan version, then stop"),
+		Debug:       fs.Bool("debug", false, "the full diagnostics: the human stream prints to stderr; the machine report writes to the -debug-out file"),
+		DebugOut:    fs.String("debug-out", "", "write the machine-readable diagnostics report (schema 1) to this JSON file"),
+		Target:      fs.String("u", "", "single target: hostname | host:port | ip | ip:port | scheme://host[:port] (composes with -l and --)"),
 		ListFile:    fs.String("l", "", "read newline-separated target specs from this file ('-' = stdin, the stdin-file alias; composes with -u and --; deduped by host:port)"),
 		// PD-dialect input adapters (PQ-35/issue #80): the files' lines are
 		// httpx/naabu output; internal/target strips the dialect decoration
 		// and feeds the same grammar, so ONE composition — one dedupe —
 		// serves every input source.
 		HTTPX: fs.String("from-httpx", "", "read httpx-format input lines from this file (scheme://host:port with an optional URL path; composes with -u/-l/--; deduped by host:port)"),
-		Naabu: fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines, or a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)"),
+		Naabu: fs.String("from-naabu", "", "read naabu-format input lines from this file (host:port lines | a host line followed by bare-port lines; composes with -u/-l/--; deduped by host:port)"),
 		// The nuclei import (PQ-55/issue #149): the pinned capture
 		// `nuclei -l hosts.txt -silent -j` feeds the same ONE composition —
 		// every finding's matched-at (url fallback) contributes its
 		// host:port, scheme/path stripped by the same dialect rule.
-		Nuclei: fs.String("from-nuclei", "", "read nuclei -j findings JSONL from this file (one JSON finding per line; its matched-at — url as the fallback — contributes the host:port, scheme/path stripped; composes with -u/-l/--; deduped by host:port)"),
+		Nuclei: fs.String("from-nuclei", "", "read nuclei -j findings JSONL from this file (one JSON finding per line; its matched-at — url as the fallback — gives the host:port, scheme/path stripped; composes with -u/-l/--; deduped by host:port)"),
 		// Multi-box partition (PQ-24/issue #47): -shard i/n names this box's
 		// slice of the composed list — the deterministic fnv1a64(host:port)
 		// % n == i-1 rule, so the n boxes' shards are disjoint and complete.
@@ -82,7 +82,7 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		CSV:     fs.Bool("csv", false, "emit CSV rows (header line first)"),
 		URLs:    fs.Bool("urls", false, "emit scheme://host:port lines, one per target"),
 		Text:    fs.Bool("text", false, "one human line per target (default format)"),
-		Explain: fs.Bool("explain", false, "under each -text line, a plain-language reading of the record: the verdict in words, what the negotiated group/class means, the certificate and QUIC planes, an error-class hint when nothing negotiated (-text output only)"),
+		Explain: fs.Bool("explain", false, "under each -text line, a plain-language reading of the record: the rating in words, the negotiated group and its class, the certificate and QUIC planes, an error-class hint when nothing negotiated (-text output only)"),
 		OutFile: fs.String("o", "", "write results to file (default stdout)"),
 		QuicOff: fs.Bool("quic-off", false, "skip the QUIC plane probe"),
 		// PQ-25/-quic-always (issue #48, spec §5.3): the additive hint-gate
@@ -99,7 +99,7 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		// Mode wiring (PQ-20/issue #43): -mode selects the per-target scan
 		// mode and -deep the deep plan cap; the deep-mode record carries the
 		// executed plan's deep block.
-		Mode:     fs.String("mode", "fast", "scan mode: fast (default) | deep (the executed deep plan) | pq (the forced PQ ladder)"),
+		Mode:     fs.String("mode", "fast", "scan mode: fast (default) | deep (the executed deep plan) | pq (the forced PQ offer set)"),
 		DeepPlan: fs.String("deep", "standard", "deep-mode plan cap (-mode deep only): standard (default, <=24 probes/target) | full (the complete matrix)"),
 		// Enrichment surfaces (PQ-26/issue #49): -ptr builds the run's
 		// resolver pool (the system resolver, bounded: 4 workers, a 2s
@@ -112,7 +112,7 @@ func newFlagSet() (*flag.FlagSet, flagVals) {
 		// PQ-40: the shell-completion emission (bash|zsh); the script
 		// prints to stdout, the same surface table the help renders
 		// generates it.
-		Completion: fs.String("completion", "", "emit the shell completion script to stdout (bash | zsh); install one-liners ride the help"),
+		Completion: fs.String("completion", "", "emit the shell completion script to stdout (bash | zsh); the script header carries the install lines"),
 	}
 	return fs, v
 }

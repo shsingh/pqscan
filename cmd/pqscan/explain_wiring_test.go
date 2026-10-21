@@ -45,7 +45,7 @@ func TestRunExplainAddsTheBlock(t *testing.T) {
 	}
 	got := out.String()
 	for _, want := range []string{
-		"  - verdict: pq-partial 40/100",
+		"  - rating: pq-partial 40/100",
 		"  - key exchange: X25519MLKEM768 (pq_hybrid)",
 		"  - certificate: classical identity",
 		"  - quic: ",

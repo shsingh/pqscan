@@ -122,13 +122,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if !validMode(*mode) {
 		diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -mode refused", nil,
 			map[string]string{"mode": *mode})
-		fmt.Fprintf(stderr, "pqscan: unknown -mode %q (want fast, deep, or pq)\n", *mode)
+		fmt.Fprintf(stderr, "pqscan: unknown -mode %q (want fast | deep | pq)\n", *mode)
 		return 64
 	}
 	if !validDeepPlan(*deepPlan) {
 		diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -deep plan refused", nil,
 			map[string]string{"deep": *deepPlan})
-		fmt.Fprintf(stderr, "pqscan: unknown -deep plan %q (want standard or full)\n", *deepPlan)
+		fmt.Fprintf(stderr, "pqscan: unknown -deep plan %q (want standard | full)\n", *deepPlan)
 		return 64
 	}
 
@@ -150,7 +150,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if !validSNIStrategy(*sni) {
 		diag.Emit(diag.Warn, diag.DomConfig, "run", "", "unknown -sni refused", nil,
 			map[string]string{"sni": *sni})
-		fmt.Fprintf(stderr, "pqscan: unknown -sni %q (want auto, ptr-then-ip, or ip-only)\n", *sni)
+		fmt.Fprintf(stderr, "pqscan: unknown -sni %q (want auto | ptr-then-ip | ip-only)\n", *sni)
 		return 64
 	}
 
@@ -181,7 +181,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(targets) == 0 {
 		diag.Emit(diag.Warn, diag.DomEngine, "run", "", "no targets; run refuses", nil, nil)
-		fmt.Fprintln(stderr, "pqscan: no target specified (use -u TARGET, -l FILE, or -- for stdin; -h shows examples)")
+		fmt.Fprintln(stderr, "pqscan: no target specified (use -u TARGET, -l FILE or -- for stdin; -h shows examples)")
 		return 64 // EX_USAGE
 	}
 

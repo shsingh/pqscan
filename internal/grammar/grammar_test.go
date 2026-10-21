@@ -235,17 +235,17 @@ func TestParse(t *testing.T) {
 		{
 			name:    "http scheme prefix is rejected",
 			spec:    "http://example.com",
-			wantErr: "speaks host/port",
+			wantErr: "reads host/port",
 		},
 		{
 			name:    "https scheme prefix with a port is rejected",
 			spec:    "https://example.com:8443",
-			wantErr: "speaks host/port",
+			wantErr: "reads host/port",
 		},
 		{
 			name:    "ftp scheme prefix on an ipv4 literal is rejected",
 			spec:    "ftp://10.1.2.3",
-			wantErr: "speaks host/port",
+			wantErr: "reads host/port",
 		},
 		{
 			name:    "empty scheme prefix is rejected",

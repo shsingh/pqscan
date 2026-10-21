@@ -52,7 +52,7 @@ type Target struct {
 //
 // Rejected: empty or whitespace-only specs, bare ports, ports outside
 // 1-65535, malformed CIDRs and any URL-scheme prefix (the error names the
-// scheme and states that pqscan speaks host/port targets only).
+// scheme and states that pqscan reads host/port targets only).
 func Parse(spec string) ([]Target, error) {
 	s := strings.TrimSpace(spec)
 	if s == "" {
@@ -62,7 +62,7 @@ func Parse(spec string) ([]Target, error) {
 		return nil, fmt.Errorf("target spec %q contains whitespace", s)
 	}
 	if i := strings.Index(s, "://"); i >= 0 {
-		return nil, fmt.Errorf("scheme %q in target spec %q: pqscan speaks host/port targets only (no URL scheme prefixes)", s[:i], s)
+		return nil, fmt.Errorf("scheme %q in target spec %q: pqscan reads host/port targets only (no URL scheme prefixes)", s[:i], s)
 	}
 	if s == "--" {
 		return []Target{{Input: s, Class: classStdin}}, nil
