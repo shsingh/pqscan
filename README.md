@@ -5,40 +5,47 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/shsingh/pqscan/main.svg)](https://results.pre-commit.ci/latest/github/shsingh/pqscan/main)
 
 A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
-readiness scanner. One static binary that enumerates protocol versions, cipher
-suites, key-exchange groups, signature algorithms and certificate properties —
-scores every observation on a PQC-readiness rubric — and speaks the
-import toolset's dialect (stdin → stdout, streaming JSONL, chainable with
-`subfinder` → `httpx` → `naabu` → `nuclei`).
+readiness scanner. One static binary. The tool reads the negotiated cipher
+configuration of remote endpoints. The fields: protocol versions, cipher
+suites, key-exchange groups, signature algorithms, certificate properties.
+A fixed rubric rates every observation on the post-quantum readiness scale.
+The record carries the rating as `pq=<label>(<score>)`. The tool reads the
+import toolset's forms and writes them out: stdin → stdout, streaming
+JSONL, the chain `subfinder` → `httpx` → `naabu` → `nuclei`.
 
-**Status:** the `2026.01-rc3` release-candidate cut is live and attested; the
-specification ([`docs/spec.md`](docs/spec.md)) is in force.
+**Status:** the `2026.01-rc3` release-candidate cut is live and attested.
+The specification ([`docs/spec.md`](docs/spec.md)) is in force.
 
 ## What it does
 
-- **fast mode** — one engineered handshake per target (browser-grade hello,
-  hybrid ML-KEM key share preferred): negotiated parameters, certificate
-  chain, ALPN, features.
-- **deep mode** — exhaustive suite-by-suite, version-by-version, group and
-  signature-algorithm probing (offer-one / observe-accept), HRR detection,
-  resumption and 0-RTT checks.
-- **pq mode** — forced-group PQ ladder, PQ signature and certificate
-  classification, estate-wide readiness verdicts with an HNDL risk flag.
-- **Two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on UDP/443;
-  HTTP/1.1 + h2 via ALPN, h3 via direct QUIC handshake.
-- **Chainable** — hosts, `host:port`/`ip:port`, `scheme://host[:port]`
-  spec lines (the scheme strips), the piped stdin and the
-  subfinder/httpx/naabu/masscan renders in; JSONL/CSV/text/URLs out.
+- **fast mode** — one engineered handshake per target (a browser-grade
+  hello; the hybrid ML-KEM key share preferred). The record: the negotiated
+  parameters, the certificate chain, ALPN, the session features.
+- **deep mode** — one probe plan per target; every suite, version, group
+  and signature algorithm probes one per handshake (offer-one /
+  observe-accept). The checks: HRR detection, resumption, 0-RTT.
+- **pq mode** — the forced PQ-group offer set (the registered PQ
+  codepoints). The classifier reads the PQ signatures and the
+  certificates. Every target takes one readiness rating; the HNDL risk
+  flag rides on a draft acceptance.
+- **the two planes** — TCP (crypto/tls + uTLS) and QUIC (quic-go) on
+  UDP/443. HTTP/1.1 and h2 negotiate by ALPN. h3 runs through the direct
+  QUIC handshake.
+- **chainable** — the inputs: hosts, `host:port`/`ip:port`,
+  `scheme://host[:port]` spec lines (the scheme strips), the piped stdin,
+  the subfinder/httpx/naabu/masscan output forms. The outputs: JSONL, CSV,
+  text, URLs.
 
 ## Measured performance
 
-(Rows tagged *historical* were captured at their evidence run; google.com is the live reference target for re-measurement.)
+Rows tagged *historical* carry the capture of their evidence run; google.com
+is the live reference target for re-measurement.
 
 Measured baselines (spec
 [`§7.8`](docs/spec.md#7-the-hard-part-async-architecture-and-throughput-first-class)):
-the SLO suite is re-run on every perf-suite merge and this table tracks the
-current evidence. Issue comments on the linked evidence carry the verbatim
-run transcripts.
+the SLO suite re-runs on every perf-suite merge; this table carries the
+current numbers. The linked evidence comments carry the verbatim run
+transcripts.
 
 | Metric | Target | Measured | Run |
 |---|---|---|---|
@@ -51,29 +58,30 @@ run transcripts.
 ## Quick examples
 
 ```bash
-# subfinder output feeds pqscan directly
+# subfinder gives the target names; pqscan scans them
 subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
 
-# naabu's port truth feeds the cipher pass
+# naabu gives the live ports; the cipher pass reads them
 naabu -l domains.txt -p 443,8443,993 -silent | pqscan -mode fast -jsonl
 
 # deep: the offer-one matrix on one asset (versions, suites, groups, HRR)
 pqscan -u google.com -mode deep -deep full -jsonl
 
-# estate PQ calendar job; jq triage of everything not PQC-ready
-pqscan -l estate.txt -jsonl \
+# the weekly PQ job over the target list; jq reports every below-ready target
+pqscan -l targets.txt -jsonl \
   | jq -r 'select(.pq.score < 60) | [.target.host,.pq.label,(.pq.hndl|tostring)] | @tsv'
 ```
 
-Found a bug? Re-run with `-debug -debug-out diag.json <your-original-arguments>` and
+A defect report needs the diagnostics. Re-run the same arguments with
+`-debug -debug-out diag.json` and
 [open an issue](https://github.com/shsingh/pqscan/issues/new?template=bug_report.yml) —
 the templates require the diagnostics attached.
 
 ## Specification and roadmap
 
 The canonical specification is
-[`docs/spec.md`](docs/spec.md); every issue links the sections it implements
-via heading anchors.
+[`docs/spec.md`](docs/spec.md). Every issue links the sections it
+implements through the heading anchors.
 
 | Section | Anchor |
 |---|---|
@@ -89,9 +97,9 @@ via heading anchors.
 | Test and verification | [`docs/spec.md#10-test-and-verification-strategy`](docs/spec.md#10-test-and-verification-strategy) |
 | PQC codepoints (registry snapshot) | [`docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot`](docs/spec.md#appendix-a-pqc-codepoint-reference-snapshot) |
 
-The milestone ladder is historical — its record lives in the
-repository's milestones and the closed issues; the current truth is the
-releases and the live CLI surface.
+The milestone list is historical. The record lives in the repository's
+milestones and the closed issues. The releases and the live CLI surface
+carry the current state.
 
 ## Contributing
 
@@ -101,11 +109,11 @@ releases and the live CLI surface.
   ([private advisory](https://github.com/shsingh/pqscan/security/advisories/new)).
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
-**Engineering standard — watched RED ([ADR-0002](docs/adr/0002-watched-red-merge-gate.md)):** every behavioural change lands as a RED→GREEN pair; the failing test exists and runs first, and its output is recorded verbatim in the PR. See [CONTRIBUTING.md](CONTRIBUTING.md) for the hypothesis-first procedure.
+**Engineering standard — watched RED ([ADR-0002](docs/adr/0002-watched-red-merge-gate.md)):** every behavioural change goes in as a RED→GREEN pair. The failing test exists and runs first. The PR records the RED output verbatim. See [CONTRIBUTING.md](CONTRIBUTING.md) for the hypothesis-first procedure.
 
-Only scan systems you own or are authorised to test; the tool's etiquette
-defaults (rate caps, per-subnet concurrency, circuit breakers) are published
-defaults and security-relevant.
+Scan only the systems the operator owns or holds authorisation to test. The
+tool's etiquette defaults (the rate caps, the per-subnet concurrency, the
+circuit breakers) are published defaults and security-relevant.
 
 ## Licence
 

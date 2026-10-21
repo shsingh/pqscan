@@ -1,18 +1,18 @@
 # Installing pqscan
 
-Install one static binary; verify it before the first scan. The
-[release page](https://github.com/shsingh/pqscan/releases) carries three
-platforms (linux/amd64+arm64, darwin/amd64+arm64, windows/amd64) plus
-`CHECKSUMS-sha256.txt`; every binary carries SLSA build provenance
+Install one static binary. Verify the binary before the first scan.
+The [release page](https://github.com/shsingh/pqscan/releases) carries
+three platforms (linux/amd64+arm64, darwin/amd64+arm64, windows/amd64)
+plus `CHECKSUMS-sha256.txt`. Every binary carries SLSA build provenance
 ([ADR-0003](docs/adr/0003-slsa-provenance-attestations.md)).
 
-The tagged version used in the examples below is always the current
-release: substitute `2026.01-rc3` with the latest tag from the release
-page.
+The examples pin the tag `2026.01-rc3`. The release page carries the newest
+tag; use it in the commands.
 
-## Verify before you run
+## Verify before the first run
 
-Every published binary is attested. After downloading:
+Every published binary carries the build attestation. Download the binary;
+then verify:
 
 ```bash
 sha256sum -c <(grep pqscan-darwin-arm64 CHECKSUMS-sha256.txt)   # checksum
@@ -61,16 +61,16 @@ go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3   # from source inst
 
 ## From source (all platforms)
 
-The module path is `github.com/shsingh/pqscan`; installing by tag pins
-the version (recommended over `@latest` until v1):
+The module path is `github.com/shsingh/pqscan`; an install by tag pins the
+version (recommended over `@latest` until v1):
 
 ```bash
 go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3
 ```
 
 Requirements: Go 1.25+ (the toolchain floor in `go.mod`). The binary is
-CGO-free; cross-compiling is `CGO_ENABLED=0 GOOS=<goos> GOARCH=<goarch>
-go build -trimpath -ldflags "-s -w" ./cmd/pqscan`.
+CGO-free. The cross-compile command:
+`CGO_ENABLED=0 GOOS=<goos> GOARCH=<goarch> go build -trimpath -ldflags "-s -w" ./cmd/pqscan`.
 
 ## Sanity check
 
@@ -90,23 +90,24 @@ eval "$(pqscan -completion zsh)"
 source <(pqscan -completion bash)
 ```
 
-The script is generated from the same surface the `-h` help renders
-(every implemented flag, the `-mode`/`-deep`/`-sni`/`-completion` value
-lists, and file completion where the flag takes a path); re-run it after
-upgrading so the completion matches the binary.
+The script comes from the same surface the `-h` help renders. That
+surface: every implemented flag, the `-mode`/`-deep`/`-sni`/`-completion`
+value lists, and the file completion where a flag takes a path. Re-run
+the command after every upgrade; the completion then renders the
+binary's current surface.
 
-## Chain it with the PD tools
+## Chain the import toolset
 
-The PD chain reads targets off the pipe (the implicit piped stdin — no
-`--` marker needed) and the httpx `scheme://` lines strip to the host on
+The import chain reads the targets off the pipe (the implicit piped stdin;
+no `--` marker needed). The httpx `scheme://` lines strip to the host on
 the way in. Verified live, end to end:
 
 ```bash
 subfinder -d shain.io -silent | httpx -silent -p 443 | pqscan -jsonl
 ```
 
-The record shape is specified in
-[`docs/spec.md#7-data-contract-record-and-pipelines`](docs/spec.md#7-data-contract-record-and-pipelines);
-each line is schema-1 JSON. For lists held in files, the adapters
-`-from-httpx` / `-from-naabu` parse the same dialects (scheme and path
-stripping built in); `-l -` reads the pipe explicitly.
+Each line is schema-1 JSON; the record shape is specified in
+[`docs/spec.md#7-data-contract-record-and-pipelines`](docs/spec.md#7-data-contract-record-and-pipelines).
+For lists held in files, the adapters `-from-httpx` and `-from-naabu`
+parse the same dialects (the scheme and the path strip inside). `-l -`
+reads the pipe explicitly.
