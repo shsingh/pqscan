@@ -2,7 +2,8 @@
 
 ## Where the time goes
 
-A fast-mode handshake is RTT-bound, not CPU-bound:
+A fast-mode handshake is RTT-bound. The network time, not the processor
+time, sets the pace.
 
 ```
 L ≈ one connect RTT + one handshake RTT — one more RTT when an HRR hop forces a second flight
@@ -10,8 +11,8 @@ L ≈ one connect RTT + one handshake RTT — one more RTT when an HRR hop force
     + client_crypto (MLKEM-768 encap ~0.05–0.15 ms; negligible)
 ```
 
-Throughput for a pool of W concurrent connections is **T ≈ W / L** — the
-budget table below, not threads, is what makes the tool fast.
+The throughput for a pool of W concurrent connections is **T ≈ W / L**. The
+budget table below, not the thread count, sets the rate.
 
 ## The pipeline: five bounded, streaming stages
 
@@ -29,10 +30,9 @@ flowchart TB
   C0 -.- FC[AIMD + circuit breakers]
 ```
 
-Design rules: no stage waits on a slow item (backpressure via bounded
-channels); no unordered goroutine explosion — worker pools with explicit
-budgets; everything streams (only `-sorted` buffers); cancellation is
-pervasive (Ctrl-C drains, WAL stays consistent).
+Design rules: no stage waits on a slow item. Bounded channels carry the
+backpressure. Worker pools carry the explicit budgets. Everything streams.
+Only `-sorted` buffers. Ctrl-C drains the run. The WAL stays consistent.
 
 ## Budgets
 
@@ -50,12 +50,12 @@ pervasive (Ctrl-C drains, WAL stays consistent).
 
 ## Adaptive control
 
-Global concurrency ramps AIMD-style toward its cap and halves on error-rate
-spikes; per-/24 and per-ASN circuit breakers cool buckets that time out
-repeatedly — cooled targets emit `skipped` records *with reason*, never
-silent gaps. Probe plans execute 6–8 concurrent per target with per-probe
-deadlines; the scheduler is weighted-fair, so one pathological subnet
-cannot starve the run.
+The global concurrency ramps toward its cap. An error-rate spike halves the
+window. A circuit breaker cools a bucket that times out repeatedly. A cooled
+target emits a `skipped` record with the reason. The run shows no silent
+gaps. A probe plan runs 6–8 probes per target. Each probe carries its own
+deadline. The scheduler is weighted-fair. One bad subnet cannot block the
+run.
 
 ## Probe-plan model (deep mode)
 
@@ -70,17 +70,18 @@ flowchart TB
   V --> W[classify + score + emit]
 ```
 
-The profile handshake prunes phase 2: a suite that already negotiated is
-skipped; groups the server re-routed via HRR are marked. Default plan caps
-at 24 probes/target (`-deep full` unlocks the complete matrix — 80 probes
-on the current registry snapshot, auto-tracked to `crypto/tls`).
+The profile handshake prunes the plan. A suite that already negotiated does
+not re-probe. A group the server re-routed via HRR carries its mark. The
+default plan caps at 24 probes per target. `-deep full` unlocks the complete
+matrix: 80 probes on the current registry snapshot. The list auto-tracks
+`crypto/tls`.
 
 ## PQC classification
 
-Every negotiated or observed parameter scores `pq | pq_hybrid |
-classic | draft | unknown` from generated registry tables,
-and the readiness verdict rides the record as `pq=<label>(<score>)` —
-the bands `pq-ready`, `pq-ready-hybrid`, `pq-partial`, `pq-missing` —
-with an **HNDL flag** — classic-only
-key exchange with long-lived certificates means recorded traffic stays
-decryptable by a future quantum attacker.
+Every negotiated or observed parameter gets its class from the generated
+registry tables: `pq | pq_hybrid | classic | draft | unknown`. The readiness
+rating rides the record as `pq=<label>(<score>)`. The bands: `pq-ready`,
+`pq-ready-hybrid`, `pq-partial`, `pq-missing`. The record also carries the
+**HNDL flag**. HNDL names a classic-only key exchange with long-lived
+certificates. Recorded traffic then stays decryptable to a future quantum
+attacker.

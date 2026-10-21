@@ -5,16 +5,51 @@ author: "Shain Singh"
 date: 2026-10-15
 ---
 
-A small, fast, chainable TLS / QUIC cipher-configuration and post-quantum
-readiness scanner. One static binary that enumerates protocol versions,
-cipher suites, key-exchange groups, signature algorithms and certificate
-properties — scores every observation on a PQC-readiness rubric — and
-speaks the import toolset's dialect (stdin → stdout, streaming JSONL).
+## About this tool
 
-**Status:** the `2026.01-rc3` release-candidate cut is live and attested; the
+pqscan is a command-line scanner. It reads one target or a target list. It
+writes one scan record per target. The record shows the target's TLS and QUIC
+configuration. The record also shows the target's post-quantum readiness
+rating. The tool composes with the import toolset: target lines in, streaming
+JSONL out. The `2026.01-rc3` release-candidate cut is live and attested. The
 written specification is in force.
 
-## Performance
+## What the record shows
+
+Each record carries five parts.
+
+- one negotiated key-group, for example X25519MLKEM768
+- one cipher suite and one protocol version
+- one certificate result: the signature and the key type
+- one QUIC result, if the target answers the UDP plane
+- one readiness rating: a number from 0 to 100
+
+The machine formats give the record as JSON, CSV or text. The `-explain`
+option adds the same facts as plain sentences. The text never adds facts the
+record does not carry.
+
+## What the tool reads
+
+The tool reads simple target forms: a domain, an IP address, a host with a
+port. It also reads scan results from other tools. Use these commands only.
+
+- `subfinder -d shain.io -silent`
+- `httpx -silent -ports 443,8443 -p 443,8443 -no-color`
+- `naabu -l domains.txt -p 443,8443,465,993 -silent`
+- `nuclei -l hosts.txt -silent -j`
+
+These commands are fixed. Other output forms do not parse. The tool reports
+the error and stops.
+
+## Three scan modes
+
+- *fast*: one handshake. The tool gives the record in milliseconds.
+- *deep*: the probe matrix. The tool sends one probe at a time and records
+  each answer.
+- *pq*: the PQ offer set. The tool sends PQ-only offers. Each refusal carries
+  the server's reason.
+
+## Measured performance
 
 ```{=html}
 <div class="pstats">
@@ -37,15 +72,16 @@ written specification is in force.
 </div>
 ```
 
-The release gate re-runs SLO + size at every cut — published numbers are
-never stale. The latency model + budget decomposition: [Design](design.qmd).
+The numbers come from measured runs. The release gate re-runs the rate and
+the size checks at every cut. Published numbers stay current. The latency
+model and the budget decomposition: [Design](design.qmd).
 
-## Install
+## Start
 
 The [release page](https://github.com/shsingh/pqscan/releases) carries
-attested static binaries for linux (amd64/arm64) and darwin/arm64.
-Short form; the full matrix — source installs, checksum and SLSA
-verification steps, Windows — lives in
+attested static binaries for linux (amd64/arm64) and darwin/arm64. The three
+lines below install the tool. The full matrix — source installs, checksum and
+SLSA verification steps, Windows — lives in
 [`INSTALL.md`](https://github.com/shsingh/pqscan/blob/main/INSTALL.md).
 
 ```bash
@@ -53,6 +89,15 @@ brew tap shsingh/tap && brew install pqscan        # macOS
 go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3   # any platform with Go
 gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
 ```
+
+Install the tool, then run the scan. Read the record and the plain sentences
+under it.
+
+```
+pqscan -u example.com -explain
+```
+
+The sentences show what is safe today and what is not.
 
 ## Alternative tools
 
@@ -68,11 +113,13 @@ gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before r
 | [httpx / nuclei / naabu](https://github.com/projectdiscovery) | Pipe-first dialect: streaming JSONL, silent output, resume, sharding | Scope centred on HTTP content and port enumeration; cipher configuration delegated to pqscan |
 | [Censys / Shodan](https://search.censys.io) | Large-scale PQC observation datasets | Remote datasets only; no on-demand probing of arbitrary target lists |
 
-Port and host discovery compose with the adjacent tools
-([Recipes](recipes.qmd)); pqscan covers the cipher-configuration plane:
-TLS and QUIC handshake parameters, certificates, and PQC classification.
+Port and host discovery compose with the adjacent tools. See
+[Recipes](recipes.qmd). pqscan covers the cipher-configuration plane: TLS and
+QUIC handshake parameters, certificates, PQC classification.
 
-Only scan systems you own or are authorised to test — see
+## Security
+
+Scan only owned or authorised systems. Report findings privately. See
 [Security](https://github.com/shsingh/pqscan/security/advisories/new) and
 [`SECURITY.md`](https://github.com/shsingh/pqscan/blob/main/SECURITY.md).
 
