@@ -13,7 +13,7 @@ date: 2026-10-15
 | | |
 |---|---|
 | **Name** | `pqscan` |
-| **One-liner** | A small binary that scans TLS and QUIC endpoints for cipher suites, protocol versions, key-exchange groups, signature algorithms and certificate properties — with a first-class post-quantum readiness view — and speaks the Project Discovery dialect (stdin → stdout, JSONL, chainable). |
+| **One-liner** | A small binary reads TLS and QUIC cipher configuration and the post-quantum readiness on every target; stdin → stdout, one JSON record per line, chainable. |
 | **Modelled on** | Capability breadth of cryptonice / gnutls-cli-debug; UX and chainability of httpx / nuclei / naabu. |
 | **Runtime shape** | One static binary, no runtime deps, cross-compiled for linux/macos (amd64, arm64), Windows best-effort. |
 | **Primary modes** | `fast` (single handshake per target), `deep` (gnutls-cli-debug-style exhaustive probing), `pq` (PQ-focused forced-group probing), `selftest`. |
@@ -23,15 +23,31 @@ date: 2026-10-15
 
 ## 1. Problem statement
 
-The 2024–2026 NIST PQC standardisation wave (FIPS 203 ML-KEM, FIPS 204 ML-DSA, FIPS 205 SLH-DSA, HQC selected 2025) moved post-quantum readiness from a lab topic into live TLS deployments: browsers already negotiate `X25519MLKEM768` by default, RFC 10024 registers the ECDHE-MLKEM hybrid groups, and ML-DSA / composite ML-DSA signature schemes and PQ certificates are entering registries and CAs. The transition is happening *in the cipher configuration layer* — exactly the layer security teams audit least often and tooling covers worst.
+The 2024–2026 NIST PQC standardisation wave (FIPS 203 ML-KEM, FIPS 204
+ML-DSA, FIPS 205 SLH-DSA; HQC joined in 2025) moved post-quantum readiness
+from the research papers into live TLS deployments. Browsers already
+negotiate `X25519MLKEM768` by default. RFC 10024 registers the ECDHE-MLKEM
+hybrid groups. ML-DSA and the composite ML-DSA schemes, with PQ
+certificates, enter the registries and the CAs. The transition runs in the
+cipher configuration layer. Security teams audit that layer least; the
+tooling covers it worst.
 
-Today's tools split into three camps, and none fills the gap:
+The current tools take three shapes. None fills the gap:
 
-- **Exhaustive** (gnutls-cli-debug, testssl.sh, TLS-Scanner): excellent probe depth, but interactive, single-target, slow, and blind to PQC groups or awkward about them.
-- **Fast/scalable** (zgrab2, masscan + follow-up): scale, but thin per-target TLS insight and no PQ classification.
-- **Accessible** (cryptonice, sslscan): friendly output, but Python/Perl-based, serial per-target, not chainable, and pre-PQC.
+- **Exhaustive** (gnutls-cli-debug, testssl.sh, TLS-Scanner): the deepest
+  probe set; interactive; one target at a time; slow; and little or
+  awkward PQC-group support.
+- **Fast/scalable** (zgrab2, masscan + follow-up): the scale; thin
+  per-target TLS insight; no PQ classification.
+- **Accessible** (cryptonice, sslscan): friendly output; Python/Perl-based;
+  serial, one target at a time; not chainable; pre-PQC.
 
-There is no modern, fast, small, dependency-free tool that (a) enumerates cipher configuration exhaustively like gnutls-cli-debug, (b) classifies PQC readiness like a research paper's survey scripts, (c) pipes naturally into the subfinder → httpx → nuclei ecosystem, and (d) scales from one domain to a /16 without changing mental models.
+No modern, fast, small, dependency-free tool carries the whole set:
+
+- exhaustive cipher-configuration reads, of the gnutls-cli-debug class;
+- PQC readiness rates on a stated rubric;
+- natural pipes into the subfinder → httpx → nuclei ecosystem;
+- scale from one domain to a /16, with no change of model.
 
 `pqscan` is that tool.
 
@@ -40,9 +56,9 @@ There is no modern, fast, small, dependency-free tool that (a) enumerates cipher
 ### Goals
 
 - **G1 — Full TLS cipher-config enumeration (server side).** All protocol versions offered/probed (SSLv3 optional; TLS 1.0–1.3 core), all cipher suites testable suite-by-suite, key-exchange groups, signature algorithms, cert chain analytics — the gnutls-cli-debug probe set, re-thought for automation.
-- **G2 — PQC classification as a first-class output.** Every negotiated or observed parameter is scored `pq | pq_hybrid | classic | obsolete`; a per-host readiness verdict with reasons; harvest-now-decrypt-later (HNDL) risk flag.
+- **G2 — PQC classification as a first-class output.** Every negotiated or observed parameter is scored `pq | pq_hybrid | classic | obsolete`; a per-host readiness rating with reasons; harvest-now-decrypt-later (HNDL) risk flag.
 - **G3 — Full-protocol coverage: TCP TLS + QUIC.** TLS over TCP for HTTP/1.1 and h2 (ALPN-driven), and TLS 1.3 over QUIC (h3) on UDP/443, including PQ group negotiation inside QUIC.
-- **G4 — Chainable like a Project Discovery tool.** Plain hosts, `ip:port`, URLs in on stdin; `-json/-jsonl/-csv` out on stdout; deterministic exit codes; pipe-in/pipe-out all the way.
+- **G4 — Chainable like the import toolset.** Plain hosts, `ip:port`, URLs in on stdin; `-json/-jsonl/-csv` out on stdout; deterministic exit codes; pipe-in/pipe-out all the way.
 - **G5 — Fast past any TLS tool today.** Multi-gigahertz handshake engine: ≥ 2,500 handshakes/s/core in fast mode; 100k+ in-flight connections; p95 per-target completion < 15 s in fast mode under load.
 - **G6 — Small.** Single static binary ≤ 15 MB, no configuration required; `pqscan -u example.com` is a complete invocation.
 - **G7 — Reverse-DNS-aware discovery.** Given IP ranges, enrich with PTR records and pick SNI candidates automatically, with multiple deduplicated SNI strategies.
@@ -50,26 +66,26 @@ There is no modern, fast, small, dependency-free tool that (a) enumerates cipher
 ### Non-goals (v1)
 
 - Not a vulnerability scanner with exploit logic (heartbleed/ROBOT/CCS-injection classes ship as a *separate opt-in legacy module*, reusing classic public probe logic — they are not the reason the tool exists).
-- No fuzzing, no downgrade/CVE classification reports in the style of security-metric dashboards; verdicts are configuration facts, not CVE claims.
+- No fuzzing, no downgrade/CVE classification reports in the style of security-metric dashboards; ratings are configuration facts, not CVE claims.
 - No browser-grade TLS stack mimicry beyond client-hello fingerprint presets (uTLS presets are in; JS-emulating fingerprints are out).
 - No DTLS, SSH, SMB, VPN (IKEv2) cipher analysis in v1 (v2 candidates).
 - No centralised intelligence: pqscan is the *point tool* in a pipeline, not a database.
 
 ## 3. Related work — honest survey
 
-| Tool | What it does well | Why we are not building on it |
+| Tool | What it does well | Why the repo does not adopt it |
 |---|---|---|
 | **cryptonice** (F5 Labs) | Broad scan menu (TLS, HTTP, HTTP2, DNS, JARM), readable JSON report, sslyze-backed rigor | Python + async per-target model; not built for 10k/s fan-out; PQC groups/certs absent; not pipe-first |
-| **gnutls-cli-debug** | Gold standard exhaustive per-protocol/per-suite probing of a single server | One target at a time; interactive; no scripting of probe matrix; no PQC groups |
+| **gnutls-cli-debug** | The reference-standard exhaustive per-protocol/per-suite probing of a single server | One target at a time; interactive; no scripting of probe matrix; no PQC groups |
 | **testssl.sh** | Very complete suites + legacy protocols + vulnerability checks; portable bash | Shell; slow per target; PQC groups treated as opaque hex; output not pipeline-native |
 | **sslyze** | Solid python TLS probing library, per-version suite enumeration | Python, serial; PQC gaps same as cryptonice |
-| **zgrab2** | The scale champion: Go, modular scanners, banner grab, JSON, pipes into masscan/zmap | TLS probe depth is shallow by design (one/​few handshakes); no PQ classification; probe matrix not user-extensible |
-| **masscan / zmap** | SYN-port discovery at insane rates | Not a TLS client; out of scope — they should feed pqscan (`masscan \| pqscan`) |
+| **zgrab2** | The scale leader: Go, modular scanners, banner grab, JSON, pipes into masscan/zmap | TLS probe depth is shallow by design (one/​few handshakes); no PQ classification; probe matrix not user-extensible |
+| **masscan / zmap** | SYN-port discovery at extreme rates | Not a TLS client; out of scope — they should feed pqscan (`masscan \| pqscan`) |
 | **TLS-Scanner** (TUD) | Research-grade exhaustive protocol analysis | Academic codebase, not packaging/UX for ops use |
 | **httpx / nuclei / naabu** | The chainability and output dialect, resume, stats, rate flags | Not TLS-deep (httpx does one handshake); nuclei's TLS data is template-shaped; naabu is only ports |
 | **Censys / Shodan** | Mass passive TLS datasets incl. PQ group observations | Remote-only datasets; no active per-suite probing; no on-demand targeting |
 
-**Synthesis rule.** Port discovery stays with naabu/masscan/zmap (compose, don't rebuild); host discovery stays with subfinder; HTTP content work stays with httpx; nuclei keeps its template engine. pqscan owns exactly one altitude: the *cipher-configuration plane* (TLS 1.x + QUIC handshake parameters, certificates, PQC classification) at speeds compatible with those neighbours.
+**Synthesis rule.** Port discovery stays with naabu/masscan/zmap (compose, never rebuild); host discovery stays with subfinder; HTTP content work stays with httpx; nuclei keeps its template engine. pqscan covers exactly one altitude: the *cipher-configuration plane* (TLS 1.x + QUIC handshake parameters, certificates, PQC classification) at speeds compatible with them.
 
 ## 4. Language decision: Go or Rust
 
@@ -77,39 +93,39 @@ Both are viable for a scanner of this shape. The decision matrix below is writte
 
 ### 4.1 Go
 
-**What we get for free**
+**Advantages**
 
 - crypto/tls ships ML-KEM by default (Go 1.24: `X25519MLKEM768` enabled by default; 1.25 exposes it in `ConnectionState.CurveID`; 1.26 adds `SecP256r1MLKEM768` / `SecP384r1MLKEM1024`) — the *negotiated* hybrid group is observable without any C bindings.
 - TLS 1.0–1.2 client with explicit suite lists: per-suite "offer-one, observe-accept" probing is ~20 lines per probe natively.
-- uTLS (`refraction-networking/utls`) gives ClientHello-level control — custom `supported_groups` lists, hand-set `key_share`, browser presets — which is precisely the probe mechanism for exotic/obsolete groups (`X25519Kyber768Draft00`, HQC/BIKE experimentals) that stock stacks refuse to construct.
-- quic-go wraps crypto/tls, so the same group-control story applies to QUIC/h3.
-- The PD ecosystem is Go: output conventions (streaming JSONL, `-stats`, `-resume`, shard semantics like zgrab2) are idiomatic patterns we can copy to the letter. Cross-compilation and goreleaser are one command.
-- Contributor pool, speed of iteration, and MIT-signal licensing (MIT + explicit vendoring policy) suit this project.
+- uTLS (`refraction-networking/utls`) gives ClientHello-level control — custom `supported_groups` lists, hand-set `key_share`, browser presets — the probe mechanism for the non-stdlib and obsolete groups (`X25519Kyber768Draft00`, HQC/BIKE experimentals) that stock stacks refuse to construct.
+- quic-go wraps crypto/tls, so the same group control carries to QUIC/h3.
+- The import toolset's ecosystem is Go: the output conventions (streaming JSONL, `-stats`, `-resume`, shard semantics of the zgrab2 shape) carry over as-is. The cross-compilation and the goreleaser release are one command.
+- The contributor pool, the iteration speed, and the MIT licensing signal (MIT + explicit vendoring policy) fit this project.
 
-**Costs / risks**
+**Costs and risks**
 
-- GC pauses and per-connection memory overhead vs Rust at the same in-flight count (mitigated in Section 7 budgets; not decisive at our scale: handshakes are RTT-bound, not CPU-bound).
-- crypto/tls's API boundary: some 1.2-era suites and all non-stdlib groups are invisible to stock stacks — handled via uTLS; SSLv2/SSLv3 are absent from Go entirely (optional -legacy sidecar, Section 8.4).
-- One version trap to encode in CI: setting `Config.CurvePreferences` *replaces* defaults (a list without 4588 silently kills PQ), and `go < 1.24` tool lines revert PQ defaults. The CI matrix pins toolchain lines and asserts engine defaults, so the tool's probe truth is version-independent.
+- GC pauses and per-connection memory overhead vs Rust at the same in-flight count (mitigated in Section 7's budgets; not decisive at this scale: handshakes are RTT-bound, not CPU-bound).
+- crypto/tls's API boundary: some 1.2-era suites and all non-stdlib groups stay invisible to stock stacks — uTLS handles them; SSLv2/SSLv3 are absent from Go entirely (optional -legacy sidecar, Section 8.4).
+- One version constraint to encode in CI: setting `Config.CurvePreferences` *replaces* defaults (a list without 4588 silently kills PQ), and `go < 1.24` tool lines revert PQ defaults. The CI matrix pins toolchain lines and asserts the engine defaults, so the probe truth stays version-independent.
 
 ### 4.2 Rust
 
-**What we get for free**
+**Advantages**
 
-- rustls ≥ 0.23.22 has ML-KEM in core (`prefer-post-quantum` feature) plus the `rustls-post-quantum` crate (ML-DSA variants, aws-lc-rs provider); the provider API is the cleanest way in *any* stack to inject custom KEM groups — real advantage if we later want first-class HQC/BIKE probing as protocol citizens.
+- rustls ≥ 0.23.22 has ML-KEM in core (`prefer-post-quantum` feature) plus the `rustls-post-quantum` crate (ML-DSA variants, aws-lc-rs provider); the provider API is the cleanest route in *any* stack to inject custom KEM groups — a real advantage where the requirements later include first-class HQC/BIKE probing.
 - No GC; deterministic tail latency; typically 2–3× smaller steady-state memory per connection; `io_uring`-based networking stacks exist for extreme-scale work.
-- Single-binary sizes ~5–8 MB without effort.
+- Single-binary sizes ~5–8 MB, as delivered.
 
-**Costs / risks**
+**Costs and risks**
 
-- TLS 1.0/1.2 legacy-suite enumeration in rustls is deliberately restricted; SSLv3-era probing would need vendored OpenSSL bindings (bloat, unsafe surface) — same sidecar problem as Go, worse ergonomics.
-- QUIC coverage via quinn (rustls) exists, but crypto/tls-driven quic-go inherits Go's PQ defaults today; quinn's PQ story tracks rustls' (fine, but a moving target to pin in CI).
+- TLS 1.0/1.2 legacy-suite enumeration in rustls is deliberately restricted; SSLv3-era probing needs vendored OpenSSL bindings (bloat, unsafe surface) — the same sidecar problem as Go, with worse ergonomics.
+- QUIC coverage via quinn (rustls) exists, but crypto/tls-driven quic-go inherits Go's PQ defaults today; quinn's PQ surface tracks rustls' (fine, but a moving target to pin in CI).
 - Async (tokio) adds a second ecosystem to reason about in code review; per-probe cancellation (deep-mode thousands of short-lived handshakes) is where Rust async bugs breed.
-- Slower iteration; smaller pool of contributors for a CLI tool whose main distribution channel is `go install`/Homebrew.
+- Slower iteration; smaller contributor pool for a CLI tool whose main distribution channel is `go install`/Homebrew.
 
-### 4.3 Verdict
+### 4.3 Decision
 
-**Go, with uTLS as the Hello-construction escape hatch, and quic-go for the UDP plane.** The binding constraint for a cipher scanner is *socket-parallelism and latency*, not per-connection CPU (Section 7's math), so Rust's throughput edge is mostly theoretical here; Go's ecosystem (PD conventions, goreleaser, crypto/tls MLKEM defaults, uTLS) buys the PD-like feel the PRD treats as a requirement. The Rust option is revisited only if real measurements show Go missing its throughput SLOs with no fix in reach. This choice is recorded with its kill-switch criteria so switching is a decision, not a vibe.
+**Go, with uTLS for the Hello construction, and quic-go for the UDP plane.** The binding constraint for a cipher scanner is *socket-parallelism and latency*, not per-connection CPU (Section 7's math), so Rust's throughput edge is mostly theoretical here; Go's ecosystem (the import toolset's conventions, goreleaser, crypto/tls MLKEM defaults, uTLS) buys that shape the PRD treats as a requirement. The Rust choice returns only when real measurements show Go missing its throughput SLOs with no fix in reach. The choice is recorded with its kill-switch criteria (ADR-0001: the switch is a decision, not a taste).
 
 ## 5. Feature set
 
@@ -120,16 +136,42 @@ Both are viable for a scanner of this shape. The decision matrix below is writte
 | Single target flags | `-u host`, `-u host:port`, `-u https://host`, `-cidr 192.0.2.0/24`, `ip:port` in one input grammar |
 | List + stdin | `-l file`, stdin pipe (auto-detected), both mixed; dedupe (exact + recent-LRU) |
 | Ports | `-p 443` default; comma list, ranges (`8000-8100`); per-port handshake plan |
-| SNI strategies | `auto` (default): use SNI when hostname present; SNI-less IP probe otherwise; `ptr-then-ip`; `ip-only`; `strict-sni` (refuse non-matching certs for verdicts, still record them) |
+| SNI strategies | `auto` (default): use SNI when hostname present; SNI-less IP probe otherwise; `ptr-then-ip`; `ip-only`; `strict-sni` (non-matching certs fail a readiness rating; the records stay) |
 | Reverse DNS | `-ptr` workers resolve PTR per IP (pooled UDP resolver, EWMA timeouts, negative cache) and promote the PTR hostname to SNI candidate; PTR is enrichment, never a blocker (never head-of-line blocking — Section 7.6) |
 | Sharding / resume | `-shard i/n` like zgrab2; `-resume` from WAL; `-stats` live rate/error view |
 
 ### 5.2 Modes
 
-- **`fast` (default):** one engineered handshake per (host, port): current browser-grade hello (uTLS preset, PQ-hybrid key share preferred) → observe negotiated parameters, cert chain, ALPN (h2 presence), features; optional one-shot HTTP probe (`-http`, off by default for raw IP sweeps, on for domain workflows).
-- **`deep`:** computes a per-target probe *plan* and executes it (Section 7.4): version-by-version and suite-by-suite "offer-one / observe-accept" enumeration, group enumeration (native groups + uTLS-constructed exotic groups), signature-algorithm negotiation, HRR detection, resumption/ticket checks, 0-RTT acceptance, insecure-renegotiation and fallback-SCSV checks. Full-matrix opt-in (`-deep full`); default deep plan caps probes per target (24) with time budget.
-- **`pq`:** forced-group probing — send hello containing *only* PQ-capable groups (`X25519MLKEM768`, `SecP256r1MLKEM768`, `SecP384r1MLKEM1024`, `MLKEM768`, `MLKEM512`-era drafts, obsolete Kyber drafts as a compat oracle), observe which the server accepts; offer PQ sig schemes (`mldsa44/65/87`, composite ML-DSA); classify certs; produce the readiness verdict. The ladder's per-probe observations record into the record's deep block (`mode: "pq"`, the deep executor's shape: `attempted/ok/rejected` + findings `probe/result/detail`), so `-mode pq -jsonl` carries the lattice exactly as `-mode deep` carries the deep matrix and the `-text` line rides the same counts tail as `deep=pq:<N>p/<N>ok/<N>rej` (§5.7). This is the mode to run across an estate on a calendar.
-- **`selftest`:** exercises the tool's own handshake engines against an embedded instrumented endpoint, printing the local machine's TLS-stack capability matrix (useful for verifying what a fleet *can* reach, not just what servers offer). `serve` mode (instrumented endpoint as a long-running service) is deferred to v2.
+- **`fast` (default):** one engineered handshake per (host, port): the
+  current browser-grade hello (uTLS preset, PQ-hybrid key share
+  preferred). The read: the negotiated parameters, the cert chain, ALPN
+  (h2 presence), the features. The optional one-shot HTTP probe: `-http`
+  (off by default for raw IP sweeps; on for domain workflows).
+- **`deep`:** computes a per-target probe *plan* and executes it
+  (Section 7.4). The set: version-by-version and suite-by-suite
+  "offer-one / observe-accept" enumeration, group enumeration (native
+  groups + uTLS-constructed non-stdlib groups), signature-algorithm
+  negotiation, HRR detection, resumption/ticket checks, 0-RTT
+  acceptance, insecure-renegotiation and fallback-SCSV checks.
+  Full-matrix opt-in (`-deep full`). The default deep plan caps probes
+  per target (24) with a time budget.
+- **`pq`:** forced-group probing — send a hello carrying *only*
+  PQ-capable groups (`X25519MLKEM768`, `SecP256r1MLKEM768`,
+  `SecP384r1MLKEM1024`, `MLKEM768`, `MLKEM512`-era drafts, obsolete
+  Kyber drafts as a compat oracle); observe which the server accepts;
+  offer the PQ sig schemes (`mldsa44/65/87`, composite ML-DSA);
+  classify certs; give the readiness rating. The offer set's per-probe
+  observations record into the record's deep block (`mode: "pq"`, the
+  deep executor's shape: `attempted/ok/rejected` + findings
+  `probe/result/detail`); `-mode pq -jsonl` carries the offer set
+  exactly as `-mode deep` carries the deep matrix, and the `-text`
+  line rides the same counts tail as `deep=pq:<N>p/<N>ok/<N>rej`
+  (§5.7). The mode runs across the whole target set on a schedule.
+- **`selftest`:** runs the tool's own handshake engines against an
+  embedded instrumented endpoint. The read: the local machine's
+  TLS-stack capability matrix (what a fleet *can* reach, not only what
+  servers offer). `serve` mode (the instrumented endpoint as a
+  long-running service) stays outside the v1 surface.
 
 ### 5.3 Protocol coverage matrix
 
@@ -148,30 +190,36 @@ Both are viable for a scanner of this shape. The decision matrix below is writte
 - Groups: `CurvePreferences` (stdlib groups incl. 4587/4588/4589); uTLS raw-extension mode for arbitrary group lists + explicit `key_share` per candidate (detects HRR precisely: server `hello_retry_request` presence is itself an observable).
 - Sig algs: force `signature_algorithms` and `signature_algorithms_cert` lists (incl. PQ schemes).
 - Features observed/verified: ALPN (http/1.1, h2, h3), extended master secret, session tickets, resumption via PSK (and resumption *rate* over N connections, cryptonice-parity), 0-RTT attempt + acceptance, fallback SCSV, renegotiation behaviour, compression check.
-- Fingerprints: JA3/JA4 *of our own hello* (for transparency about what we sent), JARM of the server (optional flag), uTLS presets: Chrome/Firefox/Safari/iOS/Gotls.
+- Fingerprints: JA3/JA4 *of the tool's own hello* (the transparency: what the tool sent), JARM of the server (optional flag), uTLS presets: Chrome/Firefox/Safari/iOS/Gotls.
 
 ### 5.5 Certificate analytics
 
 - Full chain parse: subject/issuer, SANs, validity, key algorithm and size (RSA/ECDSA curve/Ed25519/Ed448), signature algorithm of every cert in chain, key-usage, SCT/CT presence.
 - **PQC cert classes** via OIDs: ML-DSA-44/65/87 (RFC 9881 OIDs `2.16.840.1.101.3.4.3.17–19`), SLH-DSA, composite/hybrid cert drafts (composite ML-DSA cert types), plus ECDSA/RSA/other classification.
-- Cross-observation: negotiated sig scheme vs cert sig alg (mismatches surfaced), issuer hierarchy PQ-readiness (is the CA itself PQ or classic — informs how long the leaf could realistically become PQ).
+- Cross-observation: negotiated sig scheme vs cert sig alg (mismatches surfaced), issuer hierarchy PQ-readiness (whether the CA is itself PQ or classic — it sets the wait before the leaf's PQ renewal).
 
 ### 5.6 PQC classification and scoring
 
-Classification tables live in generated code (Section 5.9), snapshot-sourced from IANA, so drift is a rebuild, not a survey.
+Classification tables live in generated code (the `internal/classify` regen tables), snapshot-sourced from IANA; drift re-generates, a hand edit never happens.
 
 - **KEX classes:** `pq_hybrid` (4585–4590, obsolete Kyber drafts labeled `pq_hybrid_draft`), `pq_pure` (MLKEM512/768/1024 pure groups), `classic` (X25519, P-256/P-384, FFDHE), `legacy` (SM2 hybrids noted, RSA kex, non-compliant groups).
 - **Auth/sig classes:** same taxonomy over `mldsa44/65/87` (0x0904–0x0906), SLH-DSA schemes, composite ML-DSA schemes, dual-cert `dual_signature_algorithms` extension detection, classic RSA/ECDSA/EdDSA.
-- **Readiness verdict (rubric, weights fixed in code + printable):**
+- **Readiness rating (the rubric, weights fixed in code + printable):**
 
 | Signal | Points |
 |---|---|
 | PQ hybrid (or pure) KEX negotiated in *any* probed plane | 45 |
-| PQ capability observable in offers (PQ groups in our forced probe accepted, PQ sig schemes or dual-cert signalling accepted) | 25 |
+| PQ capability observable in offers (PQ groups in the forced probe accepted, PQ sig schemes or dual-cert signalling accepted) | 25 |
 | Modern hygiene: TLS 1.3 + forward secrecy + no legacy versions/suites accepted | 15 |
 | Certificate/chain PQ signal (PQ or composite cert, PQ-ready issuer) | 15 |
 
-Verdict banding (the readiness rubric, clamped 0–100): **pq-ready ≥ 80, pq-ready-hybrid ≥ 60, pq-partial ≥ 40, pq-missing 1–39, scan-error 0** (a zero-signal scan is an error state, not a grade), plus standalone boolean flags: `kex_pq`, `auth_pq_signal`, `cert_pq`, `hndl_risk` (classic-only KEX today ⇒ recorded traffic is decryptable by a future CRQC — the flag means "harvestable").
+The rating bands (the readiness rubric, clamped 0–100): `pq-ready` ≥ 80,
+`pq-ready-hybrid` ≥ 60, `pq-partial` ≥ 40, `pq-missing` 1–39; a
+scan-error surfaces as 0 (`error` set; a zero-signal scan is an error
+state, not a grade). The standalone boolean flags ride, too: `kex_pq`,
+`auth_pq_signal`, `cert_pq`, `hndl_risk` — classic-only key exchange
+today means the recorded traffic stays decryptable by a future CRQC
+(the flag means "harvestable").
 
 ### 5.7 Output and chainability
 
@@ -184,7 +232,7 @@ Verdict banding (the readiness rubric, clamped 0–100): **pq-ready ≥ 80, pq-r
   and drift-checked in CI):
 
 ```json
-{"schema":1,"mode":"fast","target":{"input":"google.com","host":"google.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
+{"schema":1,"mode":"fast","target":{"input":"google.com","host":"google.com","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 Block order is the encoders' contract (pinned by the goldens; the key order
@@ -197,7 +245,7 @@ in the JSONL matches):
 | `quic` | `attempted`, `state` (negotiated · handshaked · refused · mismatch · skipped · udp_blocked), `negotiated`, `group_name`, `group_class`, `discovered{alt_svc_h3, h3_direct}` |
 | `cert` | `sig_alg`, `sig_pq`, `key_alg`, `key_pq`, `dual` |
 | `pq` | `score` (0–100), `label` (bands: `pq-ready` ≥ 80, `pq-ready-hybrid` ≥ 60, `pq-partial` ≥ 40, `pq-missing` ≥ 1; a scan-error surfaces as 0 with `error`), `hndl` (the harvest-now-decrypt-later flag on an obsolete-draft acceptance), `summary` (the rule trail) |
-| `deep` | deep mode and the pq ladder: `mode` (standard · full · pq), `attempted`, `ok`, `rejected`, `findings[]{probe, result (accepted · rejected · refused · error), detail} — on `mode: "pq"` the findings are the forced PQ ladder's per-probe observations |
+| `deep` | deep mode and the pq offer set: `mode` (standard · full · pq), `attempted`, `ok`, `rejected`, `findings[]{probe, result (accepted · rejected · refused · error), detail} — on `mode: "pq"` the findings are the forced PQ offer set's per-probe observations |
 | `error` | per-target error string (an unreachable endpoint is a record, not a process failure; the `quic`/`cert`/`pq` blocks above ride zero-populated on error records — every record class validates against [`docs/schema-v1.json`](docs/schema-v1.json) as-is) |
 
 The CSV form is the flat 25-column projection of the same record (the header
@@ -212,7 +260,9 @@ pq_summary, error, ts`.
 
 ### 5.8 Concurrency and performance architecture
 
-*(Full treatment in Section 7 — called out here because it is a product requirement, not an implementation note: the tool's identity is "small and fast", and the pipeline is designed before the probes are.)*
+*(Full treatment in Section 7. The note: the scale is a product
+requirement, not an implementation note. The tool's identity is "small
+and fast"; the pipeline design precedes the probes.)*
 
 ## 6. Chaining reference implementations
 
@@ -226,7 +276,7 @@ flowchart LR
   subgraph PQ["pqscan - cipher-configuration plane"]
     P1["fast - 1 handshake"]
     P2["deep - offer-one matrix: ≤24 standard, full = the complete matrix"]
-    P3["pq - PQ ladder + verdicts"]
+    P3["pq - the PQ offer set + ratings"]
   end
   subgraph SINK["Downstream"]
     J[jq triage / diffs]
@@ -243,9 +293,9 @@ flowchart LR
   P3 --> R
 ```
 
-The point-tool contract, shown concretely. All commands are runnable verbatim; `pqscan` treats upstream output as input lines and never requires a flag unless a format needs disambiguation.
+The composition contract, as concrete commands. All commands run verbatim; `pqscan` reads upstream output as input lines and never requires a flag unless a format needs disambiguation.
 
-- **subfinder → pqscan (direct, it's just names):**
+- **subfinder → pqscan (direct: the names pipe through):**
 
 ```bash
 subfinder -d example.com -silent | pqscan -mode fast -jsonl -o assets.jsonl
@@ -259,12 +309,12 @@ subfinder -d example.com -silent \
   | pqscan -mode deep -jsonl -o deep.jsonl
 ```
 
-  (httpx text-mode lines are host-URI-ish; the built-in parser strips
-  scheme/status decorations. `-from-httpx` reads the TEXT dialect only,
-  the contract of the pinned capture command `httpx -silent -ports
-  443,8443 -p 443,8443 -no-color` (targets on stdin); one-line note:
-  a httpx `-csv` run refuses per the documented boundary — the import
-  contract is the pinned text command.
+  (httpx text-mode lines carry host-URI shapes; the built-in parser
+  strips the scheme and the status decorations. `-from-httpx` reads the
+  TEXT dialect only — the contract of the pinned capture command
+  `httpx -silent -ports 443,8443 -p 443,8443 -no-color` (targets on
+  stdin). The boundary note: a httpx `-csv` run refuses here per the
+  documented boundary — the import contract is the pinned text command.)
 
 - **naabu (port truth) → pqscan (cipher truth):**
 
@@ -283,7 +333,7 @@ masscan -p 443 -iL cidrs.txt --rate=100000 --open-only -oX - \
 - **Output → jq triage (who is NOT pq-ready):**
 
 ```bash
-pqscan -l estate.txt -mode pq -jsonl \
+pqscan -l targets.txt -mode pq -jsonl \
   | jq -r 'select(.pq.label != "pq-ready") | [.target.host, .pq.label, .pq.score, .pq.summary] | @tsv'
 ```
 
@@ -294,7 +344,7 @@ pqscan -l assets.txt -mode fast -urls \
   | nuclei -silent -tags tls
 ```
 
-- **nuclei → pqscan (import: the findings' hosts).** The import joins the adapter contract with the pinned-capture doctrine's one command, version-stamped — `nuclei -l hosts.txt -silent -j` (nuclei's captured help confirms `-l`, `-silent`, `-j`):
+- **nuclei → pqscan (the import: the findings' hosts).** The import joins the adapter contract with the pinned-capture doctrine's one command, version-stamped — `nuclei -l hosts.txt -silent -j` (the captured nuclei help confirms `-l`, `-silent`, `-j`):
 
 ```bash
 nuclei -l hosts.txt -silent -j > findings.jsonl
@@ -303,15 +353,21 @@ nuclei -l hosts.txt -silent -j > findings.jsonl
   pqscan's import side is the implemented `-from-nuclei` adapter (§8's
   Targeting row; the pinned capture `nuclei -l hosts.txt -silent -j`): the
   findings JSONL reads as target lines — each finding's `matched-at` (the
-  `url` field the fallback) contributes its host:port under the one dedupe.
-  The reverse direction (`pqscan -urls | nuclei -silent -tags tls`, above)
-  keeps carrying its traffic out.
+  `url` field as the fallback) contributes its host:port under the one
+  dedupe. The reverse direction (`pqscan -urls | nuclei -silent -tags
+  tls`, above) carries its own traffic out.
 
-- **Whole-organization PQ calendar job:** weekly `pqscan -l targets.txt -mode pq -jsonl | diff yesterday.jsonl -` or run in CI against a pinned list; pqscan's deterministic ordering (`-sorted`) makes diffs meaningful.
+- **The weekly PQ job over the organization:** run
+  `pqscan -l targets.txt -mode pq -jsonl | diff yesterday.jsonl -` on a
+  schedule, or run it in CI against a pinned list; pqscan's deterministic
+  ordering (`-sorted`) makes the diffs meaningful.
 
 ## 7. The hard part: async architecture and throughput (first-class)
 
-A cipher scanner is not a web scraper: the work is thousands of *short, RTT-dominated, failure-rich* network round-trips whose failures carry information (a rejection is a result). The architecture exists to make the *failure case* and the *tail* fast, not just the happy path.
+A cipher scanner is not a web scraper: the work is thousands of *short,
+RTT-dominated, failure-rich* network round-trips whose failures carry
+information (a rejection is a result). The architecture exists to make the
+*failure case* and the *tail* fast, not only the success path.
 
 ### 7.1 Model first: where time actually goes
 
@@ -323,7 +379,13 @@ L ≈ connect_rtt (1) + tls13_handshake_rtt (1)   [2-RTT floor; TLS 1.2 = 2 hand
     + client_crypto (MLKEM-768 encap ~0.05–0.15 ms; negligible)
 ```
 
-At RTT 60 ms: L ≈ 170–400 ms. Throughput for a pool of W concurrent connections is `T ≈ W / L` — *not* cores × something. Concretely: W = 50,000 in-flight, L = 0.3 s ⇒ ~165k handshakes/s ceiling, of which real-world caps (DNS, dial syscalls, client crypto + GC, etiquette) bind first. Client-side crypto is ~0.2–0.6 ms/handshake in Go ⇒ CPU-bound ceiling ≈ 2–4k handshakes/s/core. **Conclusion: the design is a bounded-parallel pipeline with W tuned to the CPU and ethics caps, and the language choice is not the bottleneck.** This math drives every budget below and is re-measured, not assumed.
+At RTT 60 ms: L ≈ 170–400 ms. The throughput of a pool of W concurrent connections is `T ≈ W / L` — *not* cores × something. Concretely: W = 50,000 in-flight, L = 0.3 s ⇒ a ~165k handshakes/s
+ceiling. The real-world caps (DNS, dial syscalls, client crypto + GC,
+etiquette) bind first. Client-side crypto is ~0.2–0.6 ms/handshake in Go
+⇒ the CPU-bound ceiling ≈ 2–4k handshakes/s/core. **The conclusion: a
+bounded-parallel pipeline, with W tuned to the CPU and the ethics caps.
+The language choice is then not the constraint.** This math drives every
+budget below and is re-measured, never assumed.
 
 ### 7.2 Pipeline shape (five stages, all bounded, all streaming)
 
@@ -343,10 +405,10 @@ flowchart TB
 
 Design rules:
 
-- **No stage ever blocks its producer on a slow individual item.** Each stage is a goroutine pool pulling from a bounded channel. Ingest never waits on DNS; the scheduler never waits on a handshake; the encoder never waits on a handshake (WAL absorbs, then encoders drain).
-- **No unordered goroutine explosion.** Concurrency is expressed as worker pools over channels with explicit budgets (next section), not "goroutine per target with unlimited fan-out".
-- **Everything streams by default.** Results are emitted the moment a target's plan completes; `-sorted` is the only buffered mode.
-- **Cancellation is pervasive.** Every probe has a deadline ladder; every stage honours context cancellation; Ctrl-C drains, the WAL remains consistent, exit code 130.
+- **No stage ever blocks its producer on a slow individual item.** Each stage is a goroutine pool pulling from a bounded channel. Ingest never waits on DNS; the scheduler never waits on a handshake; the encoder never waits on a handshake (the WAL takes the writes, then the encoders drain).
+- **No unordered goroutine spread.** Concurrency is worker pools over channels with explicit budgets (Section 7.3); never one goroutine per target with unlimited fan-out.
+- **Streaming is the default.** A record emits the moment its target's plan completes; `-sorted` is the only buffered mode.
+- **Cancellation is pervasive.** Every probe carries the deadline ladder; every stage honours the context cancellation; Ctrl-C drains, the WAL stays consistent, exit code 130.
 
 ### 7.3 Budgets and fairness (the numbers that make it fast *and* safe)
 
@@ -355,7 +417,7 @@ Design rules:
 | Global in-flight connections | 50,000 (CPU-tuned by startup probe on the box) | `T ≈ W/L`; 50k ⇒ ~2 GB RAM with 20–40 KB/conn |
 | TCP in-flight | 40k | quic-go needs more RAM per conn |
 | QUIC in-flight | 10k | per-conn goroutines + timer wheel are heavier |
-| Deep-mode probes per target (concurrent) | 6–8 | one host ≠ 64 handshakes at once; be a polite neighbour, avoid server-side rate kicks |
+| Deep-mode probes per target (concurrent) | 6–8 | one host ≠ 64 handshakes at once; the low depth keeps the server-side rate kicks out |
 | Per-subnet (/24) concurrent | 64 | NAT/policy devices fail closed; breakers catch the rest |
 | Global rate cap | 20k handshakes/s (`-rate` for more) | etiquette default; internet recipes use ≤ 5 conns/IP/s |
 | DNS in-flight | 256 (pooled resolver × EWMA) | PTR storms must not starve handshakes — separate budget |
@@ -363,9 +425,9 @@ Design rules:
 | Retries | 1, transient-only (RST/timeout), never for protocol rejections | rejections are results, not errors |
 | Result channel | 10k entries before backpressure | WAL keeps flushes off the hot path |
 
-**Adaptive concurrency (AIMD) + circuit breakers.** Global W ramps from 1k toward its cap; on error-rate spikes (timeout/conn-fail ratio) it halves, and recovers additively on success streaks. Per-/24 and per-ASN breakers: K consecutive timeouts ⇒ bucket cools for minutes; results from cooled buckets are `skipped` with reason (never silent). Target queue is `weighted-fair` so one pathological /24 cannot starve the run.
+**Adaptive concurrency (AIMD) + circuit breakers.** The global W ramps from 1k toward its cap; on an error-rate spike (the timeout/conn-fail ratio) it halves, and recovers additively on success streaks. Per-/24 and per-ASN breakers: K consecutive timeouts ⇒ the bucket cools for minutes; a cooled bucket's results carry `skipped` with a reason (never silent). The target queue is `weighted-fair`, so one pathological /24 cannot starve the run.
 
-**Fairness inside a target (deep mode).** Per-target plans execute with a local scheduler: probes are cheap stateless handshakes, so depth is bounded by *plan length × per-probe latency*, not by any lock or queue; probe results feed the plan builder (Section 7.4) which prunes redundant probes in-flight.
+**Fairness inside a target (deep mode).** The per-target plans run through a local scheduler: the probes are cheap stateless handshakes, so the depth is bounded by *plan length × per-probe latency*, never by a lock or a queue; the probe results feed the plan builder (Section 7.4), which prunes the redundant probes in-flight.
 
 ```mermaid
 sequenceDiagram
@@ -393,7 +455,7 @@ sequenceDiagram
 flowchart TD
   P[profile handshake<br/>version, suite, group, ALPN, cert] --> Q{server chose<br/>pq_hybrid group?}
   Q -- yes --> R1[skip pq-forced probes<br/>probe remaining groups + sigalgs]
-  Q -- no --> R2[pq forced-group ladder<br/>4588, 4587, 4589, mlkem pure, drafts]
+  Q -- no --> R2[pq forced-group offer set<br/>4588, 4587, 4589, mlkem pure, drafts]
   R1 --> S[suite matrix<br/>1.0-1.2: offer-one/observe<br/>1.3: fixed set accepted?]
   R2 --> S
   S --> T[sigalg matrix incl. mldsa, composite]
@@ -404,24 +466,24 @@ flowchart TD
 
 - Phase 1 is one handshake; its result prunes phase 2 (e.g., a suite already negotiating is skipped; groups the server re-routed via HRR are marked).
 - Default plan ≤ 24 probes/target; `-deep full` unlocks ~120.
-- The PQ ladder is run even on `classic` servers because "does their stack accept 4588 when forced" is the actionable estate-wide fact.
+- The PQ offer set runs even on `classic` servers: the fact "does the stack accept 4588 when forced" is the actionable fact across every target.
 
 ### 7.5 QUIC engine specifics
 
-- quic-go v0.5x with `tls.Config` sharing the same group/sig control story as TCP; version v1/v2, ALPN `h3`.
-- QUIC probes trigger on: explicit `-quic-always`, `-quic` on domain workloads, or an Alt-Svc h3 hint from fast mode. Raw-internet mode does QUIC only for hinted hosts by default (UDP half-open scans elsewhere are a v2 idea, not the default).
+- quic-go v0.5x with `tls.Config` carrying the same group/sig control as TCP; version v1/v2, ALPN `h3`.
+- QUIC probes run on: the explicit `-quic-always`, or an Alt-Svc h3 hint from fast mode (the hint gate). Raw-internet mode runs QUIC only for hinted hosts by default (UDP half-open scans elsewhere stay a v2 idea, not the default).
 - In-flight budget separate (10k) because quic-go's per-conn goroutine + timer cost ≈ 5× TCP; budget auto-derived at startup from the measured constants (like TCP's).
 - UDP-outbound-blocked networks detected in probes ⇒ `udp_blocked` reported rather than retried.
 
 ### 7.6 No head-of-line anywhere (the discipline list)
 
-DNS/PTR enrichment never delays the handshake stream (SNI-less IP handshakes run in parallel; PTR result upgrades the record if it lands in time — `-sni ptr-then-ip` re-handshakes only when the PTR arrives after the initial SNI-less attempt reported a "default cert" mismatch risk). Encoders never wait on disk: WAL is append-only, fsync-batched (every 1,000 records or 1 s). The scheduler never waits on a slow *target* (plans finish via deadlines). The *tool* never waits on the *last* slow target (Ctrl-C drains in ≤ deadline-ladder seconds). `-resume` replays the WAL: completed-target set is a compact on-disk set (exact until 4 M entries, then spilled), so an internet pass interrupted at hour four resumes in seconds.
+DNS/PTR enrichment never delays the handshake stream (SNI-less IP handshakes run in parallel; the PTR result upgrades the record when it arrives in time — `-sni ptr-then-ip` re-handshakes only when the PTR arrives after the initial SNI-less attempt reported a "default cert" mismatch risk). The encoders never wait on disk: the WAL is append-only, fsync-batched (every 1,000 records or 1 s). The scheduler never waits on a slow *target* (the plans finish through the deadlines). The *tool* never waits on the *last* slow target (the Ctrl-C drain takes seconds, within the deadline ladder). `-resume` replays the WAL: the completed-target set is a compact on-disk set (exact until 4 M entries, then spilled), so an internet pass interrupted at hour four resumes in seconds.
 
 ### 7.7 Memory, allocation, GC discipline
 
 - Handshake buffers via `sync.Pool` (4–16 KB), pre-sized hello templates per fingerprint preset; codepoint→name maps as static arrays, no Sprintf in the hot path.
 - JSONL encoder is hand-rolled for the hot record (no reflection): ~3× less alloc than `encoding/json` marshal paths.
-- `GOMEMLIMIT` set by default from the W budget; `GOGC` 300; optional `GOGC=off` + `FreeOSMemory` in long internet passes (benchmarked before release, not by taste).
+- `GOMEMLIMIT` set by default from the W budget; `GOGC` 300; optional `GOGC=off` + `FreeOSMemory` in long internet passes (benchmarked before release, never assumed).
 - Target: < 4 GB RSS at 50k TCP + 10k QUIC in-flight including result/WAL buffers — measured in CI perf suite (Section 10.3).
 
 ### 7.8 Benchmarks and SLOs (CI-enforced)
@@ -437,14 +499,14 @@ DNS/PTR enrichment never delays the handshake stream (SNI-less IP handshakes run
 | RSS @ 50k/10k in-flight | < 4 GB |
 | Resume replay of a 10 M-record WAL | < 60 s |
 
-Comparative baselines recorded: zgrab2, sslyze, cryptonice, gnutls-cli-debug (per-target depth), httpx (raw churn). We publish the harness and numbers, and expect to lose to zgrab2 on raw churn while winning decisively on per-target depth at chainable scale.
+Comparative baselines, recorded: zgrab2, sslyze, cryptonice, gnutls-cli-debug (per-target depth), httpx (raw churn). The repo publishes the harness and the numbers. zgrab2 leads on raw churn; this tool leads on per-target depth at chainable scale.
 
 ## 8. CLI surface
 
-The standing parity census — every §8 flag ↔ its USAGE row ↔ its implemented
-state, with the pinned reference-tool captures — lives in
-[`docs/surface-census.md`](surface-census.md), guarded by
-`scripts/check_spec_usage_parity.sh`.
+The standing parity census lives in
+[`docs/surface-census.md`](surface-census.md): every §8 flag ↔ its USAGE
+row ↔ its implemented state, with the pinned reference-tool captures.
+`scripts/check_spec_usage_parity.sh` guards it.
 
 - `pqscan -u example.com` — the zero-configuration entry.
 - Targeting: `-u`, `-l`, `-cidr`, `-p`, `-from-httpx`, `-from-naabu`, `-from-nuclei` (the pinned nuclei capture: `nuclei -l hosts.txt -silent -j`), `-shard i/n`, `-resume`
@@ -452,27 +514,27 @@ state, with the pinned reference-tool captures — lives in
 - Probes: `-probe-suite`, `-probe-version`, `-probe-group`, `-probe-sigalgs` (force sets), `-client-fingerprint chrome|firefox|safari|ios|gotls`, `-jarm`
 - TLS knobs: `-sni auto|ptr-then-ip|ip-only|strict-sni`, `-ptr`, `-timeout`, `-connect-timeout`, `-retries`
 - Performance: `-threads` (engine workers), `-c` (in-flight cap), `-rate`, `-dns-threads`, `-stats`
-- Output: `-json`, `-jsonl`, `-csv`, `-urls`, `-text` (default; the format-parity surface: `deep=<plan|pq>:<N>p/<N>ok/<N>rej` — the executed deep plan's counts, the forced PQ ladder's counts riding the same tail on `-mode pq` —, `cert=<sig>/<key>` with `+pq-sig/+pq-key/+dual`, `ptr=/sni=`, `pq=<label>(<score>)` all ride the line when present so the human format tells the same story jsonl does), `-o`, `-fields`, `-certs-dir`, `-explain` (the plain-language reading under each `-text` line), `-silent`, `-sorted` (output streams unordered by completion — the §5.7 default — so the unordered case carries no flag; `-sorted` buffers input order for review and diffs)
+- Output: `-json`, `-jsonl`, `-csv`, `-urls`, `-text` (default; the format-parity surface: `deep=<plan|pq>:<N>p/<N>ok/<N>rej` — the executed deep plan's counts, the forced PQ offer set's counts riding the same tail on `-mode pq` —, `cert=<sig>/<key>` with `+pq-sig/+pq-key/+dual`, `ptr=/sni=`, `pq=<label>(<score>)` all ride the line when present so the human format carries the same detail jsonl does), `-o`, `-fields`, `-certs-dir`, `-explain` (the plain-language reading under each `-text` line), `-silent`, `-sorted` (output streams unordered by completion — the §5.7 default — so the unordered case carries no flag; `-sorted` buffers input order for review and diffs)
 - Shells: `-completion bash|zsh` (the completion script on stdout, generated from the same surface the help renders)
 - Legacy module: `-legacy module=heartbleed,ccs,robot,sslv3` (opt-in, off by default)
 - Config: `-config pqscan.yaml` (org profiles: default ports, budgets, probes, output path); env overrides `PQSCAN_*`; `-h2c`/`-http2` never needed (ALPN is automatic).
 
 ## 9. Milestones
 
-The milestone ladder lived in this section through the `2026.01`
+The milestone list lived in this section through the `2026.01`
 candidates; the record lives in the repository's milestones and the
-closed issue register — the current truth is the releases and the live
+closed issue register. The current truth: the releases and the live
 CLI surface.
 
 ## 10. Test and verification strategy
 
-**Test-first is the merge gate ([ADR-0002](../blob/main/docs/adr/0002-watched-red-merge-gate.md)):** every behavioural change lands as a watched RED→GREEN pair — the failing test exists and runs before the implementation, the RED output is recorded verbatim in the PR body, and CI re-proves the green suite. Rejections and observations of hostile input are results; their tests are fixtures first.
+**Test-first is the merge gate ([ADR-0002](../blob/main/docs/adr/0002-watched-red-merge-gate.md)):** every behavioural change goes in as a watched RED→GREEN pair — the failing test exists and runs before the implementation, the RED output is recorded verbatim in the PR body, and CI re-proves the green suite. Rejections and observations of hostile input are results; their tests are fixtures first.
 
 ### 10.1 Correctness fixtures
 
 - **badssl.com subdomain matrix** (expired, untrusted, suite-hostile, version-hostile, mismatch, RC4/3DES hosts) — expected results checked per probe; regressions fail CI.
-- **PQC ground truth:** Google-hosted and Cloudflare-hosted PQ test endpoints (known 4588-negotiating), a local OpenSSL/BoringSSL TLS 1.3 config matrix *as fixtures we own* (suite/group/sigalg per config), local Go servers serving ML-DSA/composite certs where registries permit.
-- **Differential:** gnutls-cli-debug + sslyze vs pqscan on the fixture matrix — verdicts must agree or a written exception documents *why* ours is correct (e.g., PQ groups gnutls can't construct).
+- **PQC ground truth:** Google-hosted and Cloudflare-hosted PQ test endpoints (known 4588-negotiating), a local OpenSSL/BoringSSL TLS 1.3 config matrix *as owned fixtures* (suite/group/sigalg per config), local Go servers serving ML-DSA/composite certs where registries permit.
+- **Differential:** gnutls-cli-debug + sslyze vs pqscan on the fixture matrix — ratings must agree, or a written exception records *why* the pqscan read is the correct one (e.g., the PQ groups gnutls cannot construct).
 
 ### 10.2 Protocol truth
 
@@ -486,15 +548,15 @@ CLI surface.
 
 ### 10.4 Ethics and rate safety (shipped, documented)
 
-- Conservative defaults (rate 20k/s, per-subnet concurrency, jitter, breaker cool-downs); `-aggressive` documented for controlled environments.
-- README section: legal/ethical notes for mass scanning, opt-out contact, honest framing per zmap/masscan practice. Users own their scans; the tool enforces politeness by default, not by policy enforcement fantasies.
+- Conservative defaults (rate 20k/s, per-subnet concurrency, jitter, breaker cool-downs); the `-rate` flag raises the pace inside controlled environments.
+- README section: the legal/ethical notes for mass scanning, the opt-out contact, honest framing per the zmap/masscan practice. The scan operator owns the ethics; the tool enforces the conservative defaults by construction, never by a policy claim.
 
 ## 11. Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
 | crypto/tls/uTLS drift or API changes break group forcing | the pinned capability run re-proves both stacks; CI runs the capability matrix nightly; vendor-lock fences in go.mod; IANA regen pipeline makes codepoint drift a rebuild |
-| SNI-less IP handshakes return CDN default certs → misleading verdicts | `-strict-sni` verdict flag; SNI-less records carry `sni_used=false` and get verdict-badged `provisional` unless strict mode |
+| SNI-less IP handshakes return CDN default certs → misleading ratings | `-strict-sni` rating flag; SNI-less records carry `sni_used=false` and get the `provisional` badge unless strict mode |
 | Middleboxes choke on large PQ ClientHello (tldr.fail class) | Recorded as `clienthello_too_large` observed state; fast mode can fall back to classic hello and re-probe (flag `-pq-fallback`, default on fast mode for raw IP scans) |
 | quic-go budget blowout on internet scale | Separate QUIC budget, hint-gated probing, live measurements drive W_q |
 | Deep mode on millions of hosts is nonsense time | Explicit guidance + `-mode fast` default; docs include the sampling recipe (deep on top-N ASNs, fast everywhere); rate/etiquette docs |
@@ -503,10 +565,10 @@ CLI surface.
 
 ## 12. Success metrics
 
-- **Adoption:** used as the TLS/PQC stage in real chains (GitHub stars is not one — watch: external issues, recipe PRs).
+- **Adoption:** the tool runs as the TLS/PQC stage in real chains (star counts are not the measure; the watch: external issues, recipe PRs).
 - **Correctness:** fixture-matrix pass rate 100 %; differential exceptions documented and < 5 % of categories.
-- **Performance:** SLO table green in CI per cut; real-world: one box, fast mode, 10 M targets < 24 h at default caps.
-- **Utility:** estate calendar job (mode `pq`) produces diff-able verdicts adopted by at least one organisation, beginning with the maintainers' own estate.
+- **Performance:** the SLO table green in CI per cut; the real-world read: one box, fast mode, 10 M targets < 24 h at the default caps.
+- **Utility:** the scheduled PQ job (mode `pq`) gives diff-able ratings across the target set; adoption starts with the maintainers' own target set.
 
 ## 13. Repository layout (initial)
 
@@ -548,4 +610,4 @@ Signature schemes: `mldsa44(0x0904)`, `mldsa65(0x0905)`, `mldsa87(0x0906)` (draf
 
 ## Appendix B. Naming
 
-`pqscan` — 6 letters, one grep-able token, sits in the PD tool namespace grammar (`httpx`, `nuclei`, `naabu`, `katana` — short, one-word, lowercase). Retained as the working name; the `pq` mode reads as the focus.
+`pqscan` — 6 letters, one grep-able token, inside the import toolset's naming grammar (`httpx`, `nuclei`, `naabu`, `katana` — short, one-word, lowercase). The name stays as the working name; the `pq` mode reads as the focus.
