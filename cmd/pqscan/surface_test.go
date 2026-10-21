@@ -516,6 +516,119 @@ func TestCLISurfaceContract(t *testing.T) {
 	t.Logf("zero-reference policy: %d/%d faces × the census inventory, clean",
 		clean, len(zeroFaces))
 	t.Logf("zero-reference policy: no docs/ paths, no repo doc file names, no section anchors, no issue or register references, no status words")
+
+	// ---- 11. the ASD-STE100 census: every face stands in the writing
+	// standard. The faces render live above (the -h render, the exit-64
+	// refusal streams, the fast/deep/pq -explain blocks, the completion
+	// scripts). The census scans each face whitespace-normalized — a
+	// line wrap never hides a word — against the banned classes below:
+	// the future tense, the first/second person, the metaphor nouns
+	// (the fixed words are the PQ offer set and the readiness rating,
+	// never "ladder" or "verdict"), and the comma/semicolon-joined
+	// compound sentences the census can see. A re-introduced class goes
+	// red here in CI. The -v output adds the sentence-length report for
+	// the prose faces: the sentences over 20 words, report only (the
+	// pattern greps are the gate; the counts-tail grammar is a record
+	// contract, so the report reads its length and the greps stay the
+	// failing check).
+	t.Logf("── ASD-STE100 banned-class census ──")
+	steFaces := []struct {
+		face string
+		data []byte
+	}{
+		{"-h render", help.Bytes()},
+		{"-explain block (fast)", scanOut.Bytes()},
+		{"-explain block (deep)", deepOut.Bytes()},
+		{"-explain block (pq offer set)", pqOut.Bytes()},
+	}
+	for _, shell := range []string{"bash", "zsh"} {
+		var c, ce bytes.Buffer
+		if code := run([]string{"-completion", shell}, &c, &ce); code != 0 || ce.Len() != 0 {
+			t.Fatalf("-completion %s (census render): rc=%d err=%q", shell, code, ce.String())
+		}
+		steFaces = append(steFaces, struct {
+			face string
+			data []byte
+		}{"-completion " + shell + " script", c.Bytes()})
+	}
+	if len(refErrs) == 0 {
+		t.Fatalf("STE census: no refusal streams (section 5 feeds them)")
+	}
+	for i, e := range refErrs {
+		steFaces = append(steFaces, struct {
+			face string
+			data []byte
+		}{fmt.Sprintf("refusal stream #%d (%v)", i+1, refArgs[i]), e})
+	}
+	steHits := 0
+	for _, face := range steFaces {
+		plain := strings.Join(strings.Fields(string(face.data)), " ")
+		for _, row := range steBanned {
+			for _, loc := range row.re.FindAllStringIndex(plain, -1) {
+				steHits++
+				t.Errorf("face %s carries the banned class %q near %q",
+					face.face, row.class, steWindow(plain, loc[0], loc[1]))
+			}
+		}
+		if testing.Verbose() {
+			long := 0
+			for _, s := range steSentences(plain) {
+				if n := len(strings.Fields(s)); n > 20 {
+					long++
+					t.Logf("face %s, %2d words: %s", face.face, n, s)
+				}
+			}
+			t.Logf("census %s: %d sentences, %d over 20 words", face.face, len(steSentences(plain)), long)
+		}
+	}
+	if steHits == 0 {
+		t.Logf("STE census: %d faces × %d banned classes, zero", len(steFaces), len(steBanned))
+	}
+}
+
+// steBanned is the census inventory (as of the STE100 lane): the string
+// classes no user-facing face carries. One row per class; the grep runs
+// on whitespace-normalized text so a wrapped line never hides a word.
+var steBanned = []struct {
+	class string
+	re    *regexp.Regexp
+}{
+	{"future tense", regexp.MustCompile(`(?i)\b(will|would)\b`)},
+	{"first/second person", regexp.MustCompile(`\b(you|your|yours|we|us|our|ours|me|my|mine)\b|\bI\b`)},
+	{"metaphor nouns", regexp.MustCompile(`(?i)\b(verdict|ladder|estate|neighbour|trap)\b`)},
+	{"joined compound", regexp.MustCompile(`[,;]\s*(and|but|or|so)\b`)},
+}
+
+// steWindow cuts a readable context window around a census hit.
+func steWindow(s string, start, end int) string {
+	lo, hi := start-40, end+40
+	if lo < 0 {
+		lo = 0
+	}
+	if hi > len(s) {
+		hi = len(s)
+	}
+	return "…" + s[lo:hi] + "…"
+}
+
+// steSentences splits normalized prose into sentence candidates: the
+// spans up to a sentence-period (a report aid; the greps are the gate).
+func steSentences(s string) []string {
+	var out []string
+	cur := ""
+	for _, w := range strings.Fields(s) {
+		cur += w + " "
+		if strings.HasSuffix(w, ".") || strings.HasSuffix(w, "!") || strings.HasSuffix(w, "?") {
+			if strings.TrimSuffix(cur, " ") != "" {
+				out = append(out, strings.TrimSuffix(cur, " "))
+			}
+			cur = ""
+		}
+	}
+	if strings.TrimSpace(cur) != "" {
+		out = append(out, strings.TrimSpace(cur))
+	}
+	return out
 }
 
 // fsLookup is the flag-set lookup shaped for the map-driven row check.
