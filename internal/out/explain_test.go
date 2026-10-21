@@ -21,10 +21,10 @@ func TestExplainBlockGolden(t *testing.T) {
 
 	t.Run("negotiated pq hybrid", func(t *testing.T) {
 		want := strings.Join([]string{
-			"  - verdict: pq-partial 40/100. The negotiated key exchange is post-quantum; the certificate layer is classical — see the lines below.",
-			"  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. Session traffic is protected from later decryption by a quantum computer; the harvest-now-decrypt-later risk does not apply while this group negotiates.",
-			"  - certificate: classical identity (ECDSA key, sha256WithRSAEncryption signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.",
-			"  - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum verdict applies to h3 traffic.",
+			"  - rating: pq-partial 40/100. The negotiated key exchange is post-quantum. The certificate layer is classical. The lines below carry the detail.",
+			"  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. This group protects the session traffic. The harvest-now-decrypt-later risk does not apply while this group negotiates.",
+			"  - certificate: classical identity (ECDSA key, sha256WithRSAEncryption signature). Use a PQ-signed or dual certificate at the next renewal.",
+			"  - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum rating applies to h3 traffic.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&hybrid), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -39,9 +39,9 @@ func TestExplainBlockGolden(t *testing.T) {
 			Pq:        &PqRecord{Score: 0, Label: "scan-error", Summary: "scan-error"},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
-			"  - certificate: classical identity (RSAPublicKey key, sha256WithRSAEncryption signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
+			"  - certificate: classical identity (RSAPublicKey key, sha256WithRSAEncryption signature). Use a PQ-signed or dual certificate at the next renewal.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&classic), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -56,10 +56,10 @@ func TestExplainBlockGolden(t *testing.T) {
 			Pq:        &PqRecord{Score: 0, Label: "scan-error", HNDL: true, Summary: "obsolete_draft_negotiated(-15)"},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - hndl: HARVEST-NOW-DECRYPT-LATER exposure — the endpoint accepts an obsolete draft PQ group (a pre-ML-KEM algorithm); those handshakes' classical halves stay decryptable to a future quantum computer: strip the draft groups from the server configuration.",
-			"  - key exchange: X25519Kyber768Draft00 (draft) — obsolete post-quantum draft (pre-final Kyber): readiness in appearance only, not the standard ML-KEM.",
-			"  - quic: x25519 (classic) on the UDP plane — classical there too: a PQ negotiation on TCP does not protect the QUIC plane.",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - hndl: HARVEST-NOW-DECRYPT-LATER exposure. The endpoint accepts an obsolete draft PQ group (a pre-ML-KEM algorithm). Those handshakes stay decryptable to a future quantum computer. Remove the draft groups from the server configuration.",
+			"  - key exchange: X25519Kyber768Draft00 (draft) — an obsolete pre-final PQ draft (pre-ML-KEM Kyber). This class is not the standard ML-KEM. It gives no real PQ readiness.",
+			"  - quic: x25519 (classic) on the UDP plane — classical there, too: a PQ negotiation on TCP does not protect the QUIC plane.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&draft), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -72,7 +72,7 @@ func TestExplainBlockGolden(t *testing.T) {
 			Error:  "connect: connection refused",
 		}
 		want := strings.Join([]string{
-			"  - error: connect: connection refused — no handshake was reached: the endpoint is unreachable on this port (closed or filtered); no cipher verdict is possible.",
+			"  - error: connect: connection refused — the probe reached no handshake. The endpoint is unreachable on this port (closed or filtered). No rating is possible.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&refused), "\n"); got != want {
 			t.Fatalf("explain block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -110,9 +110,9 @@ func TestExplainDeepReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - deep: the executed standard plan ran 8 probes: 2 accepted, 3 refused with the server's reasons, 2 not-offerable, 1 errored on the probe path; the offered-one matrix read: version floor 0/1, group ladder 1/2, suite matrix 0/1, sigalg ladder 0/1, certificate probe 1/1, resumption vectors 0/1, hrr probe 0/1; accepted: group/4588 (a PQ group accepted where the profile handshake negotiated classical); cert/chain — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - deep: the executed standard plan ran 8 probes: 2 accepted, 3 refused with the server's reasons, 2 not-offerable, 1 errored on the probe path; the offered-one matrix read: version floor 0/1, group offer set 1/2, suite matrix 0/1, sigalg offer set 0/1, certificate probe 1/1, resumption vectors 0/1, hrr probe 0/1; accepted: group/4588 (a PQ group accepted where the profile handshake negotiated classical); cert/chain — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&mixed), "\n"); got != want {
 			t.Fatalf("deep reading block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -142,9 +142,9 @@ func TestExplainDeepReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - deep: the executed full plan ran 14 probes: no offer was accepted, 14 refused with the server's reasons, 0 not-offerable; the offered-one matrix read: version floor 0/3, group ladder 0/11; the profile handshake above carries the negotiation — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - deep: the executed full plan ran 14 probes: no offer was accepted, 14 refused with the server's reasons, 0 not-offerable; the offered-one matrix read: version floor 0/3, group offer set 0/11; the profile handshake above carries the negotiation — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&all), "\n"); got != want {
 			t.Fatalf("nothing-accepted deep reading:\n(got)\n%s\n(want)\n%s", got, want)
@@ -165,9 +165,9 @@ func TestExplainDeepReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - deep: the executed standard plan ran 5 probes: 1 accepted, 3 refused with the server's reasons, 1 not-offerable; the offered-one matrix read: group ladder 1/3, suite matrix 0/1, resumption vectors 0/1; accepted: group/25497 (an obsolete draft group accepted — the harvest-now-decrypt-later exposure: strip the draft groups from the server configuration) — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - deep: the executed standard plan ran 5 probes: 1 accepted, 3 refused with the server's reasons, 1 not-offerable; the offered-one matrix read: group offer set 1/3, suite matrix 0/1, resumption vectors 0/1; accepted: group/25497 (an obsolete draft group accepted — the harvest-now-decrypt-later exposure: strip the draft groups from the server configuration) — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&draft), "\n"); got != want {
 			t.Fatalf("draft-acceptance deep reading:\n(got)\n%s\n(want)\n%s", got, want)
@@ -181,7 +181,7 @@ func TestExplainDeepReading(t *testing.T) {
 			Deep:   &DeepRecord{Mode: "standard", Attempted: 24, OK: 2, Rejected: 3},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
 			"  - deep: the executed standard plan ran 24 probes: 2 accepted, 3 refused with the server's reasons — the per-probe detail lives in the jsonl findings.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&bare), "\n"); got != want {
@@ -202,7 +202,7 @@ func TestExplainOtherErrorClasses(t *testing.T) {
 		{"context deadline exceeded", "stalled"},
 		{"tls: handshake failure", "TLS/certificate layer"},
 		{"x509: certificate signed by unknown authority", "TLS/certificate layer"},
-		{"something novel", "no cipher verdict"},
+		{"something novel", "No cipher rating"},
 	}
 	for _, row := range rows {
 		rec := &Record{Target: TargetRecord{Host: "203.0.113.10", Port: 443}, Error: row.err}
@@ -259,7 +259,7 @@ func TestExplainErrorLineRidesAVerdictRecord(t *testing.T) {
 	}
 	got := strings.Join(explainBlock(rec), "\n")
 	for _, want := range []string{
-		"  - verdict: scan-error 0/100",
+		"  - rating: scan-error 0/100",
 		"  - error: rubric: zero PQ signal (score 0) — verdict scan-error",
 	} {
 		if !strings.Contains(got, want) {
@@ -299,10 +299,10 @@ func TestExplainPQLadderReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: pq-partial 40/100. The negotiated key exchange is post-quantum; the certificate layer is classical — see the lines below.",
-			"  - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. Session traffic is protected from later decryption by a quantum computer; the harvest-now-decrypt-later risk does not apply while this group negotiates.",
-			"  - certificate: classical identity (ECDSA key, ecdsa-with-SHA256 signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.",
+			"  - rating: pq-partial 40/100. The negotiated key exchange is post-quantum. The certificate layer is classical. The lines below carry the detail.",
+			"  - deep: the forced PQ offer set sent 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group refused unless the server supports that group — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. This group protects the session traffic. The harvest-now-decrypt-later risk does not apply while this group negotiates.",
+			"  - certificate: classical identity (ECDSA key, ecdsa-with-SHA256 signature). Use a PQ-signed or dual certificate at the next renewal.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&ladder), "\n"); got != want {
 			t.Fatalf("ladder reading block:\n(got)\n%s\n(want)\n%s", got, want)
@@ -326,10 +326,10 @@ func TestExplainPQLadderReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - hndl: HARVEST-NOW-DECRYPT-LATER exposure — the endpoint accepts an obsolete draft PQ group (a pre-ML-KEM algorithm); those handshakes' classical halves stay decryptable to a future quantum computer: strip the draft groups from the server configuration.",
-			"  - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/25497 (an obsolete draft group accepted — the harvest-now-decrypt-later exposure: strip the draft groups from the server configuration); each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - hndl: HARVEST-NOW-DECRYPT-LATER exposure. The endpoint accepts an obsolete draft PQ group (a pre-ML-KEM algorithm). Those handshakes stay decryptable to a future quantum computer. Remove the draft groups from the server configuration.",
+			"  - deep: the forced PQ offer set sent 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/25497 (an obsolete draft group accepted — the harvest-now-decrypt-later exposure: strip the draft groups from the server configuration); each forced PQ-only group refused unless the server supports that group — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&draft), "\n"); got != want {
 			t.Fatalf("draft-acceptance ladder reading:\n(got)\n%s\n(want)\n%s", got, want)
@@ -353,9 +353,9 @@ func TestExplainPQLadderReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - deep: the forced PQ ladder made 8 offers: no offer was accepted, 8 refused with the server's reasons, 0 not-offerable; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - deep: the forced PQ offer set sent 8 offers: no offer was accepted, 8 refused with the server's reasons, 0 not-offerable; each forced PQ-only group refused unless the server supports that group — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&none), "\n"); got != want {
 			t.Fatalf("nothing-accepted ladder reading:\n(got)\n%s\n(want)\n%s", got, want)
@@ -379,9 +379,9 @@ func TestExplainPQLadderReading(t *testing.T) {
 			}},
 		}
 		want := strings.Join([]string{
-			"  - verdict: scan-error 0/100. Zero usable PQ signal — scored as an error state, not a passing verdict.",
-			"  - deep: the forced PQ ladder made 8 offers: no offer was accepted, 6 refused with the server's reasons, 0 not-offerable, 1 errored on the probe path; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.",
-			"  - key exchange: x25519 (classic) — classical: a future quantum computer breaks it, so traffic captured today can be decrypted later (harvest now, decrypt later).",
+			"  - rating: scan-error 0/100. Zero usable PQ signal. The rubric records an error state, not a rating.",
+			"  - deep: the forced PQ offer set sent 8 offers: no offer was accepted, 6 refused with the server's reasons, 0 not-offerable, 1 errored on the probe path; each forced PQ-only group refused unless the server supports that group — the per-probe detail lives in the jsonl findings.",
+			"  - key exchange: x25519 (classic) — classical. A quantum computer breaks this exchange over time. The captured traffic carries the harvest-now-decrypt-later exposure.",
 		}, "\n")
 		if got := strings.Join(explainBlock(&errored), "\n"); got != want {
 			t.Fatalf("errored-tail ladder reading:\n(got)\n%s\n(want)\n%s", got, want)

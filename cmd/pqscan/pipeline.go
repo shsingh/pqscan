@@ -783,7 +783,7 @@ func composeTargets(uSpec, listFile, httpxFile, naabuFile, nucleiFile string, ra
 			return parseSpecs(readSpecs(stdin))
 		case "cidr":
 			diag.Emit(diag.Warn, diag.DomTarget, "compose", t.Input, "cidr target refused (expansion is not supported)", nil, nil)
-			fmt.Fprintf(stderr, "pqscan: -cidr target %q: %v\n", t.Input, errCidrTargets)
+			fmt.Fprintf(stderr, "pqscan: cidr target %q: %v\n", t.Input, errCidrTargets)
 			return errCidrTargets
 		default:
 			key := net.JoinHostPort(t.Host, strconv.Itoa(t.Port))
