@@ -1,11 +1,11 @@
 # Recipes — tool import and chain examples
 
-Recipes follow the cookbook grammar: *Problem* states the operational
-need, *Solution* is the exact command to run, *Discussion* explains the
-mechanics behind it. Every `Solution` was executed and its `Observation`
-captured from the run; nothing here is aspirational. `pqscan` treats
-upstream output as input lines and needs no flag unless a format requires
-disambiguation.
+The recipes follow the cookbook grammar. *Problem* names the operational
+need. *Solution* is the exact command to run. *Discussion* explains the
+mechanics behind it. Every `Solution` in this page ran. Its `Observation`
+carries the captured output of that run. Nothing here is aspirational.
+`pqscan` reads upstream output as input lines. It needs no extra flag
+unless the format needs disambiguation.
 
 ``` {mermaid}
 %%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui","fontSize":"14px","primaryColor":"white","primaryTextColor":"rgb(39,128,227)","primaryBorderColor":"rgb(17,17,17)","lineColor":"rgb(52,58,64)","clusterBkg":"white","clusterBorder":"rgb(113,38,249)","clusterLabelBackground":"white"},"flowchart":{"curve":"basis","nodeSpacing":50,"rankSpacing":70,"padding":30,"subGraphTitleMargin":{"top":0,"bottom":16},"edgeLabelBackground":"white","htmlLabels":true}}}%%
@@ -37,10 +37,10 @@ flowchart TB
 
 ### Domain discovery → cipher truth
 
-**Problem.** Enumerate the live subdomains of a zone and learn, per
-endpoint, which key-exchange group and cipher suite the TLS stack
-actually negotiates against a modern client — not what the
-administrator configured, what the wire accepts.
+**Problem.** List the live subdomains of a zone. Then read the
+key-exchange group and the cipher suite the TLS stack actually negotiates
+against a modern client. The wire answers — the administrator's
+configuration does not.
 
 **Solution.**
 
@@ -50,31 +50,30 @@ subfinder -d shain.io -silent \
   | pqscan -jsonl -o assets.jsonl
 ```
 
-**Observation.** One schema-1 record per endpoint; this run's chain found
-4 alive endpoints and the first record (the tools stamped at capture time:
-subfinder v2.16.0 → httpx v1.12.0):
+**Observation.** One schema-1 record per endpoint. This run's chain found
+4 alive endpoints. The first record carries the tools' stamps at capture
+time: subfinder v2.16.0 → httpx v1.12.0:
 
 ```json
 {"schema":1,"mode":"fast","target":{"input":"oi.shain.io","host":"oi.shain.io","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"sha256WithRSAEncryption","sig_pq":false,"key_alg":"RSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
-**Discussion.** subfinder streams bare domains; httpx resolves and probes
-them and answers `scheme://host` lines, which the input grammar strips to
-host specs natively — the chain needs no flag or adapter. The probe is
-browser-grade: the ClientHello offers the
-stdlib default group preference order (MLKEM hybrid first), offers ALPN
-`h2,http/1.1`, and records what the server SELECTED — negotiation is
-the assertion, no configuration parsing. Each upstream tool stays in
-its lane; nothing in the chain re-implements another's job. The text
-chain requires nothing but the tools; a httpx `-csv` run's render
-refuses at import per the documented boundary — the text dialect is
-the whole import contract.
+**Discussion.** subfinder streams bare domains. httpx resolves the domains
+and probes them. It answers `scheme://host` lines. The input grammar strips
+those lines to host specs natively. The chain needs no flag and no adapter.
+The probe is browser-grade. The ClientHello offers the stdlib default
+group preference order (MLKEM hybrid first). It offers ALPN `h2,http/1.1`.
+It records what the server SELECTED. Negotiation is the assertion. No
+configuration parsing. Each upstream tool keeps its own job. Nothing in the
+chain re-implements another tool's job. The text chain needs only the
+tools. A httpx `-csv` render refuses at import — the documented boundary.
+The text dialect is the whole import contract.
 
 ### Port truth first
 
-**Problem.** Only hosts that actually accept on a given port are worth
-a probe handshake; probing closed sockets wastes the retry budget and
-skews latency math.
+**Problem.** Only hosts that actually accept on a given port need a probe
+handshake. A closed socket wastes the retry budget. It skews the latency
+numbers.
 
 **Solution.**
 
@@ -83,28 +82,27 @@ naabu -l domains.txt -p 443,8443,465,993 -silent \
   | pqscan -jsonl
 ```
 
-**Observation.** naabu's `host:port` lines are first-class target
-specs — one probe handshake, one record, per surviving socket (naabu 2.6.1
-at capture time).
+**Observation.** naabu's `host:port` lines are first-class target specs.
+One probe handshake and one record go out per surviving socket (naabu
+2.6.1 at capture time).
 
-**Discussion.** naabu is the port-discovery plane: it answers with the
-sockets that accept, which is exactly the input pqscan wants.
-Certificates-directory collection and resumption analysis later reuse
-the same records rather than re-dialing. `-from-naabu` additionally
-covers naabu's bare-host-and-ports-block rendering; the `host:port`
-form above is already first-class — and a saved render scans through
-the flag form (the next recipe).
+**Discussion.** naabu is the port-discovery plane. It answers with the
+sockets that accept. That answer is the input pqscan wants. The
+certificate-directory collection and the resumption analysis reuse these
+records later. They do not re-dial. `-from-naabu` also covers naabu's
+bare-host-and-ports-block rendering. The `host:port` form above is already
+first-class. A saved render also scans through the flag form (the next
+recipe).
 
 ### Import dialects render as files — -from-httpx / -from-naabu / -from-nuclei
 
-**Problem.** The import tools render in their own dialects —
-httpx speaks scheme-URI lines (`https://host:port`, an optional URL path
-suffix), naabu speaks `host:port` (or a host line followed by its bare-port
-block), and `nuclei -j` streams findings JSONL (one JSON finding per line,
-its `matched-at` carrying the probed host). When the render is already on
-disk the operator must not have
-to clean it just to scan: the adapters accept the render the way any
-target file is accepted.
+**Problem.** The import tools carry three render dialects. httpx answers
+scheme-URI lines (`https://host:port`, plus an optional URL path suffix).
+naabu answers `host:port` lines. It also renders a host line followed by
+its bare-port block. `nuclei -j` streams findings JSONL (one JSON finding
+per line; its `matched-at` field carries the probed host). The render may
+already sit on disk. The operator reads that file without a cleanup pass:
+the adapters accept the render the way any target file is accepted.
 
 **Solution.**
 
@@ -119,54 +117,55 @@ nuclei -l hosts.txt -silent -j > nuclei.jsonl   # the pinned capture (nuclei v3.
 pqscan -from-nuclei nuclei.jsonl -jsonl
 ```
 
-**Observation.** The imports executed with the real tools (each against its
-pinned capture of that exact command); the renders upstream were verbatim, the records from the pqscan legs — the httpx
-render's scheme/URI lines strip to host:port specs:
+**Observation.** The imports ran with the real tools. Each import read its
+pinned capture of that exact command. The upstream renders stay verbatim.
+The records come from the pqscan legs. The httpx render's scheme/URI lines
+strip to host:port specs:
 
 ```json
 {"schema":1,"mode":"fast","target":{"input":"example.org","host":"example.org","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
 and the naabu render's doubled `host:port` lines (`example.com:8443`,
-`example.com:443` twice over — naabu renders per resolved address)
-dedupe to one record per socket:
+`example.com:443` twice over — naabu renders per resolved address).
+They dedupe to one record per socket:
 
 ```json
 {"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
-and the nuclei import: the pinned capture (nuclei v3.11.1, `hosts.txt =
-scanme.sh`, the default template set) answers 28 findings on stdout; the
-import walks the file and the one dedupe collapses them to the two
-sockets the findings repeat — the ssh port's record (real error record:
-the TCP plane reached an ssh service) and the https port's:
+the import: the pinned capture (nuclei v3.11.1, `hosts.txt =
+scanme.sh`, the default template set) answers 28 findings on stdout. The
+import reads the file. The one dedupe step collapses the repeated sockets
+to two records — the ssh port's record (a real error record:
+the TCP plane reached an ssh service) and the https port's record:
 
 ```json
 {"schema":1,"mode":"fast","target":{"input":"scanme.sh:22","host":"scanme.sh","ip":"","port":22,"ptr":"","sni_used":""},"handshake":{"negotiated":0,"group_name":"","group_class":"","suite":"","version":"","alpn_neg":""},"quic":{"attempted":false,"state":"","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"","sig_pq":false,"key_alg":"","key_pq":false,"dual":false},"pq":{"score":0,"label":"","hndl":false,"summary":""},"error":"tls: first record does not look like a TLS handshake"}
 {"schema":1,"mode":"fast","target":{"input":"scanme.sh:443","host":"scanme.sh","ip":"","port":443,"ptr":"","sni_used":""},"handshake":{"negotiated":29,"group_name":"x25519","group_class":"classic","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":0,"label":"scan-error","hndl":false,"summary":"weak_classical_preferred(-5)"},"error":""}
 ```
 
-**Discussion.** The adapters feed the SAME composition -u/-l/-- use
-(internal/target strips the dialect decoration; every line goes through
-the one grammar), so one dedupe — host:port, first occurrence wins —
-serves every input source in flag order; a bad line refuses the run
-named by its flag (exit 64) rather than scanning a truncated list.
-the httpx `-csv` direction is out of contract by decision — the
-pinned text command is the whole httpx import. The block
-rendering of a naabu multi-port run (a host line followed by
-bare-decimal port lines) parses through `-from-naabu` exactly as the
-host:port lines do (the adapter's unit fixtures pin it). The
-`-from-*` adapters walk files: the findings arrive on stdout of the
-pinned `nuclei -j` capture, so the recipe redirects to the file the
-import reads — a `-from-nuclei -` value is tried as a file name
-(`open -: no such file or directory`, exit 64); `nuclei ... -j` writes
-JSONL to stdout, `> findings.jsonl` puts it on disk.
+**Discussion.** The adapters feed the SAME composition the
+`-u`/`-l`/`--` parse path uses. `internal/target` strips the dialect
+decoration. Every line goes through the one grammar. One dedupe step
+serves every input source in flag order. The key is host:port; first
+occurrence wins. A bad line refuses the run named by its flag (exit 64).
+The run never scans a truncated list. The httpx `-csv` direction is out
+of contract by decision. The pinned text command is the whole httpx
+import. The block rendering of a naabu multi-port run parses through
+`-from-naabu` exactly as the host:port lines do. The block is a host line
+followed by bare-decimal port lines (the adapter's unit fixtures pin it).
+The `-from-*` adapters read files. The findings arrive on stdout of the
+pinned `nuclei -j` capture. The recipe writes them to the file the
+import reads. A `-from-nuclei -` value reads as a file name
+(`open -: no such file or directory`, exit 64). `nuclei ... -j` writes
+JSONL to stdout. `> findings.jsonl` puts it on disk.
 
 ### Internet scale — one box of a four-box pass
 
-**Problem.** A /16-class estate must be swept for TLS posture without a
-16-hour serial tail, and without one box's failure orphaning the run's
-output.
+**Problem.** A /16-class target list needs a TLS sweep in one pass. The
+run must stay off a 16-hour serial tail. One box's failure must not orphan
+the run's output.
 
 **Solution.**
 
@@ -175,22 +174,22 @@ masscan -p 443 -iL cidrs.txt --rate=100000 --open-only -oX - \
   | pqscan -jsonl -o shard1.jsonl
 ```
 
-**Observation.** masscan answers the port question at line rate;
-pqscan answers the cipher-configuration question per surviving socket,
-one schema-1 record stream out the other side.
+**Observation.** masscan answers the port question at line rate. pqscan
+answers the cipher-configuration question per surviving socket. One
+schema-1 record stream leaves the other side.
 
 **Discussion.** The two tools compose because their contracts are
-narrow: masscan's `-oX -` and `--open-only` keep the pipe to what
-accepts; pqscan adds the negotiated group, suite, ALPN, QUIC and
-certificate blocks per host. Estate splitting is the flag's job now:
-`-shard i/n` filters the composed targets to one box's slice —
-`fnv1a64(host:port) % n == i-1`, the shards disjoint and complete at a
-fixed total — so the four boxes run the same list, each with its own
-`-shard 1/4 … 4/4`, and the union of their records is the estate. The
-stderr note carries the slice's count (`shard 1/4: N of M targets`);
-each box bounds its own handshake budget with `-rate`/`-threads`
-independently, and re-runs replay the WAL rather than re-dialing what
-survived. Live partition proof on a 9-target list, both slice notes:
+narrow. masscan's `-oX -` and `--open-only` keep the pipe to the sockets
+that accept. pqscan adds the negotiated group, suite, ALPN, QUIC and
+certificate blocks per host. The shard split is the flag's job now:
+`-shard i/n` filters the composed targets to one box's slice. The rule:
+`fnv1a64(host:port) % n == i-1`. The shards stay disjoint and complete
+at a fixed total. The four boxes run the same list. Each box runs its own
+`-shard 1/4 … 4/4`. The union of the four record streams is the run. The
+stderr note carries the slice's count (`shard 1/4: N of M targets`).
+Each box bounds its own handshake budget with `-rate`/`-threads`. A
+re-run replays the WAL. It does not re-dial the surviving targets. Live
+partition proof on a 9-target list; both slice notes:
 
 ```text
 pqscan: shard 1/2: 4 of 9 targets
@@ -199,9 +198,9 @@ pqscan: shard 2/2: 5 of 9 targets
 
 ### Target grammar and its refusals
 
-**Problem.** The input contract must be exact: what pqscan accepts, and
-precisely what it refuses — a scanner must fail closed on malformed
-target specs, not mis-scan.
+**Problem.** The input contract is exact. The contract names what pqscan
+accepts. It names what pqscan refuses. A scanner fails closed on the
+malformed target specs. It never mis-scans.
 
 **Solution.**
 
@@ -213,18 +212,18 @@ echo 'https://example.org:443/api' | pqscan -jsonl   # refused: a URL path suffi
 printf '198.51.100.0/24\n' | pqscan -jsonl           # refused: CIDR spec
 ```
 
-**Observation.** The first three run — the scheme strips off every spec
-line (`-u`, `-l` lines, the piped stdin), leaving one schema-1 record
-per target; `example.com:8443` negotiates and the unreachable v6
-literal is a record with `error` set, never a refusal:
+**Observation.** The first three run. The scheme strips off every spec
+line (`-u`, `-l` lines, the piped stdin). One schema-1 record goes out
+per target. `example.com:8443` negotiates. The unreachable v6 literal is
+a record with `error` set. It is not a refusal:
 
 ```json
 {"schema":1,"mode":"fast","target":{"input":"example.com:8443","host":"example.com","ip":"","port":8443,"ptr":"","sni_used":""},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":false,"state":"skipped: no alt-svc h3 hint","negotiated":0,"group_name":"","group_class":"","discovered":{"alt_svc_h3":false,"h3_direct":false}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
-What refuses (exit 64, nothing scanned) — a URL path suffix on the
-spec path (path stripping stays the adapters' business) and a CIDR
-spec line (per-address expansion is planned):
+What refuses (exit 64, nothing scanned): a URL path suffix on the spec
+path (path stripping stays the adapters' job). A CIDR spec line also
+refuses (per-address expansion is planned):
 
 ```text
 pqscan: URL path "/api" in target spec "https://example.org:443/api": a URL path is the -from-httpx adapter's decoration (-from-httpx FILE strips scheme and path; the spec path keeps host[:port])
@@ -234,26 +233,27 @@ pqscan: URL path "/api" in target spec "https://example.org:443/api": a URL path
 pqscan: -cidr target "198.51.100.0/24": cidr expansion is not supported
 ```
 
-**Discussion.** The grammar takes bare hosts (443 default), `host:port`
-forms, IPv4/IPv6 literals (bracketed v6 with port), `scheme://host[:port]`
-(the scheme strips on every spec line), `i/n` shard specs, and the
-stdin forms: the pipe is the implicit default input (no marker needed),
-`-l -` is the explicit stdin-file alias, `--` composes beside `-u`/`-l`.
-Every flag also parses under two dashes (`--mode` is `-mode`), and the
-completions offer both spellings. Specs dedupe by host:port in input
-order. Unreachable endpoints are NOT refusals —
-they are records with `error` set, which the failure-taxonomy recipe
-below classifies. CIDR spec lines refuse — per-address expansion is not
-supported (the grammar parses the class; the expansion is the boundary).
+**Discussion.** The grammar takes these forms. Bare hosts (443 default).
+`host:port`. IPv4/IPv6 literals (bracketed v6 with port).
+`scheme://host[:port]` (the scheme strips on every spec line). `i/n`
+shard specs. The stdin forms below.
+The pipe is the implicit default input (no marker needed). `-l -` is the
+explicit stdin-file alias. `--` composes beside `-u`/`-l`. Every flag
+also parses under two dashes (`--mode` is `-mode`). The completions offer
+both spellings. Specs dedupe by host:port in input order. Unreachable
+endpoints are NOT refusals. They are records with `error` set. The
+failure-taxonomy recipe below classifies them. CIDR spec lines refuse.
+Per-address expansion is not supported (the grammar parses the class;
+the expansion is the boundary).
 
 ## Modes: fast, deep, pq
 
 ### Deep standard — the bounded ≤24-probe profile
 
-**Problem.** Beyond the one fast handshake: which named groups the
-server refuses or accepts rung by rung, what the QUIC plane answers for
-the same rungs, the ML-DSA signature ladder, and the HRR demand — the
-structural ladders without paying the full matrix's cost on every asset.
+**Problem.** Beyond the one fast handshake: the per-rung answers for
+every named group. The QUIC plane's answers for the same rungs. The
+ML-DSA signature offer set. The HRR demand. Deep standard reads these
+out without the full matrix's cost on every asset.
 
 **Solution.**
 
@@ -261,7 +261,7 @@ structural ladders without paying the full matrix's cost on every asset.
 pqscan -u google.com -mode deep -jsonl
 ```
 
-**Observation.** The record gains a `deep` block; this run's counts and
+**Observation.** The record gains a `deep` block. This run's counts and
 a finding excerpt (the 22nd finding is the HRR row):
 
 ```text
@@ -277,39 +277,40 @@ sigalg/mldsa65 refused    not-offerable: the raw ClientHello path pins its signa
 hrr/x25519-shareless  accepted   hrr: the server requested group x25519 (29)
 ```
 
-with the text line carrying the counts tail `deep=standard:22p/2ok/8rej`
-(the remaining 12 of the 22 findings are the `refused` rows: three
-classical groups the stdlib cannot offer, three QUIC rungs ditto, three
-ML-DSA sigalgs, three resumption vectors — each row its own finding).
+with the text line carrying the counts tail `deep=standard:22p/2ok/8rej`.
+The remaining 12 of the 22 findings are the `refused` rows: three
+classical groups the stdlib cannot offer, three more QUIC rungs, three
+ML-DSA sigalgs, three resumption vectors. Each row is its own finding.
 
-**Discussion.** The profile handshake runs first and its facts PRUNE
-the plan: the negotiated group, the negotiated
-(suite, version) pair, the negotiated version, the certificate probe
-and the QUIC rung the profile already answered never re-probe. The
-plan then cuts to the ≤24 budget through the documented prune classes —
-adjacent suites first, then suites on the observed version, then all
-remaining suites, then foreign-version probes, then the classic
-signature algorithms — never touching the forced-group ladder, the
-ML-DSA sigalgs, the cert probe, the 0-RTT and HRR probes. On a modern
-host (the live reference above) that leaves exactly the structural
-ladders: the group and QUIC rungs, the ML-DSA ladder, resumption, HRR
-— the legacy suite and version hunt lives in `-deep full`. Per-kind
-dispatch: a group probe offers ONE named group — a real share where
-the toolchain has one, a share-less raw offer where it does not (the
-obsolete-Kyber oracle). `refused` rows are locally not-offerable
-probes: the raw ClientHello path pins its signature_algorithms list
-and the resumption plane is not instrumented yet — the finding's
-detail says exactly that, so a `refused` row is a capability boundary,
-not a server answer. The HRR probe extracts the group the server
-DEMANDED when the client withheld a share.
+**Discussion.** The profile handshake runs first. Its facts prune the
+plan. The plan never re-probes the negotiated group. It never re-probes
+the negotiated (suite, version) pair. It never re-probes the negotiated
+version. It never re-probes the certificate probe. It never re-probes
+the QUIC rung the profile already answered. The plan then cuts to the ≤24 budget
+through the documented prune classes. The classes run in order. Adjacent
+suites first. Then suites on the observed version. Then the remaining
+suites. Then the foreign-version probes. Then the classic signature
+algorithms. The prune classes never touch: the forced-group offer set. The ML-DSA
+sigalgs. The cert probe. The 0-RTT probe. The HRR probe. On a
+modern host (the live reference above) the plan keeps exactly the
+structural offer sets: the group offer set, the QUIC offer set, the
+sigalg offer set, resumption, HRR. The legacy suite and version hunt
+lives in `-deep full`. Per-kind dispatch: a group probe offers ONE named
+group. The offer is a real share where the toolchain holds one. Where
+the toolchain holds none, the probe sends a share-less raw offer (the
+obsolete-Kyber oracle). `refused` rows are locally not-offerable probes.
+The raw ClientHello path pins its signature_algorithms list. The
+resumption plane is not instrumented yet. The finding's detail says
+exactly that. A `refused` row is a capability boundary. It is not a
+server answer. The HRR probe extracts the group the server DEMANDED
+when the client withheld a share.
 
 ### Deep full — the complete offer-one matrix
 
-**Problem.** Exhaustive coverage: every suite × version pair (the
-secure default list AND the legacy/insecure suites), every registry
-group, the signature-algorithm surface, resumption vectors, the QUIC
-plane's rungs and the HRR hop — the complete offer-one matrix, each row
-one handshake.
+**Problem.** Deep full gives exhaustive coverage: every suite × version
+pair (the secure default list AND the legacy/insecure suites). Every
+registry group. The signature-algorithm surface. The resumption vectors.
+The QUIC plane's rungs. The HRR hop. Each row is one handshake.
 
 **Solution.**
 
@@ -323,7 +324,7 @@ pqscan -u google.com -mode deep -deep full -jsonl
 {"mode":"full","attempted":80,"ok":28,"rejected":33}
 ```
 
-(the remaining 19 findings are the `refused` rows). Sample suite
+(The remaining 19 findings are the `refused` rows.) Sample suite
 findings (the legacy hunt lives here):
 
 ```text
@@ -333,20 +334,20 @@ suite/TLS_CHACHA20_POLY1305_SHA256@1.3           refused    not-offerable on tls
 suite/TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA@1.2     rejected   remote error: tls: handshake failure
 ```
 
-**Discussion.** 80 probes, none pruned by observed facts: 4 versions,
+**Discussion.** 80 probes run. Observed facts prune none: 4 versions,
 11 registry groups (4585–4590 plus the classical set), 47 suite×version
-pairs (the list auto-tracks `crypto/tls`, so a Go upgrade that gains a
-suite grows the matrix), 7 signature algorithms (incl. the ML-DSA
-codepoints), 1 certificate, 3 resumption vectors, 1 HRR, and the 6
-QUIC-plane rungs. Standard never exceeds its 24-probe budget; `full`
-trades the budget for coverage and is the run you point at ONE asset
-you care about, not an estate.
+pairs, 7 signature algorithms (incl. the ML-DSA codepoints), 1
+certificate, 3 resumption vectors, 1 HRR, plus the 6 QUIC-plane rungs.
+The list auto-tracks `crypto/tls`. A Go upgrade that gains a suite
+grows the matrix. Standard never exceeds its 24-probe budget. `full`
+trades the budget for coverage. Point it at ONE asset. It is not the
+run for a target list.
 
-### -mode pq — the forced PQ ladder
+### -mode pq — the PQ offer set
 
-**Problem.** Which post-quantum groups will this server accept when
-forced rung by rung — independent of the client's default preference
-order — and does it still negotiate an obsolete draft.
+**Problem.** Which post-quantum groups does this server accept rung by
+rung — independent of the client's default preference order. Does it
+still negotiate an obsolete draft.
 
 **Solution.**
 
@@ -354,11 +355,11 @@ order — and does it still negotiate an obsolete draft.
 pqscan -u google.com -mode pq -jsonl
 ```
 
-**Observation.** (live) The record's handshake block carries the
-ladder's first ACCEPTED hybrid; the ladder lands as a deep-mode-shaped
-block — `mode:"pq"` with the counts `8 attempted / 1 ok / 7 rejected`
-and one finding per rung — and the `-text` line rides the same counts
-as the tail `deep=pq:8p/1ok/7rej`:
+**Observation.** (live) The record's handshake block carries the offer
+set's first ACCEPTED hybrid. The offer set lands as a deep-mode-shaped
+block: `mode:"pq"` with the counts `8 attempted / 1 ok / 7 rejected`
+and one finding per rung. The `-text` line rides the same counts as the
+tail `deep=pq:8p/1ok/7rej`:
 
 ```text
 group/4588   accepted    negotiated X25519MLKEM768, suite TLS_AES_128_GCM_SHA256, tls-1.3
@@ -367,32 +368,31 @@ group/25497  rejected    alert 40
 group/25498  rejected    alert 40
 ```
 
-under `-explain` the ladder's reading names the accepted rung and the
-refusals in operator words:
+under `-explain` the reading names the accepted rung and the refusals
+in operator words:
 
 ```text
-  - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.
+  - deep: the forced PQ offer set sent 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group refused unless the server supports that group — the per-probe detail lives in the jsonl findings.
 ```
 
-**Discussion.** `-mode pq` runs the forced ladder 4585–4590 plus the
-Kyber drafts (25497/25498). The verdict rides the record's `pq` block:
-a draft-HRR
-acceptance trips `pq.hndl` — the harvest-now-decrypt-later flag —
-because material intercepted against a draft-group handshake decrypts
-when the draft is broken, regardless of how modern the rest of the
-suite looks. The obsolete-Kyber oracle (the share-less offer of 25497,
-answered by the HRR demanding the draft) is the finding that seeds the
-compat-ladder decisions. This mode is the one to schedule FIRST on any
-asset whose `pq.label` reads below `pq-ready-hybrid`.
+**Discussion.** `-mode pq` runs the PQ offer set: 4585–4590 plus the
+Kyber drafts (25497/25498). The readiness rating rides the record's `pq`
+block. A draft-HRR acceptance trips `pq.hndl` — the
+harvest-now-decrypt-later flag. Material intercepted against a
+draft-group handshake decrypts when the draft breaks. The rest of the
+suite may look modern. The obsolete-Kyber oracle is the share-less offer
+of 25497. The HRR answers by demanding the draft. That finding feeds the
+compat decisions. Schedule this mode FIRST on any asset whose
+`pq.label` reads below `pq-ready-hybrid`.
 
 ## The cipher questions
 
 ### Which ciphers does the server accept?
 
-**Problem.** For a given host: does it support — or refuse — a
-specific cipher suite. Is ChaCha20-Poly1305 in its modern set? Is the
-legacy CBC family still open on TLS 1.0–1.2? Answer from the wire,
-one handshake per question.
+**Problem.** For a given host: does the stack support a specific cipher
+suite? Or does it refuse one? Is ChaCha20-Poly1305 in the modern set? Is
+the legacy CBC family still open on TLS 1.0–1.2? The wire answers each
+question with one handshake.
 
 **Solution.**
 
@@ -410,21 +410,21 @@ suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.0   accepted   negotiated TLS_ECDHE
 suite/TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA@1.2   accepted   negotiated TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, tls-1.2
 ```
 
-**Discussion.** Each suite probe is its OWN handshake offering ONE
-suite (offer-one / observe-accept — never a shared negotiation, so an
-`accepted` row is unambiguous). TLS 1.0–1.2 suites are individually
-forceable; TLS 1.3's ciphers ride one fixed set that
-`crypto/tls` cannot restrict, so those rows read `refused` with the
-reason in the detail — and the 1.3 SET acceptance is still visible in
-the record's `handshake.suite`, set by the profile handshake. To ask
-about a suite NOT in the registry list, the `-probe-suite` override
-(planned) offers arbitrary suites; until it lands the matrix covers
-the stdlib lists auto-tracked per Go release.
+**Discussion.** Each suite probe is its OWN handshake: it offers ONE
+suite (offer-one / observe-accept). No shared negotiation sits behind
+the row. An `accepted` row is unambiguous. TLS 1.0–1.2 suites are
+individually forceable. TLS 1.3's ciphers ride one fixed set.
+`crypto/tls` cannot restrict it. Those rows read `refused` with the
+reason in the detail. The 1.3 SET acceptance still shows in the record's
+`handshake.suite`. The profile handshake sets that field. The
+`-probe-suite` override (planned) offers suites not in the registry
+list. Until it lands, the matrix covers the stdlib lists. Those lists
+auto-track per Go release.
 
 ### Which TLS versions does the server still accept?
 
-**Problem.** The legacy-version floor is the classic audit question:
-is TLS 1.0/1.1 still on? Which legacy stacks still serve?
+**Problem.** The legacy-version floor is the standard audit question:
+is TLS 1.0/1.1 still open? Which legacy stacks still serve?
 
 **Solution.**
 
@@ -442,22 +442,21 @@ version/1.2    accepted: negotiated TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls
 version/1.3    accepted: negotiated TLS_AES_128_GCM_SHA256, tls-1.3
 ```
 
-**Discussion.** The version hunt runs in the `full` matrix: the standard
-plan's documented prune classes drop the foreign-version probes once the
-budget gets tight (the live reference's standard run planned none — its
-structural ladders already filled the 24-probe budget). Pair it with the
-suite rows: the 1.0/1.1 answers above negotiated an ECDSA-keyed CBC
-suite — a legacy-only answer the fast
-plane would never surface, because the browser-grade handshake always
-lands 1.3. THIS is why the deep modes exist: the fast record says
-"modern and hybrid", the deep findings say "and still answering on a
-decade-old CBC stack".
+**Discussion.** The version hunt runs in the `full` matrix. When the
+budget gets tight, the standard plan's prune classes drop the
+foreign-version probes. (The live reference's standard run planned none:
+the offer sets already filled the 24-probe budget.) Pair the version
+rows with the suite rows. The 1.0/1.1 answers negotiated an
+ECDSA-keyed CBC suite. A legacy-only answer. The fast plane never shows
+it: the browser-grade handshake always lands 1.3. The deep modes exist
+for this reason. The fast record reads "modern and hybrid". The deep
+findings add "and still answering on a decade-old CBC stack".
 
 ### Which PQ groups does the server accept when probed?
 
-**Problem.** Not negotiation-by-default — forced acceptability: which
-of the ML-KEM hybrids (4585–4590) and legacy drafts does this server
-take, and with what alert when it refuses.
+**Problem.** Not negotiation-by-default: forced acceptability. Which of
+the ML-KEM hybrids (4585–4590) and the legacy drafts does this server
+take? What alert answers each refusal?
 
 **Solution.**
 
@@ -481,19 +480,19 @@ group/28      refused    not-offerable locally: tls: no supported key exchange m
 group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
 ```
 
-**Discussion.** `rejected` rows carry the server's own alert: alert 40
-is the group refused at the ClientHello; the `tls: handshake failure`
-form is the server's stricter mid-handshake shaping — either way the
-answer is "the server answered and said no", a RESULT, not a failure.
-`refused` rows are the honest capability boundary (no stdlib share
-exists for that codepoint yet). The HRR finding closes the set: when
-the client withholds everything, what the server DEMANDS in its
-HelloRetryRequest is the last acceptability datum.
+**Discussion.** `rejected` rows carry the server's own alert. Alert 40
+is the group refused at the ClientHello. The `tls: handshake failure`
+form is the server's stricter mid-handshake reply. Either way the
+server ANSWERED and said no. That is a finding, not a failure.
+`refused` rows are the honest tool boundary: no stdlib share exists for
+that codepoint yet. The HRR finding closes the set. The client
+withholds everything. The server DEMANDS a group in its
+HelloRetryRequest. That demand is the last acceptability datum.
 
 ### Which signature algorithms are offered / possible?
 
 **Problem.** PQ certificate signatures (ML-DSA/SLH-DSA) on the wire:
-what can be proven today, and where the boundary is.
+what is provable today? Where is the boundary?
 
 **Solution.**
 
@@ -510,21 +509,21 @@ sigalg/mldsa65   refused   not-offerable: the raw ClientHello path pins its sign
 sigalg/mldsa87   refused   not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)
 ```
 
-**Discussion.** What IS provable today: the certificate analytics in
-the record's `cert` block — the leaf chain's signature algorithm
-(`ecdsa-with-SHA256`), key algorithm, PQ-ness, and the dual-cert rule
-(`cert.dual` = true when a classical-signed and a PQ-signed member
-coexist in the offered chain). Custom signature_algorithms offers in
-the raw ClientHello are the planned surface; until then the sigalg
-probe rows state the boundary per finding rather than vanishing. The
-`-probe-sigalgs` override (planned) will offer arbitrary lists.
+**Discussion.** The certificate analytics are provable today. They ride
+the record's `cert` block: the leaf chain's signature algorithm
+(`ecdsa-with-SHA256`), the key algorithm, the PQ-ness, the dual-cert
+rule. `cert.dual` goes true when a classical-signed and a PQ-signed
+member coexist in the offered chain. Custom signature_algorithms offers
+in the raw ClientHello are the planned surface. Until then, the sigalg
+probe rows state the boundary per finding. They never vanish. The
+`-probe-sigalgs` override (planned) offers arbitrary lists.
 
 ## Debugging and fault logging
 
 ### Logging a fault: -debug and the live stream
 
-**Problem.** When a run misbehaves — or reports a scan — the operator
-needs the full decision trail, human-readable, live.
+**Problem.** A run can misbehave. The operator then needs the full
+decision trail: human-readable and live.
 
 **Solution.**
 
@@ -554,17 +553,17 @@ events (5):
 summary: 5 events (1 errors, 0 warnings)
 ```
 
-**Discussion.** Every decision point emits: ladder steps, QUIC
-handshakes, refusal classifications, timeouts, rate/breaker decisions,
-WAL writes, emissions. The `[level][domain]` prefix is the taxonomy —
-`[error][tls]` vs `[warn][quic]` vs `[info][engine]` — and the trailer
-block restates the run's shape (flags, window, totals) so a pasted
-stderr is self-describing.
+**Discussion.** Every decision point emits an event: plan steps, QUIC
+handshakes, refusal classifications, timeouts, rate and breaker
+decisions, WAL writes, emissions. The `[level][domain]` prefix is the
+taxonomy: `[error][tls]` vs `[warn][quic]` vs `[info][engine]`. The
+trailer block restates the run's shape (flags, window, totals). A
+pasted stderr then reads self-describing.
 
 ### Attaching the machine-readable fault: -debug-out
 
-**Problem.** A ticket needs the structured event log, not a paste; the
-downstream tooling wants to query by domain, level and target.
+**Problem.** A ticket needs the structured event log, not a paste.
+Downstream tooling wants to query by domain, level and target.
 
 **Solution.**
 
@@ -589,17 +588,18 @@ info[output] emit hostile.internal
 ```
 
 **Discussion.** `-debug-out` writes the full event log as JSONL beside
-the run (independent of `-debug`'s stderr stream — arm either or
-both). The event objects carry level, domain, op, target, error and
-timing — the same stream the live view renders. BUG REPORTS AND
-SCAN-TOUCHING FEATURE REQUESTS attach `-debug -debug-out diag.json`
-output: the issue templates demand it, because the event log is the
-only reproduction that shows the tool's decisions.
+the run. The log is independent of `-debug`'s stderr stream. Arm one
+writer. Arm both at once. The event objects carry level, domain, op,
+target, error and timing. The live view renders the same stream.
+BUG REPORTS AND SCAN-TOUCHING FEATURE REQUESTS attach
+`-debug -debug-out diag.json` output. The issue templates demand that
+attachment. The event log is the only reproduction that shows the
+tool's decisions.
 
 ### The failure taxonomy: reading scan results correctly
 
-**Problem.** A red error line is not always a failure — a refused
-OFFER is a finding, a timeout is an estate problem, a breaker is the
+**Problem.** A red error line is not always a failure. A refused OFFER
+is a finding. A timeout is an infrastructure problem. A breaker is the
 tool protecting itself. Triage needs the classes.
 
 **Solution.**
@@ -619,19 +619,19 @@ pqscan -l estate.txt -jsonl \
 | refused (local) | `not-offerable locally: …` | pqscan cannot construct the offer — a tool capability boundary, stated in the record |
 | breaker open | `breaker open` | the host's own failure budget tripped; no dial attempted for subsequent targets |
 
-**Discussion.** Only the first two classes mean "the estate is
-unreachable"; `rejected` rows are ANSWERS (they feed the deep modes'
-findings and the rubric); the local `refused` class should be zero for
-every supported codepoint and is regression-tested per release. The
-breaker row is the congestion plane doing its job — see the hostile-
-hosts recipe. The exit code stays zero for completed scans regardless
-of per-target error records; a non-zero exit means the RUN itself
-failed (binary fault, WAL unwritable, flag misuse).
+**Discussion.** Only the first two classes read "the target set is
+unreachable". The `rejected` rows are ANSWERS. They feed the deep
+modes' findings and the rubric. The local `refused` class should stay
+zero for every supported codepoint. The release regression tests keep
+it at zero. The breaker row is the congestion plane doing its job —
+see the hostile-hosts recipe. The exit code stays zero for completed
+scans. Per-target error records do not move it. A non-zero exit means
+the RUN itself failed (binary fault, WAL unwritable, flag misuse).
 
 ### Hostile or flaky targets: rate, window, breakers
 
-**Problem.** An estate with dead subnets must not drag the run, nor
-pound a struggling host into further misery.
+**Problem.** Dead subnets must not stall the run. A struggling host
+must not take extra probe load.
 
 **Solution.**
 
@@ -648,19 +648,19 @@ real    0m0.412s        pqscan -l t3.txt -rate 5   (3 launches ≥ 0.4s at 5 rps
 real    0m0.019s        pqscan -l t3.txt           (uncapped)
 ```
 
-**Discussion.** `-rate` meters launches through a token bucket;
-`-threads` sets the in-flight cap and AIMD owns the window: grow on
-successes, halve on probe timeouts, floor at one. A host failing
-consecutively trips ITS breaker: later targets on that host emit
+**Discussion.** `-rate` meters launches through a token bucket.
+`-threads` sets the in-flight cap. AIMD owns the window: grow on
+successes, halve on probe timeouts, floor at one. A host that fails
+consecutively trips ITS breaker. Later targets on that host emit
 `breaker open` error records WITHOUT a dial (the taxonomy table's
-row). After the cooldown the breaker half-opens on a single probe and
-closes on success. The defaults are unbounded-sequential; the flags
-make the run estate-shaped.
+row). The cooldown keeps the breaker open. Then it half-opens on a
+single probe and closes on success. The defaults are
+unbounded-sequential. The flags shape the run for the target list.
 
 ### Crash-resume and the WAL journal
 
-**Problem.** A long estate run dies at 80 %. Do not pay for 80 % of
-the handshakes twice, and do not lose the completed set.
+**Problem.** A long run dies at 80 %. Do not pay for 80 % of the
+handshakes twice. Do not lose the completed set.
 
 **Solution.**
 
@@ -677,13 +677,13 @@ pqscan: progress: 2/2 targets scanned
 ```
 
 **Discussion.** The WAL is an append-only journal beside the output
-file: every completed target lands fsync-batched under a monotone
-sequence and a run id. A SIGKILL loses nothing but the socket in
-flight — the output may be short, the journal is not. A resume
+file. Every completed target lands there fsync-batched, under a
+monotone sequence and a run id. A SIGKILL loses nothing but the socket
+in flight. The output may run short. The journal does not. A resume
 replays completed targets into the output (records ride through
-unchanged) and probes only the difference; a run restarted with a
+unchanged). It probes only the difference. A run restarted with a
 different target list composes: the journal's keys are `host:port`,
-deduped in input order. The SLO: CI measures a 50-target farm at ≤ 6 s
+deduped in input order. The SLO: CI measures a 50-target run at ≤ 6 s
 wall for the half.
 
 ## Records, output and triage
@@ -691,7 +691,7 @@ wall for the half.
 ### The record and its consumers
 
 **Problem.** A scan's value is downstream readability: triage, diffs,
-and machine consumption without a bespoke parser each time.
+machine consumption. The consumers need no bespoke parser.
 
 **Solution.**
 
@@ -701,26 +701,26 @@ pqscan -l estate.txt -csv  -o estate.csv           # spreadsheet-shaped
 pqscan -l estate.txt -urls | nuclei -silent -tags tls   # URL re-emission
 ```
 
-**Observation.** The CSV contract is the record's flat form — 25
-columns, header on the first line:
+**Observation.** The CSV contract is the record's flat form: 25
+columns with the header on the first line:
 
 ```text
 target,host,port,ptr,sni,negotiated,group_name,group_class,suite,version,alpn,quic_state,quic_group,udp_blocked,cert_sig_alg,cert_sig_pq,cert_key_alg,cert_key_pq,cert_dual,pq_score,pq_label,pq_hndl,pq_summary,error,ts
 google.com,google.com,443,,,4588,X25519MLKEM768,pq_hybrid,TLS_AES_128_GCM_SHA256,tls-1.3,h2,negotiated,X25519MLKEM768,false,ecdsa-with-SHA256,false,ECDSA,false,false,40,pq-partial,false,negotiated_pq_hybrid(+40),,2026-10-20T10:25:32.034802Z
 ```
 
-**Discussion.** The writers are hand-rolled — no reflection, no
-`encoding/json` on the hot path — so the column order in the CSV and
-the key order in the JSONL are pinned by goldens in the test tree; a
-contract change is a visible golden diff in review, never a silent
-serde behavior change. Default output is the text one-liner for eyes;
-`-jsonl` is the machine form; `-csv` the archival form; `-urls` the
-re-emission for URL-taking scanners.
+**Discussion.** The writers are hand-rolled. No reflection runs. No
+`encoding/json` sits on the hot path. The goldens in the test tree pin
+the column order in the CSV and the key order in the JSONL. A contract
+change shows as a visible golden diff in review. A silent serde behavior
+change cannot hide. The default output is the text one-liner for eyes.
+`-jsonl` is the machine form. `-csv` is the archival form. `-urls` is
+the re-emission for URL-taking scanners.
 
-### The PQ verdict view
+### The PQ rating view
 
-**Problem.** An estate's post-quantum readiness must be a one-line
-triage: where is the migration stuck, and what must move first.
+**Problem.** A target list's post-quantum readiness needs a one-line
+triage: where is the migration stuck? What must move first?
 
 **Solution.**
 
@@ -729,8 +729,8 @@ pqscan -l estate.txt -jsonl \
   | jq -c '{target:.target.host, group:.handshake.group_name, class:.handshake.group_class, score:.pq.score, label:.pq.label, hndl:.pq.hndl}'
 ```
 
-**Observation.** One compact object per target (live; `-o` sends the
-records to the file instead of the pipe, so the triage jq reads stdout
+**Observation.** One compact object per target (live. `-o` sends the
+records to the file instead of the pipe. The triage jq reads stdout
 directly):
 
 ```json
@@ -738,23 +738,23 @@ directly):
 {"target":"example.org","group":"X25519MLKEM768","class":"pq_hybrid","score":40,"label":"pq-partial","hndl":false}
 ```
 
-**Discussion.** The record scores itself: `pq.score` is the weighted
-rubric sum, `pq.label` its band (`pq-ready` ≥ 80, `pq-ready-hybrid` ≥
-60, `pq-partial` ≥ 40, `pq-missing` ≥ 1), and `pq.hndl` the
-harvest-now-decrypt-later flag — true whenever an obsolete draft group
-accepted the handshake, because material intercepted against such
-handshakes decrypts when the draft breaks. Escalate on `hndl`;
-treat the sub-60 bands as the worklist. The rubric feeds on the
-negotiated-plane facts today; the certificate signature analytics ride
-the `cert` block, and `pq.score` rises through the same field as the
-deep findings wire in.
+**Discussion.** The record scores itself. `pq.score` is the weighted
+rubric sum. `pq.label` carries the band (`pq-ready` ≥ 80,
+`pq-ready-hybrid` ≥ 60, `pq-partial` ≥ 40, `pq-missing` ≥ 1).
+`pq.hndl` is the harvest-now-decrypt-later flag. It goes true when an
+obsolete draft group accepts the handshake. Material intercepted
+against such a handshake decrypts when the draft breaks. Escalate on
+`hndl`. Treat the sub-60 bands as the worklist. The rubric feeds on the
+negotiated-plane facts today. The certificate signature analytics ride
+the `cert` block. `pq.score` rises through the same field as the deep
+findings wire in.
 
-### The verdict in words: -explain
+### The rating in words: -explain
 
-**Problem.** The text line's key=value fields are dense; a ticket or a
-handoff needs the record read in sentences — what the verdict means,
-which layer is the gap, and (when nothing negotiated) what the error
-class suggests.
+**Problem.** The text line's key=value fields are dense. A ticket or a
+handoff needs the record read in sentences: what the rating means,
+which layer is the gap. When nothing negotiated, the sentences also
+read the error class.
 
 **Solution.**
 
@@ -766,46 +766,47 @@ pqscan -u google.com -explain
 
 ```text
 google.com:443 group=X25519MLKEM768 class=pq_hybrid suite=TLS_AES_128_GCM_SHA256 version=tls-1.3 alpn=h2 quic_neg=X25519MLKEM768 quic_class=pq_hybrid cert=ecdsa-with-SHA256/ECDSA pq=pq-partial(40)
-  - verdict: pq-partial 40/100. The negotiated key exchange is post-quantum; the certificate layer is classical — see the lines below.
-  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. Session traffic is protected from later decryption by a quantum computer; the harvest-now-decrypt-later risk does not apply while this group negotiates.
-  - certificate: classical identity (ECDSA key, ecdsa-with-SHA256 signature). Rotating to a PQ-signed (or dual) certificate at the next renewal closes the readiness gap.
-  - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum verdict applies to h3 traffic.
+  - rating: pq-partial 40/100. The negotiated key exchange is post-quantum. The certificate layer is classical. The lines below carry the detail.
+  - key exchange: X25519MLKEM768 (pq_hybrid) — post-quantum hybrid: ML-KEM-768 + X25519. This group protects the session traffic. The harvest-now-decrypt-later risk does not apply while this group negotiates.
+  - certificate: classical identity (ECDSA key, ecdsa-with-SHA256 signature). Use a PQ-signed or dual certificate at the next renewal.
+  - quic: X25519MLKEM768 (pq_hybrid) on the UDP plane — the same post-quantum rating applies to h3 traffic.
 ```
 
-Deep and pq runs get the plan reading. On `-mode deep` the executed plan
-reads in operator words — the probe roll-up, the offered-one matrix and
-the accepted rows (live, `pqscan -u google.com -mode deep -explain`):
+Deep and pq runs add the plan reading. On `-mode deep` the executed
+plan reads in operator words: the probe roll-up, the offered-one
+matrix, the accepted rows (live, `pqscan -u google.com -mode deep -explain`):
 
 ```text
-  - deep: the executed standard plan ran 22 probes: 2 accepted, 8 refused with the server's reasons, 12 not-offerable; the offered-one matrix read: group ladder 1/10, quic rungs 0/5, sigalg ladder 0/3, resumption vectors 0/3, hrr probe 1/1; accepted: group/29; hrr/x25519-shareless — the per-probe detail lives in the jsonl findings.
+  - deep: the executed standard plan ran 22 probes: 2 accepted, 8 refused with the server's reasons, 12 not-offerable; the offered-one matrix read: group offer set 1/10, quic offer set 0/5, sigalg offer set 0/3, resumption vectors 0/3, hrr probe 1/1; accepted: group/29; hrr/x25519-shareless — the per-probe detail lives in the jsonl findings.
 ```
 
-On `-mode pq` the ladder wording names the accepted rungs and treats the
+On `-mode pq` the reading names the accepted rungs and treats the
 refusal mass as the expected default:
 
 ```text
-  - deep: the forced PQ ladder made 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group came back refused unless the server truly speaks it — the per-probe detail lives in the jsonl findings.
+  - deep: the forced PQ offer set sent 8 offers: 1 accepted, 7 refused with the server's reasons, 0 not-offerable; accepted: group/4588; each forced PQ-only group refused unless the server supports that group — the per-probe detail lives in the jsonl findings.
 ```
 
-and a refused dial gets the error-class hint (the record's zero-populated
-probe blocks read as their never-ran lines):
+and a refused dial gets the error-class hint (the record's
+zero-populated probe blocks read as the never-ran lines):
 
 ```text
   - quic: the lane never ran on this record.
-  - error: dial tcp 127.0.0.1:65000: connect: connection refused — no handshake was reached: the endpoint is unreachable on this port (closed or filtered); no cipher verdict is possible.
+  - error: dial tcp 127.0.0.1:65000: connect: connection refused — the probe reached no handshake. The endpoint is unreachable on this port (closed or filtered). No rating is possible.
 ```
 
-**Discussion.** `-explain` is a `-text`-only selector: the machine
+**Discussion.** `-explain` is a `-text`-only selector. The machine
 formats refuse it (exit 64, `pqscan: -explain applies to text output
 only (drop the -jsonl selector)`). Every tail the text line carries
 (`cert=sig/key`, the `deep=` counts, `ptr=`/`sni=` enrichment) has its
-counterpart in the reading — the human format tells the same story the
+counterpart in the reading. The human format tells the same story the
 machine formats carry.
 
 ### Self-explanation: -version and the completion scripts
 
-**Problem.** Support and scripting need the tool's own identity and
-shell integration, generated — not hand-maintained flag lists.
+**Problem.** Support and scripting need the tool's own identity. They
+also need shell integration. The generators write them. Hand-maintained
+flag lists do not.
 
 **Solution.**
 
@@ -814,8 +815,8 @@ pqscan -version
 source <(pqscan -completion bash)     # zsh: pqscan -completion zsh > .../site-functions/_pqscan
 ```
 
-**Observation.** (live) Source builds print the bare stamp; the
-completion registers under the flag's name in bash:
+**Observation.** (live) Source builds print the bare stamp. The
+completion registers under the tool's name in bash:
 
 ```text
 pqscan 0.0.1
@@ -825,21 +826,22 @@ pqscan 0.0.1
 complete -F _pqscan_completions pqscan
 ```
 
-**Discussion.** The scripts are generated from the same flag surface
-the `-h` help renders — every implemented flag, the `-mode`/`-deep`
-`-sni`/`-completion` value lists, file completion where a flag takes a
-path, and BOTH dash spellings (`--word` parses anywhere `-word` does,
-and the completions offer both). Install one-liners and the persisted
-locations live in INSTALL.md; re-run the generator after upgrading so
-the completion matches the binary. The `-version` stamp is the
-release stamp on packaged builds.
+**Discussion.** The scripts generate from the same flag surface the
+`-h` help renders. The surface: every implemented flag, the
+`-mode`/`-deep` `-sni`/`-completion` value lists, file completion where
+a flag takes a path, plus BOTH dash spellings (`--word` parses anywhere
+`-word` does).
+The completions offer both spellings. Install one-liners and the
+persisted locations live in INSTALL.md. Re-run the generator after an
+upgrade. The completion then matches the binary. The `-version` stamp
+is the release stamp on packaged builds.
 
 ## Downstream
 
 ### Feed nuclei
 
-**Problem.** Hand payload-scanning to the scanner that does payloads;
-keep the handshake facts where they belong.
+**Problem.** Give payload scanning to the tool that reads payloads.
+Keep the handshake facts on this plane.
 
 **Solution.**
 
@@ -847,19 +849,19 @@ keep the handshake facts where they belong.
 pqscan -l assets.txt -urls | nuclei -silent -tags tls
 ```
 
-**Observation.** `-urls` emits `scheme://host:port` per target — the
-URL list any URL-taking scanner wants; the handshake/certificate/PQ
-facts stay in pqscan's record stream (the `-o` file in the same run).
+**Observation.** `-urls` emits `scheme://host:port` per target: the
+URL list any URL-taking scanner needs. The handshake/certificate/PQ
+facts stay in pqscan's record stream (the `-o` file of the same run).
 
-**Discussion.** The pipeline's stages compose by contract, not intent:
-records stream in input order, WAL alongside, both consumed
+**Discussion.** The pipeline's stages compose by contract. Records
+stream in input order. The WAL rests beside them. Each consumer reads
 independently. The reverse also holds: masscan/naabu's output feeds
-IN, nuclei's output feeds OUT — pqscan never inspects payloads.
+IN. nuclei's output feeds OUT. pqscan never inspects payloads.
 
-### The estate PQ calendar
+### The PQ calendar
 
-**Problem.** Readiness is a trajectory, not a snapshot: leadership
-wants the delta week over week, not a wall of JSON.
+**Problem.** Readiness is a trajectory, not a snapshot. The reader
+needs the week-over-week delta, not the raw JSON mass.
 
 **Solution.**
 
@@ -869,20 +871,20 @@ pqscan -l estate.txt -csv -o /var/pqscan/$(date +%F).csv
 diff /var/pqscan/yesterday.csv /var/pqscan/today.csv > /var/pqscan/pq-movement.diff
 ```
 
-**Observation.** Repeat runs against a fixed list are comparable:
-input order + first-occurrence dedupe make the stream deterministic;
-the ts column orders the movement.
+**Observation.** Repeat runs against a fixed list are comparable.
+Input order and first-occurrence dedupe keep the stream deterministic.
+The `ts` column orders the movement.
 
-**Discussion.** Keep the diffs, not the runs: a day's movement is a
-handful of rows — who moved up a band, who regressed, whose `hndl`
-still fires. A CI job on the same contract gates merges in the
-estate's own repos: a PR that demotes a band shows up as a failing
-parity check.
+**Discussion.** Keep the diffs, not the runs. A day's movement is a
+handful of rows: who moved up a band, who regressed, whose `hndl`
+still fires. A CI job on the same contract gates merges in the target
+set's own repos. A band-demotion PR surfaces there as a failing parity
+check.
 
 ### Reverse-DNS workflow — IP ranges in, domains out
 
-**Problem.** IP sweeps lose the SNI a domain run has; certificate
-analytics without hostname context loses meaning on shared
+**Problem.** An IP sweep loses the SNI a domain run carries.
+Certificate analytics without hostname context lose meaning on shared
 infrastructure.
 
 **Solution.**
@@ -891,26 +893,26 @@ infrastructure.
 pqscan -u 8.8.8.8:443 -ptr -sni auto -certs-dir certs/ -jsonl
 ```
 
-**Observation.** The literal is resolved pre-probe and the record carries
-the answer verbatim — the PTR-derived candidate is the SNI, the record's
-`ptr` and `sni_used` both fill, and the PEM export leaves the leaf
-behind for downstream tools:
+**Observation.** The literal resolves pre-probe. The record carries the
+answer verbatim. The PTR-derived candidate becomes the SNI. The
+record's `ptr` and `sni_used` both fill. The PEM export leaves the leaf
+for downstream tools:
 
 ```json
 {"schema":1,"mode":"fast","target":{"input":"8.8.8.8:443","host":"8.8.8.8","ip":"","port":443,"ptr":"dns.google","sni_used":"dns.google"},"handshake":{"negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","suite":"TLS_AES_128_GCM_SHA256","version":"tls-1.3","alpn_neg":"h2"},"quic":{"attempted":true,"state":"negotiated","negotiated":4588,"group_name":"X25519MLKEM768","group_class":"pq_hybrid","discovered":{"alt_svc_h3":true,"h3_direct":true}},"cert":{"sig_alg":"ecdsa-with-SHA256","sig_pq":false,"key_alg":"ECDSA","key_pq":false,"dual":false},"pq":{"score":40,"label":"pq-partial","hndl":false,"summary":"negotiated_pq_hybrid(+40)"},"error":""}
 ```
 
-**Discussion.** `-ptr` builds the run's pool (bounded: 4 workers, a 2s
-budget, a 1024-entry LRU of positives — misses never cache) off the
-system resolver; `-sni` picks the candidate rule (`auto`/`ptr-then-ip`
-prefer the PTR name and fall back to the literal; `ip-only` always the
-literal; the record's `sni_used` carries the candidate actually used).
-`-certs-dir` writes the scan's end-entity certificate per host
-(`<dir>/<host>.pem`) so a scan feeds a CA/policy pass without a
-re-dial. A literal whose PTR never resolves scans on the literal and
-records the miss as an empty `ptr` — enrichment is never a blocker.
-Bulk PTR enumeration at massive scale stays with massdns or zdns:
-pre-filter there, hand the FQDNs forward.
+**Discussion.** `-ptr` builds the run's pool off the system resolver
+(bounded: 4 workers, a 2s budget, a 1024-entry LRU of positives).
+Misses never cache. `-sni` sets the candidate rule: `auto`/`ptr-then-ip`
+prefer the PTR name and fall back to the literal. `ip-only` always
+takes the literal. The record's `sni_used` carries the candidate
+actually used. `-certs-dir` writes the scan's end-entity certificate
+per host (`<dir>/<host>.pem`). The scan then feeds a CA/policy pass
+without a re-dial. A literal whose PTR does not resolve scans on the
+literal. The miss records as an empty `ptr`. Enrichment is never a
+blocker. Bulk PTR enumeration at scale stays with massdns or zdns.
+Pre-filter there; hand the FQDNs forward.
 
 ## The flag map (live, landing, planned)
 
@@ -937,5 +939,6 @@ pre-filter there, hand the FQDNs forward.
 | CIDR expansion | -cidr and CIDR spec lines (per-address expansion is not supported; tracked for follow-up) | planned |
 
 The usage-drift gate in CI keeps USAGE.md and this map honest: a flag
-without a man-page row, or a row outside the implemented+planned set,
-fails the PR. The flag map is where a new operator starts.
+without a man-page row fails the PR. A row outside the
+implemented+planned set fails the PR. The flag map is where a new
+operator starts.
