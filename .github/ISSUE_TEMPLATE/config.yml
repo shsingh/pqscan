@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/shsingh/pqscan/security/advisories/new
     about: Private vulnerability reporting (SECURITY.md) — never a public issue.
   - name: Governance and supply chain
-    url: https://shsingh.github.io/pqscan/governance.html
+    url: https://pqscan.kalatopi.sh/governance.html
     about: Decision records, signing verification, SLSA provenance contract.
