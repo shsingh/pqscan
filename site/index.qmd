@@ -66,7 +66,7 @@ the error and stops.
     <div class="pcap">QUIC v1 / h3 handshake — X25519MLKEM768 (4588) negotiated live</div>
   </div>
   <div class="pstat">
-    <div class="pnum">&lt;8<span class="punit">MB</span></div>
+    <div class="pnum">&lt;10<span class="punit">MB</span></div>
     <div class="pcap">one static binary — the size SLO enforced on every change</div>
   </div>
 </div>
