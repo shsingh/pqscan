@@ -73,6 +73,50 @@ bytes is 220,402 bytes above the 7,000,000-byte reference target. Recorded
 here as the honest reading; a size-lever pass for the reference target is a
 separate filed lane, not a silently relaxed row.
 
+## The PQ-69 measurement (2026-10-22, the post-matrix tree)
+
+PQ-69 (issue [#181](https://github.com/shsingh/pqscan/issues/181)) lands
+the deep census's RFC 9369 transport-version rung and the functional
+HTTP/3 rung. The functional rung dials through the pinned quic-go
+v0.63.0 `http3` stack. The issue's contract pins that stack: patched
+frame code stays out. The release binary's reachable closure gains the
+http3 client machinery and its peers: `quic-go/qpack` v0.6.0,
+`x/net/http/httpguts`, `x/net/http2/hpack`, `x/net/idna`, `x/text`,
+`log/slog`. Every peer rides quic-go v0.63.0's own pinned versions. The
+lane chooses no version.
+
+Measured on the PQ-69 tree, toolchain go1.27.2, release flags
+(`-trimpath -ldflags "-s -w"`, `CGO_ENABLED=0`), host darwin/arm64,
+cross-target linux/amd64:
+
+| tree | target | size |
+|---|---|---|
+| pre-PQ-69 (origin/main `9dda379`) | linux/amd64 | 7,643,296 B |
+| post-PQ-69 | linux/amd64 | 8,085,664 B |
+| post-PQ-69, http3 client stubbed out | linux/amd64 | 7,721,120 B |
+
+Reading:
+
+- The functional h3 rung costs **442,368 bytes**. The http3 client
+  machinery itself carries 364,544 bytes. The packages' import closure
+  carries 77,824 bytes (init bodies and package-level tables; the
+  qpack/hpack static tables are globals. They link with any http3
+  import. The fixture location plays no part).
+- The breach: post-PQ-69 = **8,085,664 bytes = 85,664 bytes (1.07%)
+  over** the 8,000,000-byte linux/amd64 gate.
+- The floor is real. The thinnest pinned-stack landing (fixtures and
+  exchange body stubbed away; the client-path import kept) measures
+  **8,007,840 bytes — 7,840 bytes over** the gate. No code shape of the
+  mandated rung lands under 8,000,000.
+- The gate stays binding. `TestSizeSLO` and the `size-gate` CI job keep
+  the 8,000,000 constant. This lane did not relax it (the ledger's own
+  standing rule). The `size-gate` check rides red on the PQ-69 PR as
+  the honest reading.
+- The amendment question goes to review: a reviewed bound move, or the
+  planned `-tags lite` no-QUIC build (lever 2). Until a reviewed
+  amendment lands, the 8,000,000 gate holds. The breach is the recorded
+  boundary.
+
 ## The PQ-63 size-lever evaluation (2026-10-20, the rc3-era tree)
 
 The lever lane measured whether the release-flag recipe still has headroom to

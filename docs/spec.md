@@ -180,8 +180,8 @@ Both are viable for a scanner of this shape. The decision matrix below is writte
 | TLS over TCP | TLS 1.0, 1.1, 1.2, 1.3 full first-class; SSLv3 via legacy module (opt-in); SSLv2 out of scope until demand (record as TODO) |
 | HTTP/1.1 over TLS | ALPN `http/1.1` + optional single GET probe (`-http`): status, server header, HSTS, Alt-Svc (h3 hint) |
 | HTTP/2 over TLS | ALPN `h2` observation; optional negotiated-protocol HTTP probe |
-| HTTP/3 / QUIC | TLS 1.3 inside QUIC v1 (RFC 9000) / v2 (RFC 9369) on UDP/443; PQ group negotiation observed via `ConnectionState` from quic-go; h3 verified by direct QUIC handshake (Alt-Svc used as a hint only — direct probe is truth) |
-| QUIC modes | `fast-quic` single handshake; `deep-quic` group enumeration limited to stdlib-supported groups (v1); exotic-group construction inside QUIC deferred to v2 (forked TLS stack required) |
+| HTTP/3 / QUIC | TLS 1.3 inside QUIC v1 (RFC 9000) / v2 (RFC 9369) on UDP/443; PQ group negotiation observed via `ConnectionState` from quic-go; h3 verified by direct QUIC handshake (Alt-Svc used as a hint only — direct probe is truth); the deep census completes one HTTP/3 GET, so "ALPN h3" and "h3 serves requests" read as separate rows |
+| QUIC modes | `fast-quic` single handshake; `deep-quic` group enumeration limited to stdlib-supported groups (v1), plus the RFC 9369 transport-version rung (the v2 offer; the negotiated version named in the finding) and the functional HTTP/3 rung (the SETTINGS frame, then one GET through the pinned quic-go h3 stack); exotic-group construction inside QUIC deferred to v2 (forked TLS stack required) |
 
 ### 5.4 Handshake-engine capability checklist (client plane)
 
@@ -471,6 +471,7 @@ flowchart TD
 ### 7.5 QUIC engine specifics
 
 - quic-go v0.5x with `tls.Config` carrying the same group/sig control as TCP; version v1/v2, ALPN `h3`.
+- The deep census plans the RFC 9369 transport-version rung (the v2-only offer on UDP/443; the negotiated version names the finding) and the functional h3 rung on every QUIC-gated target: the SETTINGS frame, then one HTTP/3 GET through the pinned quic-go h3 stack. A negotiated handshake that carries no functional h3 layer records its own finding class.
 - QUIC probes run on: the explicit `-quic-always`, or an Alt-Svc h3 hint from fast mode (the hint gate). Raw-internet mode runs QUIC only for hinted hosts by default (UDP half-open scans elsewhere stay a v2 idea, not the default).
 - In-flight budget separate (10k) because quic-go's per-conn goroutine + timer cost ≈ 5× TCP; budget auto-derived at startup from the measured constants (like TCP's).
 - UDP-outbound-blocked networks detected in probes ⇒ `udp_blocked` reported rather than retried.

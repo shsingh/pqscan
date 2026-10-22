@@ -251,7 +251,8 @@ the expansion is the boundary).
 ### Deep standard — the bounded ≤24-probe profile
 
 **Problem.** Beyond the one fast handshake: the per-rung answers for
-every named group. The QUIC plane's answers for the same rungs. The
+every named group. The QUIC plane's answers for the same rungs, for the
+RFC 9369 transport version, and for one completed HTTP/3 exchange. The
 ML-DSA signature offer set. The HRR demand. Deep standard reads these
 out without the full matrix's cost on every asset.
 
@@ -262,10 +263,10 @@ pqscan -u google.com -mode deep -jsonl
 ```
 
 **Observation.** The record gains a `deep` block. This run's counts and
-a finding excerpt (the 22nd finding is the HRR row):
+a finding excerpt (the 24th finding is the HRR row):
 
 ```text
-mode=standard attempted=22 ok=2 rejected=8
+mode=standard attempted=24 ok=3 rejected=9
 group/4585    rejected   alert 40
 group/4586    rejected   alert 40
 group/4587    rejected   remote error: tls: handshake failure
@@ -273,13 +274,15 @@ group/4589    rejected   remote error: tls: handshake failure
 group/4590    rejected   alert 40
 group/25      rejected   remote error: tls: handshake failure
 group/29      accepted   negotiated x25519, suite TLS_AES_128_GCM_SHA256, tls-1.3
+quic/v2       rejected   no compatible QUIC version found (we support [v2], server offered [0x4a6a1afa v1 draft-29])
+quic/h3-exchange accepted h3 exchange completed: status 301 (GET /, alpn h3, quic-v1)
 sigalg/mldsa65 refused    not-offerable: the raw ClientHello path pins its signature_algorithms list (custom-list offers are not offered)
 hrr/x25519-shareless  accepted   hrr: the server requested group x25519 (29)
 ```
 
-with the text line carrying the counts tail `deep=standard:22p/2ok/8rej`.
-The remaining 12 of the 22 findings are the `refused` rows: three
-classical groups the stdlib cannot offer, three more QUIC rungs, three
+with the text line carrying the counts tail `deep=standard:24p/3ok/9rej`.
+The remaining 12 of the 24 findings are the `refused` rows: three
+classical groups the stdlib cannot offer, three QUIC rungs, three
 ML-DSA sigalgs, three resumption vectors. Each row is its own finding.
 
 **Discussion.** The profile handshake runs first. Its facts prune the
@@ -303,7 +306,13 @@ The raw ClientHello path pins its signature_algorithms list. The
 resumption plane is not instrumented yet. The finding's detail says
 exactly that. A `refused` row is a capability boundary. It is not a
 server answer. The HRR probe extracts the group the server DEMANDED
-when the client withheld a share.
+when the client withheld a share. The v2 rung offers the RFC 9369
+transport version alone. A version-negotiation miss maps the server's
+answer to a rejected row, verbatim. A v2 negotiation maps the accepted
+row with the quic-v2 tail. The h3-exchange rung reads the server's
+SETTINGS frame after the v1 handshake and runs one HTTP/3 GET. A
+completed exchange maps the accepted row with the status. A negotiated
+handshake that completes no exchange maps its own rejected row.
 
 ### Deep full — the complete offer-one matrix
 
@@ -321,7 +330,7 @@ pqscan -u google.com -mode deep -deep full -jsonl
 **Observation.** (live) The record's `deep` block counts:
 
 ```json
-{"mode":"full","attempted":80,"ok":28,"rejected":33}
+{"mode":"full","attempted":82,"ok":29,"rejected":34}
 ```
 
 (The remaining 19 findings are the `refused` rows.) Sample suite
@@ -334,10 +343,20 @@ suite/TLS_CHACHA20_POLY1305_SHA256@1.3           refused    not-offerable on tls
 suite/TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA@1.2     rejected   remote error: tls: handshake failure
 ```
 
-**Discussion.** 80 probes run. Observed facts prune none: 4 versions,
+The QUIC plane's rungs ride the same list. The v2 rung answers the
+version-negotiation miss here as a rejected row, verbatim:
+
+```text
+quic/v2            rejected   no compatible QUIC version found (we support [v2], server offered [v1 0xeaba1aba draft-29])
+quic/h3-exchange   accepted   h3 exchange completed: status 301 (GET /, alpn h3, quic-v1)
+```
+
+**Discussion.** 82 probes run. Observed facts prune none: 4 versions,
 11 registry groups (4585–4590 plus the classical set), 47 suite×version
 pairs, 7 signature algorithms (incl. the ML-DSA codepoints), 1
-certificate, 3 resumption vectors, 1 HRR, plus the 6 QUIC-plane rungs.
+certificate, 3 resumption vectors, 1 HRR, plus the 8 QUIC-plane rungs.
+The 8 QUIC rungs carry: the 6 group rungs, the RFC 9369
+transport-version rung, the functional HTTP/3 rung.
 The list auto-tracks `crypto/tls`. A Go upgrade that gains a suite
 grows the matrix. Standard never exceeds its 24-probe budget. `full`
 trades the budget for coverage. Point it at ONE asset. It is not the
@@ -777,7 +796,7 @@ plan reads in operator words: the probe roll-up, the offered-one
 matrix, the accepted rows (live, `pqscan -u google.com -mode deep -explain`):
 
 ```text
-  - deep: the executed standard plan ran 22 probes: 2 accepted, 8 refused with the server's reasons, 12 not-offerable; the offered-one matrix read: group offer set 1/10, quic offer set 0/5, sigalg offer set 0/3, resumption vectors 0/3, hrr probe 1/1; accepted: group/29; hrr/x25519-shareless — the per-probe detail lives in the jsonl findings.
+  - deep: the executed standard plan ran 24 probes: 3 accepted, 9 refused with the server's reasons, 12 not-offerable; the offered-one matrix read: group offer set 1/10, quic offer set 1/7, sigalg offer set 0/3, resumption vectors 0/3, hrr probe 1/1; accepted: group/29; quic/h3-exchange; hrr/x25519-shareless — the per-probe detail lives in the jsonl findings.
 ```
 
 On `-mode pq` the reading names the accepted rungs and treats the
