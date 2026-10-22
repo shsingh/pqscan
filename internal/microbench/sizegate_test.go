@@ -17,9 +17,11 @@ import (
 // pre-BinaryOptim bound (< 1,000,000) so the gate was seen failing against the
 // 6.5 MB measured baseline before it was corrected here. Evidence: issue #62.
 //
-// SLO: linux/amd64 release build < 8,000,000 bytes (8 MB); 7 MB for
-// darwin/arm64. Levers and measured sizes: docs/size-ledger.md.
-const sizeSLOBytes = 8_000_000
+// SLO: 10,000,000 bytes (10 MB) on both planes — the PQ-70 reviewed
+// reference-target amendment (2026-10-22). linux/amd64 stays the CI-enforced
+// reference target; darwin/arm64 stays measured-and-reported (the ledger:
+// docs/size-ledger.md, "The reference-target amendment" section).
+const sizeSLOBytes = 10_000_000
 
 // buildReleaseBinary is the size-gate helper: release-flags build of
 // ./cmd/pqscan for linux/amd64, byte size stat, and the measured number
@@ -47,7 +49,7 @@ func buildReleaseBinary(t *testing.T) int64 {
 func TestSizeSLO(t *testing.T) {
 	size := buildReleaseBinary(t)
 	if size >= sizeSLOBytes {
-		t.Fatalf("size gate: linux/amd64 release build = %d bytes, want < %d (8 MB SLO)", size, sizeSLOBytes)
+		t.Fatalf("size gate: linux/amd64 release build = %d bytes, want < %d (10 MB SLO)", size, sizeSLOBytes)
 	}
 }
 
