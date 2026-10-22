@@ -60,7 +60,7 @@ naabu -l domains.txt -p 443,8443,993 -silent | ./pqscan -from-naabu -jsonl
   `.deep` (`mode`, `attempted`, `ok`, `rejected`, `findings[]`), `.error`. Non-negotiated states (`hrr`, `alert`,
   `skipped`, `error`) are recorded facts with reasons. The full schema
   example is in [`docs/spec.md` §5.7](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#5-feature-set);
-  recipes live on the [site](https://shsingh.github.io/pqscan/) and in
+  recipes live on the [site](https://pqscan.kalatopi.sh/) and in
   [`docs/spec.md#6-chaining-reference-implementations`](https://github.com/shsingh/pqscan/blob/main/docs/spec.md#6-chaining-reference-implementations).
 - **Verify before trusting a binary**: every artifact from CI carries SLSA
   provenance ([ADR-0003](docs/adr/0003-slsa-provenance-attestations.md)) —

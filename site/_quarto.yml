@@ -4,7 +4,7 @@ project:
 website:
   title: pqscan
   description: "TLS / QUIC cipher-configuration and post-quantum readiness scanner"
-  site-url: https://shsingh.github.io/pqscan/
+  site-url: https://pqscan.kalatopi.sh/
   repo-url: https://github.com/shsingh/pqscan
   repo-branch: main
   repo-subdir: site

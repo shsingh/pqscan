@@ -39,7 +39,7 @@ def main():
 
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://shsingh.github.io/pqscan/schema-v1.json",
+        "$id": "https://pqscan.kalatopi.sh/schema-v1.json",
         "title": "pqscan schema-1 record",
         "description": ("One record per target per pass. Block order is the "
                         "encoders' contract: " + " -> ".join(BLOCK_ORDER) +
