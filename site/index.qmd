@@ -11,7 +11,7 @@ pqscan is a command-line scanner. It reads one target or a target list. It
 writes one scan record per target. The record shows the target's TLS and QUIC
 configuration. The record also shows the target's post-quantum readiness
 rating. The tool composes with the import toolset: target lines in, streaming
-JSONL out. The `2026.01-rc3` release-candidate cut is live and attested. The
+JSONL out. The `2026.01` release is live and attested. The
 written specification is in force.
 
 ## What the record shows
@@ -54,7 +54,7 @@ the error and stops.
 ```{=html}
 <div class="pstats">
   <div class="pstat">
-    <div class="pnum">2,952<span class="punit">/s per core</span></div>
+    <div class="pnum">2,750<span class="punit">/s per core</span></div>
     <div class="pcap">fast mode, W=8 loopback fixture — SLO ≥ 2,500 h/s/core, CI-enforced</div>
   </div>
   <div class="pstat">
@@ -86,7 +86,7 @@ SLSA verification steps, Windows — lives in
 
 ```bash
 brew tap shsingh/tap && brew install pqscan        # macOS
-go install github.com/shsingh/pqscan/cmd/pqscan@2026.01-rc3   # any platform with Go
+go install github.com/shsingh/pqscan/cmd/pqscan@2026.01   # any platform with Go
 gh attestation verify pqscan-<os>-<arch> -R shsingh/pqscan     # verify before running
 ```
 

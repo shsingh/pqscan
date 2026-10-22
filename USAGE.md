@@ -399,4 +399,4 @@ SEE ALSO
 AUTHOR
     Shain Singh <shain.singh@owasp.org>
 
-pqscan 2026.01-rc3                                        October 2026
+pqscan 2026.01                                        October 2026

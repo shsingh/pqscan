@@ -13,7 +13,7 @@ The record carries the rating as `pq=<label>(<score>)`. The tool reads the
 import toolset's forms and writes them out: stdin → stdout, streaming
 JSONL, the chain `subfinder` → `httpx` → `naabu` → `nuclei`.
 
-**Status:** the `2026.01-rc3` release-candidate cut is live and attested.
+**Status:** the `2026.01` release is live and attested.
 The specification ([`docs/spec.md`](docs/spec.md)) is in force.
 
 ## What it does
@@ -49,7 +49,7 @@ transcripts.
 
 | Metric | Target | Measured | Run |
 |---|---|---|---|
-| fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,952 (re-run 3,026) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
+| fast-mode handshakes/s (aggregate, W=8, loopback fixture) | ≥ 2,500/s/core | 2,750 (the runner re-run, 2026-10-22) | `go test ./internal/microbench/ -run SLO -v` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
 | external control decomposition (cloudflare.com:443, forced hybrid) | — | connect 18.9 ms / handshake 23.4 ms / total 42.4 ms | `go run ./cmd/bench -target cloudflare.com:443 -host cloudflare.com -n 20 -mode seq` — [evidence #10](https://github.com/shsingh/pqscan/issues/10) |
 | external control decomposition (google.com:443, the reference live target) | — | connect 20.7 ms / handshake 140.3 ms / total 161.0 ms | `go run ./cmd/bench -target google.com:443 -host google.com -n 20 -mode seq` |
 | QUIC plane ground truth (live, cloudflare.com) | — | 4588 `X25519MLKEM768` negotiated inside QUIC v1 (ALPN `h3`) at 27.6 ms/handshake | `PQSCAN_INTEGRATION=1 go test ./internal/quicx/ -run Integration -v` — [evidence #9](https://github.com/shsingh/pqscan/issues/9) |
