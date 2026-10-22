@@ -506,3 +506,59 @@ func TestDeepQUICRemoteRejectionIsARow(t *testing.T) {
 		t.Fatalf("detail = %q, want the remote side of the alert verbatim", f.Detail)
 	}
 }
+
+// TestDeepQuicH3RungRow (PQ-69, issue #181): the functional HTTP/3
+// rung's dispatch. A completed exchange rides the accepted row (the
+// status named); a listener with no h3 layer rides its own rejected row
+// (the class words verbatim); a stranger-ALPN listener's rejection and
+// a dead dial stay their own classes.
+func TestDeepQuicH3RungRow(t *testing.T) {
+	t.Run("accepted: the exchange completed", func(t *testing.T) {
+		addr := quicx.FixtureH3(t, nil)
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			t.Fatalf("fixture addr: %v", err)
+		}
+		f := deepH3ExchangeFinding("quic/h3-exchange", addr, host, 2*time.Second)
+		if f.Result != tlsx.SuiteAccepted {
+			t.Fatalf("result = %q (%s), want the completed-exchange accepted row", f.Result, f.Detail)
+		}
+		if want := "h3 exchange completed: status 200 (GET /, alpn h3, quic-v1)"; f.Detail != want {
+			t.Fatalf("detail = %q, want %q", f.Detail, want)
+		}
+	})
+	t.Run("no exchange: the listener's own class", func(t *testing.T) {
+		addr := quicx.FixtureQUICNoH3(t) // negotiates h3, carries no h3 layer
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			t.Fatalf("fixture addr: %v", err)
+		}
+		f := deepH3ExchangeFinding("quic/h3-exchange", addr, host, 2*time.Second)
+		if f.Result != tlsx.SuiteRejected {
+			t.Fatalf("result = %q (%s), want the broken-h3-path rejected row", f.Result, f.Detail)
+		}
+		if want := "the server sent no HTTP/3 SETTINGS frame"; f.Detail != want {
+			t.Fatalf("detail = %q, want the class words %q", f.Detail, want)
+		}
+	})
+	t.Run("rejected: the server's ALPN answer verbatim", func(t *testing.T) {
+		addr := quicx.FixtureQUICStrangerALPN(t)
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			t.Fatalf("fixture addr: %v", err)
+		}
+		f := deepH3ExchangeFinding("quic/h3-exchange", addr, host, 2*time.Second)
+		if f.Result != tlsx.SuiteRejected {
+			t.Fatalf("result = %q (%s), want the server's ALPN answer as a rejected row", f.Result, f.Detail)
+		}
+		if !strings.Contains(f.Detail, "no application protocol") || !strings.Contains(f.Detail, "(remote)") {
+			t.Fatalf("detail = %q, want the server's alert verbatim", f.Detail)
+		}
+	})
+	t.Run("a dead dial stays a result", func(t *testing.T) {
+		f := deepH3ExchangeFinding("quic/h3-exchange", "127.0.0.1:1", "pqscan.fixture", 500*time.Millisecond)
+		if f.Result != tlsx.SuiteRefused {
+			t.Fatalf("result = %q (%s), want the dead dial's refused row", f.Result, f.Detail)
+		}
+	})
+}
