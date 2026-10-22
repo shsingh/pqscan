@@ -85,37 +85,40 @@ http3 client machinery and its peers: `quic-go/qpack` v0.6.0,
 `log/slog`. Every peer rides quic-go v0.63.0's own pinned versions. The
 lane chooses no version.
 
-Measured on the PQ-69 tree, toolchain go1.27.2, release flags
-(`-trimpath -ldflags "-s -w"`, `CGO_ENABLED=0`), host darwin/arm64,
-cross-target linux/amd64:
+Measured on the PQ-69 tree, release flags (`-trimpath -ldflags "-s -w"`,
+`CGO_ENABLED=0`), cross-target linux/amd64:
 
-| tree | target | size |
-|---|---|---|
-| pre-PQ-69 (origin/main `9dda379`) | linux/amd64 | 7,643,296 B |
-| post-PQ-69 | linux/amd64 | 8,085,664 B |
-| post-PQ-69, http3 client stubbed out | linux/amd64 | 7,721,120 B |
+| toolchain | tree | size | vs the 8,000,000-byte gate |
+|---|---|---|---|
+| go1.26.0 (the CI pin, go.mod's `go 1.26.0`) | pre-PQ-69 (origin/main `9dda379`) | 7,131,298 B (the ledger's CI row) | 868,702 under |
+| go1.26.0 | post-PQ-69 | **7,581,858 B** (the CI `size-gate` job's verbatim line: `linux/amd64 release build: 7581858 bytes`, run [39753738697](https://github.com/shsingh/pqscan/actions/runs/39753738697)) | **418,142 under — the gate holds** |
+| go1.27.2 (the host toolchain) | pre-PQ-69 | 7,643,296 B | 356,704 under |
+| go1.27.2 | post-PQ-69 | 8,085,664 B — 7,721,120 B with the client stubbed | **85,664 over (1.07%)** |
 
 Reading:
 
-- The functional h3 rung costs **442,368 bytes**. The http3 client
-  machinery itself carries 364,544 bytes. The packages' import closure
-  carries 77,824 bytes (init bodies and package-level tables; the
-  qpack/hpack static tables are globals. They link with any http3
-  import. The fixture location plays no part).
-- The breach: post-PQ-69 = **8,085,664 bytes = 85,664 bytes (1.07%)
-  over** the 8,000,000-byte linux/amd64 gate.
-- The floor is real. The thinnest pinned-stack landing (fixtures and
-  exchange body stubbed away; the client-path import kept) measures
-  **8,007,840 bytes — 7,840 bytes over** the gate. No code shape of the
-  mandated rung lands under 8,000,000.
-- The gate stays binding. `TestSizeSLO` and the `size-gate` CI job keep
-  the 8,000,000 constant. This lane did not relax it (the ledger's own
-  standing rule). The `size-gate` check rides red on the PQ-69 PR as
-  the honest reading.
-- The amendment question goes to review: a reviewed bound move, or the
-  planned `-tags lite` no-QUIC build (lever 2). Until a reviewed
-  amendment lands, the 8,000,000 gate holds. The breach is the recorded
-  boundary.
+- The functional h3 rung costs **442,368 bytes** at both toolchains
+  (go1.27.2 split: the http3 client machinery itself = 364,544 bytes;
+  the packages' import closure = 77,824 bytes — the qpack/hpack static
+  tables are globals; they link with any http3 import; the fixture
+  location plays no part). The thinnest pinned-stack landing
+  (fixtures and exchange body stubbed away; the client-path import
+  kept) measures 8,007,840 bytes on go1.27.2.
+- **The enforcement number = the CI `size-gate` job, go1.26.0, the
+  go.mod-pinned chain: 7,581,858 bytes = 418,142 bytes (~5.2%) under
+  the 8,000,000 SLO. The required checks stay green.** The gate never
+  breached on its enforcement surface.
+- The go1.27.2 reading = a host-toolchain observation in the ledger's
+  own toolchain-dependent class (the rc3-era rows: 1.27.2 measures a
+  511,998-byte premium on the SAME tree and flags). It is not a gate
+  break; the gate binds the pinned chain.
+- Floor watch for the next cut: the tree's floor moves forward (the
+  8,000,000 minus 7,581,858 = 418,142 bytes of pinned-chain headroom;
+  the rung pays 442,368). A future floor bump past go1.26 puts the
+  combined mass over the gate. The reviewed-amendment path (a bound
+  move, or the planned `-tags lite` no-QUIC build, lever 2) stays the
+  standing answer, the same reading this ledger keeps on the
+  darwin/arm64 reference.
 
 ## The PQ-63 size-lever evaluation (2026-10-20, the rc3-era tree)
 
