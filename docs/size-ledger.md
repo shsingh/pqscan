@@ -107,18 +107,40 @@ Reading:
 - **The enforcement number = the CI `size-gate` job, go1.26.0, the
   go.mod-pinned chain: 7,581,858 bytes = 418,142 bytes (~5.2%) under
   the 8,000,000 SLO. The required checks stay green.** The gate never
-  breached on its enforcement surface.
+  breached on its enforcement surface. (This reading ran at the
+  pre-amendment bound, 2026-10-22, before PR #184's merge. The
+  post-amendment reading follows in its own section below.)
 - The go1.27.2 reading = a host-toolchain observation in the ledger's
   own toolchain-dependent class (the rc3-era rows: 1.27.2 measures a
   511,998-byte premium on the SAME tree and flags). It is not a gate
   break; the gate binds the pinned chain.
-- Floor watch for the next cut: the tree's floor moves forward (the
-  8,000,000 minus 7,581,858 = 418,142 bytes of pinned-chain headroom;
-  the rung pays 442,368). A future floor bump past go1.26 puts the
-  combined mass over the gate. The reviewed-amendment path (a bound
-  move, or the planned `-tags lite` no-QUIC build, lever 2) stays the
-  standing answer, the same reading this ledger keeps on the
-  darwin/arm64 reference.
+- Floor watch, post-amendment: the PQ-70 amendment (2026-10-22, PR
+  #184) binds 10,000,000. The pinned-tree headroom reads 2,418,142
+  bytes: 5.5 times the census rung's 442,368-byte cost. The floor
+  pressure the pre-amendment reading recorded dissolves. A future
+  floor bump re-reads against the amended bound; the `-tags lite`
+  lever (lever 2) stays the standing answer if the mass approaches
+  the bound.
+
+## The post-amendment reading (2026-10-22, the merged tree `ba89d23`)
+
+The tree carries the census's rungs and the amended bound together.
+Fresh recipe builds (`go build -trimpath -ldflags "-s -w"`,
+`CGO_ENABLED=0`, toolchain per row), host toolchain go1.27.2:
+
+| target | toolchain | size | vs the 10,000,000 bound |
+|---|---|---|---|
+| linux/amd64 | go1.26.0 (the CI pin) | 7,581,858 B | 2,418,142 under |
+| linux/amd64 | go1.27.2 (the host) | 8,085,664 B | 1,914,336 under |
+| darwin/arm64 | go1.27.2 (the host) | 7,644,994 B | 2,355,006 under |
+
+The go1.26.0 row measures byte-identical three ways: the census lane's
+row above, today's local CI-equivalent build, and the runner's own
+`size-gate` line on main (run
+[39758133896](https://github.com/shsingh/pqscan/actions/runs/39758133896),
+job 119755251777, verbatim: `linux/amd64 release build (-trimpath
+-ldflags "-s -w", CGO_ENABLED=0): 7581858 bytes (7.58 MB)`). The gate
+reads green in the runner's own run at the amended bound.
 
 ## The PQ-63 size-lever evaluation (2026-10-20, the rc3-era tree)
 
