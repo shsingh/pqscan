@@ -54,6 +54,20 @@ const (
 	KindQuic = "quic"
 )
 
+// The deep-QUIC rungs' non-group payloads (PQ-69, issue #181). The
+// payloads are the fixed string tokens below the group space; the plan
+// never invents a codepoint for them.
+const (
+	// QuicRungV2 is the RFC 9369 transport-version rung's payload: the
+	// rung dials QUIC v2 only, ALPN h3, and lands the negotiated
+	// version as the finding.
+	QuicRungV2 = "v2"
+	// QuicRungH3Exchange is the functional HTTP/3 rung's payload: the
+	// rung reads the server's SETTINGS frame and completes ONE HTTP/3
+	// GET through the pinned quic-go h3 stack.
+	QuicRungH3Exchange = "h3-exchange"
+)
+
 // Plan modes (the -deep plan semantics; unknown modes are errors).
 const (
 	ModeStandard = "standard"

@@ -136,3 +136,14 @@ func MeasureCost(addr, host string, sessions int, timeout time.Duration) (*CostS
 	}
 	return stats, nil
 }
+
+// ProbeQUICV2 runs the RFC 9369 (QUIC v2) transport-version probe
+// (PQ-69, issue #181): the same handshake core with the version offer
+// pinned to v2 only.
+//
+// Watched-RED stub (PQ-69, the first pair): the versioned core with its
+// v2 dispatch lands with the GREEN half; the tests COMPILE against this
+// stub and fail on their assertions (ADR-0002).
+func ProbeQUICV2(addr, host string, timeout time.Duration) (*QuicResult, error) {
+	return nil, errNotImplemented
+}

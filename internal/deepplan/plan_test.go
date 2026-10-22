@@ -654,14 +654,16 @@ func TestPlanProbeNamesAreUniqueAndStable(t *testing.T) {
 	}
 }
 
-// TestBuildQuicRungGate (PQ-25, issue #48 — the deep-QUIC enumeration
-// counts): the QUIC-plane rungs ride the lane's own gate. A plan whose
-// observed fact says the profile's QUIC lane ran carries the rungs in
-// BOTH modes (full = the complete matrix, standard = the fact-pruned
-// structural landing); the gate's false side (-quic-off, an unhinted
-// target) leaves every plan QUIC-free. The full mode ignores the facts'
-// pruning (the QuicNegotiated rung stays planned there); the standard
-// mode drops exactly that answered rung.
+// TestBuildQuicRungGate (PQ-25, issue #48; PQ-69, issue #181 — the
+// deep-QUIC enumeration counts): the QUIC-plane rungs ride the lane's
+// own gate. A plan whose observed fact says the profile's QUIC lane ran
+// carries the rungs in BOTH modes (full = the complete matrix, standard
+// = the fact-pruned structural landing); the gate's false side (-quic-off,
+// an unhinted target) leaves every plan QUIC-free. PQ-69's two non-group
+// rungs (quic/v2, quic/h3-exchange) ride AFTER the block rungs in both
+// gate-on shapes; the full mode ignores the facts' pruning (the
+// QuicNegotiated rung stays planned there); the standard mode drops
+// exactly that answered rung.
 func TestBuildQuicRungGate(t *testing.T) {
 	const target = "example.com:443"
 
@@ -687,8 +689,10 @@ func TestBuildQuicRungGate(t *testing.T) {
 
 	// 2) The full matrix with the lane's gate on: the negotiated-anchor
 	//    rung (named quic/negotiated-<g>) precedes the 4585–4590 block
-	//    in IANA order; the QuicNegotiated fact never prunes the full
-	//    matrix (observed facts never reach it).
+	//    in IANA order, and PQ-69's two rungs close the ladder (the v2
+	//    transport-version rung, then the functional h3-exchange rung);
+	//    the QuicNegotiated fact never prunes the full matrix (observed
+	//    facts never reach it).
 	fullFacts := Observed{
 		Version: 0x0304, NegotiatedSuite: "TLS_AES_128_GCM_SHA256", NegotiatedGroup: 4588,
 		HasCert: true, QuicAttempted: true, QuicNegotiated: 4588,
@@ -702,31 +706,26 @@ func TestBuildQuicRungGate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build(full gate-only): %v", err)
 	}
-	// The two builds carry the SAME quic rungs — the full matrix's facts
-	// only change the negotiated anchor's presence (both fixtures have
-	// NegotiatedGroup... only the first does; compare rung payload SETS
-	// instead for the gate+block shape below).
-	wantFull := []struct {
-		name string
-		g    uint32
-	}{
-		{"quic/negotiated-4588", 4588},
-		{"quic/4585", 4585}, {"quic/4586", 4586}, {"quic/4587", 4587},
-		{"quic/4589", 4589}, {"quic/4590", 4590},
-	}
 	// (the gate-only fixture has no NegotiatedGroup anchor: the 4588 rung
 	// keeps the plain name and IANA order.)
-	wantGateOnly := []struct {
-		name string
-		g    uint32
-	}{
-		{"quic/4585", 4585}, {"quic/4586", 4586}, {"quic/4587", 4587},
-		{"quic/4588", 4588}, {"quic/4589", 4589}, {"quic/4590", 4590},
+	type wantRung struct {
+		name    string
+		payload any
 	}
-	checkRungs := func(t *testing.T, plan *Plan, want []struct {
-		name string
-		g    uint32
-	}, label string) {
+	wantFull := []wantRung{
+		{"quic/negotiated-4588", uint32(4588)},
+		{"quic/4585", uint32(4585)}, {"quic/4586", uint32(4586)}, {"quic/4587", uint32(4587)},
+		{"quic/4589", uint32(4589)}, {"quic/4590", uint32(4590)},
+		{"quic/v2", QuicRungV2},
+		{"quic/h3-exchange", QuicRungH3Exchange},
+	}
+	wantGateOnly := []wantRung{
+		{"quic/4585", uint32(4585)}, {"quic/4586", uint32(4586)}, {"quic/4587", uint32(4587)},
+		{"quic/4588", uint32(4588)}, {"quic/4589", uint32(4589)}, {"quic/4590", uint32(4590)},
+		{"quic/v2", QuicRungV2},
+		{"quic/h3-exchange", QuicRungH3Exchange},
+	}
+	checkRungs := func(t *testing.T, plan *Plan, want []wantRung, label string) {
 		t.Helper()
 		var got []Probe
 		for _, p := range plan.Probes {
@@ -741,8 +740,8 @@ func TestBuildQuicRungGate(t *testing.T) {
 			if got[i].Name != w.name {
 				t.Fatalf("%s: rung %d name = %q, want %q (names %s)", label, i, got[i].Name, w.name, rungNames(got))
 			}
-			if g, ok := got[i].Payload.(uint32); !ok || g != w.g {
-				t.Fatalf("%s: rung %d payload = %v, want %d", label, i, got[i].Payload, w.g)
+			if got[i].Payload != w.payload {
+				t.Fatalf("%s: rung %d payload = %v, want %v", label, i, got[i].Payload, w.payload)
 			}
 		}
 	}
@@ -754,20 +753,22 @@ func TestBuildQuicRungGate(t *testing.T) {
 	//    never pruned — only the QuicNegotiated fact drops its own rung.
 	//    Fixture = the happy cloudflare shape (negotiated 4588 on both
 	//    planes; the suite@1.3, group/4588, version/1.3 and cert probes
-	//    all fact-pruned): the plan lands at 22 probes = group 10 +
-	//    quic 5 + sigalg 3 (the mldsa row) + resumption 3 + hrr 1.
+	//    all fact-pruned): the plan lands at 24 probes = group 10 +
+	//    quic 7 (the 5 unanswered block rungs + the PQ-69 pair) +
+	//    sigalg 3 (the mldsa row) + resumption 3 + hrr 1 — exactly the
+	//    default budget.
 	stdFacts := fullFacts
 	stdPlan, err := Build(target, ModeStandard, &stdFacts)
 	if err != nil {
 		t.Fatalf("Build(standard gated): %v", err)
 	}
-	if len(stdPlan.Probes) != 22 {
-		t.Fatalf("standard gated plan = %d probes (%v), want 22 (kinds %v)",
+	if len(stdPlan.Probes) != 24 {
+		t.Fatalf("standard gated plan = %d probes (%v), want 24 (kinds %v)",
 			len(stdPlan.Probes), rungNames(stdPlan.Probes), kindCounts(stdPlan.Probes))
 	}
-	if got := kindCounts(stdPlan.Probes); got[KindQuic] != 5 || got[KindGroup] != 10 ||
+	if got := kindCounts(stdPlan.Probes); got[KindQuic] != 7 || got[KindGroup] != 10 ||
 		got[KindSigalg] != 3 || got[KindResumption] != 3 || got[KindHRR] != 1 || got[KindVersion] != 0 {
-		t.Fatalf("standard gated plan kinds = %v, want quic 5 / group 10 / sigalg 3 / resumption 3 / hrr 1 / version 0", got)
+		t.Fatalf("standard gated plan kinds = %v, want quic 7 / group 10 / sigalg 3 / resumption 3 / hrr 1 / version 0", got)
 	}
 	for _, name := range []string{"quic/negotiated-4588", "quic/4588"} {
 		for _, p := range stdPlan.Probes {
@@ -786,9 +787,10 @@ func TestBuildQuicRungGate(t *testing.T) {
 
 	// 4) The negotiated anchor rides OUTSIDE the block: a TCP plane that
 	//    negotiated x25519 (29) plans quic/negotiated-29 first and the
-	//    whole 4585–4590 set after — 7 rungs, and the standard plan
-	//    still lands INSIDE the 24 budget (the never-pruned structural
-	//    core is exactly the budget in this shape).
+	//    whole 4585–4590 set plus PQ-69's pair after — 9 rungs, and the
+	//    standard plan still lands INSIDE the 24 budget (the extra two
+	//    rungs cut through the documented prune classes: the foreign
+	//    versions, the classic sigalgs, the basic resumption vectors).
 	x25519Facts := Observed{
 		Version: 0x0304, NegotiatedSuite: "TLS_AES_128_GCM_SHA256", NegotiatedGroup: 29,
 		HasCert: true, QuicAttempted: true, QuicNegotiated: 0,
@@ -800,8 +802,8 @@ func TestBuildQuicRungGate(t *testing.T) {
 	if len(stdX.Probes) != 24 {
 		t.Fatalf("standard x25519-anchor plan = %d probes, want the exact 24 budget (kinds %v)", len(stdX.Probes), kindCounts(stdX.Probes))
 	}
-	if got := kindCounts(stdX.Probes); got[KindQuic] != 7 {
-		t.Fatalf("standard x25519-anchor quic rungs = %d, want 7 (negotiated-29 + the block) (kinds %v)", got[KindQuic], got)
+	if got := kindCounts(stdX.Probes); got[KindQuic] != 9 {
+		t.Fatalf("standard x25519-anchor quic rungs = %d, want 9 (negotiated-29 + the block + the PQ-69 pair) (kinds %v)", got[KindQuic], got)
 	}
 	var xRungs []Probe
 	for _, p := range stdX.Probes {
@@ -811,6 +813,9 @@ func TestBuildQuicRungGate(t *testing.T) {
 	}
 	if xRungs[0].Name != "quic/negotiated-29" {
 		t.Fatalf("first quic rung = %q, want quic/negotiated-29 (the anchor rides first)", xRungs[0].Name)
+	}
+	if xRungs[len(xRungs)-2].Name != "quic/v2" || xRungs[len(xRungs)-1].Name != "quic/h3-exchange" {
+		t.Fatalf("the PQ-69 rungs must close the QUIC ladder, got %s", rungNames(xRungs))
 	}
 
 	// 5) Uniqueness over the gated full plan (the offer-one set: no two
@@ -822,6 +827,49 @@ func TestBuildQuicRungGate(t *testing.T) {
 			t.Fatalf("duplicate probe %s (%q already used by %q)", key, p.Name, prev)
 		}
 		seen[key] = p.Name
+	}
+}
+
+// TestBuildQuicStringRungsNeverPrune (PQ-69, issue #181): the two
+// non-group rungs' payloads are strings; factPrune's QuicNegotiated
+// prune matches uint32 group payloads only, so the rungs survive every
+// fact shape in both modes — the QUIC offer set stays one countable
+// class (one KindQuic) and the census never loses the version rung.
+func TestBuildQuicStringRungsNeverPrune(t *testing.T) {
+	const target = "example.com:443"
+	facts := []Observed{
+		{Version: 0x0304, NegotiatedSuite: "TLS_AES_128_GCM_SHA256", NegotiatedGroup: 4588,
+			HasCert: true, QuicAttempted: true, QuicNegotiated: 4588},
+		{Version: 0x0303, NegotiatedSuite: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", NegotiatedGroup: 29,
+			HasCert: true, QuicAttempted: true, QuicNegotiated: 30},
+		{Version: 0x0304, NegotiatedSuite: "TLS_AES_128_GCM_SHA256", NegotiatedGroup: 0,
+			HasCert: true, QuicAttempted: true, QuicNegotiated: 4590},
+	}
+	for i, obs := range facts {
+		for _, mode := range []string{ModeStandard, ModeFull} {
+			plan, err := Build(target, mode, &obs)
+			if err != nil {
+				t.Fatalf("facts %d, %s: %v", i, mode, err)
+			}
+			if !probeWithPayload(plan.Probes, KindQuic, QuicRungV2) {
+				t.Fatalf("facts %d, %s: the quic/v2 rung pruned (the string payload may never match the uint32 prune)", i, mode)
+			}
+			if !probeWithPayload(plan.Probes, KindQuic, QuicRungH3Exchange) {
+				t.Fatalf("facts %d, %s: the quic/h3-exchange rung pruned (the string payload may never match the uint32 prune)", i, mode)
+			}
+			if n := kindCounts(plan.Probes)[KindQuic]; n < 2 {
+				t.Fatalf("facts %d, %s: quic rungs = %d, the PQ-69 pair alone needs 2", i, mode, n)
+			}
+			// The payload types: the two rungs are string-typed, never
+			// a group codepoint.
+			for _, p := range plan.Probes {
+				if p.Name == "quic/v2" || p.Name == "quic/h3-exchange" {
+					if _, ok := p.Payload.(string); !ok {
+						t.Fatalf("rung %s payload %v (%T), want a string token", p.Name, p.Payload, p.Payload)
+					}
+				}
+			}
+		}
 	}
 }
 

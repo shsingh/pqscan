@@ -360,7 +360,21 @@ func deepFindingFor(p deepplan.Probe, t grammar.Target, opts Options) out.DeepFi
 	case deepplan.KindHRR:
 		return deepHRRFinding(p.Name, addr, t.Host, timeout)
 	case deepplan.KindQuic:
-		return deepQuicFinding(p.Name, addr, t.Host, p.Payload.(uint32), timeout)
+		switch v := p.Payload.(type) {
+		case uint32:
+			return deepQuicFinding(p.Name, addr, t.Host, v, timeout)
+		case string:
+			switch v {
+			case deepplan.QuicRungV2:
+				return deepQuicV2Finding(p.Name, addr, t.Host, timeout)
+			case deepplan.QuicRungH3Exchange:
+				return deepH3ExchangeFinding(p.Name, addr, t.Host, timeout)
+			}
+			return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError,
+				Detail: "unknown quic rung payload " + v}
+		}
+		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError,
+			Detail: "unknown quic rung payload (the plan carries no group codepoint)"}
 	default:
 		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError, Detail: "unknown probe kind " + p.Kind}
 	}
@@ -526,6 +540,22 @@ func deepQuicFinding(name, addr, host string, group uint32, timeout time.Duratio
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: detail + ": " + qr.Err}
 	}
 	return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused, Detail: detail}
+}
+
+// deepQuicV2Finding is the RFC 9369 transport-version rung's dispatch
+// (PQ-69, issue #181), watched-RED stub: the real v2 dispatch lands with
+// the pair's GREEN half; the finding stays the honest not-wired row.
+func deepQuicV2Finding(name, addr, host string, timeout time.Duration) out.DeepFinding {
+	return out.DeepFinding{Probe: name, Result: tlsx.SuiteError,
+		Detail: "quic rung 'v2' is not wired (PQ-69 RED stub)"}
+}
+
+// deepH3ExchangeFinding is the functional HTTP/3 rung's dispatch
+// (PQ-69, issue #181), watched-RED stub: the real h3 dispatch lands with
+// its pair's GREEN half; the finding stays the honest not-wired row.
+func deepH3ExchangeFinding(name, addr, host string, timeout time.Duration) out.DeepFinding {
+	return out.DeepFinding{Probe: name, Result: tlsx.SuiteError,
+		Detail: "quic rung 'h3-exchange' is not wired (PQ-69 RED stub)"}
 }
 
 // isLocalStackOfferFailure reports the client-side construction

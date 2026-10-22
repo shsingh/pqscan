@@ -313,12 +313,15 @@ func TestQuicAlwaysFlagRegistration(t *testing.T) {
 	}
 }
 
-// TestDeepQUICEnumerationRows (issue #48): deep mode plans the QUIC group
-// rungs exactly when the lane ran. The rung facts: the negotiated-4588
-// rung fact-pruned (the profile's QUIC probe already answered 4588), the
+// TestDeepQUICEnumerationRows (issue #48, #181): deep mode plans the
+// QUIC group rungs exactly when the lane ran, and PQ-69's two non-group
+// rungs close the ladder. The rung facts: the negotiated-4588 rung
+// fact-pruned (the profile's QUIC probe already answered 4588), the
 // stdlib-shareable rungs probed against the h3 fixture, the exotic rungs
-// honest refused rows (the UDP plane's no-raw-path deferral), and the
-// record's quic block still carries the profile shape.
+// honest refused rows (the UDP plane's no-raw-path deferral), the v2
+// rung's accepted row on the multi-version listener, the h3-exchange
+// rung's row — and the record's quic block still carries the profile
+// shape.
 func TestDeepQUICEnumerationRows(t *testing.T) {
 	addr := startHintedQUICFixture(t, quicRespH3Hint)
 	recs, err := (&Engine{}).Run(mustParse(t, []string{addr}),
@@ -343,11 +346,11 @@ func TestDeepQUICEnumerationRows(t *testing.T) {
 			quicRows = append(quicRows, f)
 		}
 	}
-	if len(quicRows) != 5 {
-		t.Fatalf("quic rungs = %d (%v: %+v), want 5 (the 4588 rung is the QuicNegotiated-fact-pruned one)",
+	if len(quicRows) != 7 {
+		t.Fatalf("quic rungs = %d (%v: %+v), want 7 (the 4588 rung is the QuicNegotiated-fact-pruned one; PQ-69's v2 + h3-exchange rungs close the ladder)",
 			len(quicRows), rungNamesOf(quicRows), quicRows)
 	}
-	for _, name := range []string{"quic/4585", "quic/4586", "quic/4587", "quic/4589", "quic/4590"} {
+	for _, name := range []string{"quic/4585", "quic/4586", "quic/4587", "quic/4589", "quic/4590", "quic/v2", "quic/h3-exchange"} {
 		found := false
 		for _, f := range quicRows {
 			if f.Probe == name {
@@ -368,6 +371,9 @@ func TestDeepQUICEnumerationRows(t *testing.T) {
 			}
 			continue
 		}
+		if f.Probe == "quic/v2" || f.Probe == "quic/h3-exchange" {
+			continue // the PQ-69 rungs' shapes pin in their own tests
+		}
 		if f.Result != tlsx.SuiteRefused {
 			t.Fatalf("%s: result = %q (%s), want the honest not-offerable refusal (the UDP plane has no share-less path)", f.Probe, f.Result, f.Detail)
 		}
@@ -375,9 +381,57 @@ func TestDeepQUICEnumerationRows(t *testing.T) {
 			t.Fatalf("%s: refused detail = %q, want the not-offerable-on-quic grammar", f.Probe, f.Detail)
 		}
 	}
-	if rec.Deep.Attempted != 22 {
-		t.Fatalf("deep attempted = %d, want 22 (the structural landing with the 5 quic rungs)", rec.Deep.Attempted)
+	if rec.Deep.Attempted != 24 {
+		t.Fatalf("deep attempted = %d, want 24 (the structural landing with the 7 quic rungs)", rec.Deep.Attempted)
 	}
+}
+
+// TestDeepQuicV2RungRows (PQ-69, issue #181): the RFC 9369 rung's
+// dispatch. The v2 offer negotiates on the v2-pinned listener (the
+// quic-v2 detail tail); a v1-only listener's version-negotiation answer
+// rides a REJECTED row (the server's answer verbatim — the server names
+// its capability, never an error row); a dead dial stays a result.
+func TestDeepQuicV2RungRows(t *testing.T) {
+	t.Run("accepted on the v2-pinned listener", func(t *testing.T) {
+		addr := quicx.FixtureH3V2(t, nil)
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			t.Fatalf("fixture addr: %v", err)
+		}
+		f := deepQuicV2Finding("quic/v2", addr, host, 2*time.Second)
+		if f.Result != tlsx.SuiteAccepted {
+			t.Fatalf("result = %q (%s), want the v2 negotiation's accepted row", f.Result, f.Detail)
+		}
+		if !strings.HasSuffix(f.Detail, "quic-v2)") {
+			t.Fatalf("detail = %q, want the quic-v2 tail", f.Detail)
+		}
+		if !strings.Contains(f.Detail, "negotiated X25519MLKEM768") {
+			t.Fatalf("detail = %q, want the negotiated group in today's finding shape", f.Detail)
+		}
+	})
+	t.Run("version-negotiation miss maps the server's answer a rejected row", func(t *testing.T) {
+		addr := quicx.FixtureQUICNoH3(t) // a v1-only transport listener
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			t.Fatalf("fixture addr: %v", err)
+		}
+		f := deepQuicV2Finding("quic/v2", addr, host, 2*time.Second)
+		if f.Result != tlsx.SuiteRejected {
+			t.Fatalf("result = %q (%s), want the server's version-negotiation answer as a rejected row", f.Result, f.Detail)
+		}
+		if !strings.Contains(f.Detail, "no compatible QUIC version found") {
+			t.Fatalf("detail = %q, want the server's answer verbatim", f.Detail)
+		}
+	})
+	t.Run("a dead dial stays a result", func(t *testing.T) {
+		f := deepQuicV2Finding("quic/v2", "127.0.0.1:1", "pqscan.fixture", 500*time.Millisecond)
+		if f.Result == tlsx.SuiteError {
+			t.Fatalf("result = %q (%s), want a dial-class result row (refused/blocked)", f.Result, f.Detail)
+		}
+		if f.Result != tlsx.SuiteRefused {
+			t.Fatalf("result = %q (%s), want the dead dial's refused row", f.Result, f.Detail)
+		}
+	})
 }
 
 // rungNamesOf renders the probe names of a findings slice.
