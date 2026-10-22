@@ -43,14 +43,16 @@ const (
 	KindCert       = "cert"
 	KindResumption = "resumption"
 	KindHRR        = "hrr"
-	// KindQuic is the deep-QUIC group rung (PQ-25, spec §5.3's
-	// "deep-quic group enumeration limited to stdlib-supported groups"):
-	// the group ladder over the QUIC plane — one payload (uint32) per
-	// rung, dispatched by the executor onto quicx's forced-group probe.
-	// The UDP plane offers NO raw share-less path, so a rung the stdlib
-	// cannot construct a share for lands as an honest refused finding
-	// (the #101 discipline), never a dial and never a fabricated
-	// verdict.
+	// KindQuic is the deep-QUIC rung kind (PQ-25, PQ-69; spec §5.3, §7.4):
+	// the whole QUIC offer set plans under this ONE kind, so the census
+	// counts the set as one class. The group rungs carry a uint32 payload
+	// (one per rung, dispatched by the executor onto quicx's forced-group
+	// probe); the two non-group rungs (PQ-69) carry the string payloads
+	// below — never a group codepoint, so factPrune's QuicNegotiated
+	// prune (a uint32 match) can never drop them. The UDP plane offers
+	// NO raw share-less path, so a group rung the stdlib cannot
+	// construct a share for lands as an honest refused finding (the
+	// #101 discipline), never a dial and never a fabricated verdict.
 	KindQuic = "quic"
 )
 
@@ -144,7 +146,9 @@ type Observed struct {
 	// QuicNegotiated is the group the QUIC plane's direct probe already
 	// negotiated (0 = none/unknown): its rung never re-probes (spec
 	// §7.4 phase 1 — the group the profile handshake answered is never
-	// re-run, on either plane).
+	// re-run, on either plane). The prune matches uint32 payloads only:
+	// the PQ-69 string rungs (quic/v2, quic/h3-exchange) plan unpruned
+	// in every fact shape.
 	QuicNegotiated uint32
 }
 
@@ -256,16 +260,19 @@ func candidateMatrix(obs Observed) []Probe {
 	return probes
 }
 
-// quicProbes is the deep-QUIC ladder (PQ-25, issue #48): the group rungs
-// over the QUIC plane — the negotiated-group anchor rung first (the TCP
-// profile's negotiated group, verified on its own transport; named
-// "quic/negotiated-<g>"), then the registry's 4585–4590 block rungs in
-// IANA order ("quic/<g>"), the negotiated payload deduped away. The
-// rungs plan ONLY when the observed QuicAttempted fact says the profile's
-// hint-gated QUIC lane ran; -quic-off and unhinted targets plan none.
-// The executor maps each rung onto quicx's forced-group probe and lands
-// the non-stdlib rungs as honest refused findings (the UDP plane has no
-// share-less raw path — the #101 discipline, spec §5.3's v1 deferral).
+// quicProbes is the deep-QUIC ladder (PQ-25, issue #48; PQ-69, issue
+// #181): the group rungs over the QUIC plane — the negotiated-group
+// anchor rung first (the TCP profile's negotiated group, verified on its
+// own transport; named "quic/negotiated-<g>"), then the registry's
+// 4585–4590 block rungs in IANA order ("quic/<g>"), the negotiated
+// payload deduped away, then the two non-group rungs of the PQ-69 census
+// ("quic/v2": the RFC 9369 transport-version rung; "quic/h3-exchange":
+// the functional HTTP/3 rung). The rungs plan ONLY when the observed
+// QuicAttempted fact says the profile's hint-gated QUIC lane ran;
+// -quic-off and unhinted targets plan none. The executor maps each rung
+// onto quicx's probes and lands the non-stdlib group rungs as honest
+// refused findings (the UDP plane has no share-less raw path — the #101
+// discipline, spec §5.3's v1 deferral).
 func quicProbes(obs Observed) []Probe {
 	if !obs.QuicAttempted {
 		return nil
@@ -279,7 +286,7 @@ func quicProbes(obs Observed) []Probe {
 			rungs = append(rungs, g)
 		}
 	}
-	probes := make([]Probe, 0, len(rungs))
+	probes := make([]Probe, 0, len(rungs)+2)
 	for _, g := range rungs {
 		name := "quic/" + strconv.FormatUint(uint64(g), 10)
 		if g == obs.NegotiatedGroup {
@@ -287,6 +294,12 @@ func quicProbes(obs Observed) []Probe {
 		}
 		probes = append(probes, Probe{Name: name, Kind: KindQuic, Payload: g})
 	}
+	// The PQ-69 rungs ride after the block, in fixed order (the plan is
+	// data; the executor dispatches by the payload's type switch).
+	probes = append(probes,
+		Probe{Name: "quic/v2", Kind: KindQuic, Payload: QuicRungV2},
+		Probe{Name: "quic/h3-exchange", Kind: KindQuic, Payload: QuicRungH3Exchange},
+	)
 	return probes
 }
 
@@ -376,7 +389,9 @@ func factPrune(in []Probe, obs Observed) []Probe {
 			// The QUIC plane already answered this rung in the
 			// profile's own probe (spec §7.4 phase 1 — the group the
 			// profile handshake answered is never re-run, on either
-			// plane).
+			// plane). The match is uint32-typed: the PQ-69 string
+			// rungs (quic/v2, quic/h3-exchange) never collide with a
+			// group codepoint and never prune.
 			if g, ok := p.Payload.(uint32); ok && g == obs.QuicNegotiated {
 				continue
 			}

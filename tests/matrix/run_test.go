@@ -122,8 +122,14 @@ func TestMain(m *testing.M) {
 // pool) regardless of GOMAXPROCS.
 const runnerPoolSize = 8
 
-// caseTimeout caps one case's run.
-const caseTimeout = 45 * time.Second
+// caseTimeout caps one case's run. PQ-69 recalibration (measured 2026-10
+// cycle): the -quic-always cases now carry the gate-on plan's QUIC
+// rungs (the PQ-69 pair grows the gate-on ladder to 8 rungs in full
+// mode), so a UDP-blocked case runs ~50s of clock-bound dial timeouts
+// over the 8s probe budget; the 45s cap timed three cases out. 75s =
+// the measured wall + headroom; a plan growth recalibrates this budget,
+// never the result invariants it guards.
+const caseTimeout = 75 * time.Second
 
 // attempt is the per-case summary the report prints as the audit table.
 type attempt struct {
