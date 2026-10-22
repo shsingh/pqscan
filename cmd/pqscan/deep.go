@@ -360,7 +360,21 @@ func deepFindingFor(p deepplan.Probe, t grammar.Target, opts Options) out.DeepFi
 	case deepplan.KindHRR:
 		return deepHRRFinding(p.Name, addr, t.Host, timeout)
 	case deepplan.KindQuic:
-		return deepQuicFinding(p.Name, addr, t.Host, p.Payload.(uint32), timeout)
+		switch v := p.Payload.(type) {
+		case uint32:
+			return deepQuicFinding(p.Name, addr, t.Host, v, timeout)
+		case string:
+			switch v {
+			case deepplan.QuicRungV2:
+				return deepQuicV2Finding(p.Name, addr, t.Host, timeout)
+			case deepplan.QuicRungH3Exchange:
+				return deepH3ExchangeFinding(p.Name, addr, t.Host, timeout)
+			}
+			return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError,
+				Detail: "unknown quic rung payload " + v}
+		}
+		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError,
+			Detail: "unknown quic rung payload (the plan carries no group codepoint)"}
 	default:
 		return out.DeepFinding{Probe: p.Name, Result: tlsx.SuiteError, Detail: "unknown probe kind " + p.Kind}
 	}
@@ -504,7 +518,7 @@ func deepQuicFinding(name, addr, host string, group uint32, timeout time.Duratio
 		}
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteAccepted,
 			Detail: "negotiated " + gname + " on quic (alpn " + qr.ALPN + ", quic-v" +
-				strconv.FormatUint(uint64(qr.Version), 10) + ")"}
+				quicx.VersionToken(qr.Version) + ")"}
 	case "refused":
 		detail = "udp refused: the QUIC dial was refused"
 	case "blocked":
@@ -526,6 +540,97 @@ func deepQuicFinding(name, addr, host string, group uint32, timeout time.Duratio
 		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: detail + ": " + qr.Err}
 	}
 	return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused, Detail: detail}
+}
+
+// deepQuicV2Finding is the RFC 9369 transport-version rung's dispatch
+// (PQ-69, issue #181): the rung dials QUIC v2 only (ALPN h3, no forced
+// group — the transport version is the offer under test) through
+// quicx.ProbeQUICV2. A negotiated session carries the quic-v2 tail; a
+// version-negotiation miss IS the server's capability answer (the
+// server's quic-go VN error, verbatim) and maps a rejected row; the
+// dial classes map refused/error per the deep-QUIC dispatch's shapes.
+func deepQuicV2Finding(name, addr, host string, timeout time.Duration) out.DeepFinding {
+	qr, err := quicx.ProbeQUICV2(addr, host, timeout)
+	if err != nil {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: err.Error()}
+	}
+	switch qr.State {
+	case "negotiated":
+		gname := groupName(qr.Group)
+		if gname == "" {
+			gname = strconv.FormatUint(uint64(qr.Group), 10)
+		}
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteAccepted,
+			Detail: "negotiated " + gname + " on quic (alpn " + qr.ALPN + ", quic-v" +
+				quicx.VersionToken(qr.Version) + ")"}
+	case "refused":
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+			Detail: "udp refused: the QUIC dial was refused"}
+	case "blocked":
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+			Detail: "udp blocked: the endpoint stayed silent (policy-filtered or unreachable)"}
+	}
+	// "error": the server's version-negotiation answer is a capability
+	// verdict — a rejected row with the answer verbatim. The local
+	// stack's construction refusals stay the honest refusals; the rest
+	// is the probe path's failure.
+	if strings.Contains(qr.Err, "no compatible QUIC version found") {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRejected, Detail: qr.Err}
+	}
+	if isLocalStackOfferFailure(qr.Err) {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+			Detail: "not-offerable locally: " + qr.Err}
+	}
+	if strings.Contains(qr.Err, "(remote)") {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRejected, Detail: qr.Err}
+	}
+	return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: "quic state error: " + qr.Err}
+}
+
+// deepH3ExchangeFinding is the functional HTTP/3 rung's dispatch (PQ-69,
+// issue #181): quicx.VerifyH3Exchange dials QUIC v1 (ALPN h3), reads the
+// server's SETTINGS frame, and completes ONE HTTP/3 GET through the
+// pinned quic-go http3 stack. The findings separate the planes: a
+// completed exchange rides the accepted row (status named); a negotiated
+// handshake with a missing exchange (no SETTINGS frame, a non-h3 ALPN,
+// the server's h3-level refusal) rides its own rejected row (a broken
+// h3 path is never a fast-record fact — the record's h3_direct field
+// stays the ALPN-only observation); the dial classes map refused/error
+// per the deep-QUIC dispatch's shapes.
+func deepH3ExchangeFinding(name, addr, host string, timeout time.Duration) out.DeepFinding {
+	hr, err := quicx.VerifyH3Exchange(addr, host, timeout)
+	if err != nil {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: err.Error()}
+	}
+	switch hr.State {
+	case "refused":
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+			Detail: "udp refused: the QUIC dial was refused"}
+	case "blocked":
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+			Detail: "udp blocked: the endpoint stayed silent (policy-filtered or unreachable)"}
+	case "error":
+		if isLocalStackOfferFailure(hr.Err) {
+			return out.DeepFinding{Probe: name, Result: tlsx.SuiteRefused,
+				Detail: "not-offerable locally: " + hr.Err}
+		}
+		if strings.Contains(hr.Err, "(remote)") {
+			return out.DeepFinding{Probe: name, Result: tlsx.SuiteRejected, Detail: hr.Err}
+		}
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteError, Detail: "quic state error: " + hr.Err}
+	}
+	if hr.Status != 0 {
+		// The exchange completes only behind an h3 ALPN (the probe
+		// refuses to run the GET otherwise), so the row's alpn token
+		// is a fixed shape.
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteAccepted,
+			Detail: "h3 exchange completed: status " + strconv.Itoa(hr.Status) + " (GET /, alpn h3, quic-v1)"}
+	}
+	if hr.ExchangeErr != "" {
+		return out.DeepFinding{Probe: name, Result: tlsx.SuiteRejected, Detail: hr.ExchangeErr}
+	}
+	return out.DeepFinding{Probe: name, Result: tlsx.SuiteError,
+		Detail: "h3 exchange errored without a class answer"}
 }
 
 // isLocalStackOfferFailure reports the client-side construction

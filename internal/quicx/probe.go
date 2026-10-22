@@ -27,7 +27,29 @@ func conv(in []uint32) []tls.CurveID {
 // session's TLS ConnectionState (spec §5.7, §7.5). Server silence and
 // refusals are classified as results, never errors.
 func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*QuicResult, error) {
-	res := &QuicResult{Version: 1}
+	return probeQUICVersion(addr, host, groups, timeout, quic.Version1)
+}
+
+// ProbeQUICV2 runs the RFC 9369 (QUIC v2) transport-version probe
+// (PQ-69, issue #181): the same handshake core with the version offer
+// pinned to v2 only and no forced group — the stack-default offer rules,
+// the negotiated group rides the result. A v1-only server answers with
+// quic-go's version-negotiation error; a v2-capable server completes the
+// connection on v2 (QuicResult.Version carries the RFC 9369 codepoint).
+// Server silence and refusals are classified as results, never errors.
+func ProbeQUICV2(addr, host string, timeout time.Duration) (*QuicResult, error) {
+	return probeQUICVersion(addr, host, nil, timeout, quic.Version2)
+}
+
+// probeQUICVersion is the versioned QUIC handshake core (PQ-69): one
+// TLS-1.3-inside-QUIC dial at the pinned transport version, ALPN h3,
+// forced group preferences where the caller names them. The Versions
+// offer carries exactly the pinned version — a mismatch against the
+// server's version set answers through version negotiation, and quic-go
+// fails the dial with its version-negotiation error (the miss is the
+// server's capability answer, verified verbatim on the fixtures).
+func probeQUICVersion(addr, host string, groups []uint32, timeout time.Duration, version quic.Version) (*QuicResult, error) {
+	res := &QuicResult{Version: uint32(version)}
 
 	tlsCfg := &tls.Config{
 		ServerName:         host,
@@ -39,7 +61,7 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 	qcfg := &quic.Config{
 		HandshakeIdleTimeout: timeout,
 		MaxIdleTimeout:       timeout,
-		Versions:             []quic.Version{quic.Version1},
+		Versions:             []quic.Version{version},
 	}
 
 	start := time.Now()
@@ -55,7 +77,8 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 			level = diag.Error
 		}
 		diag.Emit(level, diag.DomQuic, "quic-handshake", addr, "QUIC handshake answered", nil,
-			map[string]string{"offered": groupsJoined(groups), "state": res.State,
+			map[string]string{"offered": groupsJoined(groups), "quic_version": versionToken(version),
+				"state":       res.State,
 				"udp_blocked": strconv.FormatBool(res.UDPBlocked), "dial_ms": msF(res.DialMs)})
 		return res, nil // rejections are results
 	}
@@ -69,11 +92,32 @@ func ProbeQUIC(addr, host string, groups []uint32, timeout time.Duration) (*Quic
 	if cls, ok := classify.GroupClass(res.Group); ok {
 		res.GroupClass = string(cls)
 	}
-	diag.Emit(diag.Info, diag.DomQuic, "quic-handshake", addr, "QUIC v1 handshake", nil,
+	diag.Emit(diag.Info, diag.DomQuic, "quic-handshake", addr, "QUIC "+versionToken(version)+" handshake", nil,
 		map[string]string{"offered": groupsJoined(groups), "negotiated": strconvI(uint64(res.Group)),
 			"group_class": res.GroupClass, "alpn": res.ALPN,
-			"dial_ms": msF(res.DialMs), "handshake_ms": msF(res.HandshakeMs)})
+			"quic_version": versionToken(version),
+			"dial_ms":      msF(res.DialMs), "handshake_ms": msF(res.HandshakeMs)})
 	return res, nil
+}
+
+// versionToken prints a quic-go transport version in the findings' and
+// events' tokens (PQ-69): "1" for QUIC v1 (RFC 9000), "2" for QUIC v2
+// (RFC 9369), the raw number otherwise.
+func versionToken(v quic.Version) string {
+	switch v {
+	case quic.Version1:
+		return "1"
+	case quic.Version2:
+		return "2"
+	default:
+		return strconv.FormatUint(uint64(v), 10)
+	}
+}
+
+// VersionToken prints a negotiated transport version in the record's
+// finding detail tokens (the deep findings' "quic-v<N>" tail; PQ-69).
+func VersionToken(v uint32) string {
+	return versionToken(quic.Version(v))
 }
 
 // groupsJoined packs the offered codepoints for the event fields.
