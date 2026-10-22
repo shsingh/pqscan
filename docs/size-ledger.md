@@ -10,8 +10,8 @@ verbatim output. Issue: [#62](https://github.com/shsingh/pqscan/issues/62).
 
 | target | SLO | enforced by |
 |---|---|---|
-| linux/amd64 | < 8,000,000 bytes (8 MB) — the gate | `TestSizeSLO` in `internal/microbench/sizegate_test.go` + the `size-gate` CI job (`.github/workflows/build.yml`) |
-| darwin/arm64 | < 7,000,000 bytes (7 MB) | measured and reported; CI enforces linux/amd64 (the SLO reference target); on the rc3-era tree the reference is exceeded by 220,402 bytes and a target amendment is proposed for review — the PQ-63 lever evaluation below |
+| linux/amd64 | < 10,000,000 bytes (10 MB) — the gate | `TestSizeSLO` in `internal/microbench/sizegate_test.go` + the `size-gate` CI job (`.github/workflows/build.yml`) |
+| darwin/arm64 | < 10,000,000 bytes (10 MB) | measured and reported; CI enforces linux/amd64 (the SLO reference target). The reference-target amendment (2026-10-22, PQ-70) binds 10 MB on both planes; the rc3-era readings below stay as recorded |
 
 ## Measured sizes
 
@@ -255,9 +255,57 @@ TLS plane.
 
 - **Test:** `TestSizeSLO` (`internal/microbench/sizegate_test.go`) builds
   `./cmd/pqscan` with the release flags for linux/amd64 into a temp dir,
-  stats the bytes, asserts < 8,000,000, and logs the measured bytes into the
+  stats the bytes, asserts < 10,000,000, and logs the measured bytes into the
   CI test log (watched-RED pair on record: RED asserted < 1,000,000 against
-  the 6.5 MB baseline; GREEN asserted the real SLO).
+  the 6.5 MB baseline; GREEN asserted the real SLO). The bound reads
+  10,000,000 since the PQ-70 amendment.
 - **CI job:** `.github/workflows/build.yml` `size-gate` — checkout → setup-go
   → `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s
-  -w" -o pqscan ./cmd/pqscan` → `stat -c %s` + awk asserting < 8000000.
+  -w" -o pqscan ./cmd/pqscan` → `stat -c %s` + awk asserting < 10000000.
+
+## The reference-target amendment (2026-10-22, PQ-70)
+
+The operator reviews and approves the amendment in issue
+[#183](https://github.com/shsingh/pqscan/issues/183). Both planes bind
+10,000,000 bytes (10 MB) from this change: the enforced linux/amd64 bound and
+the measured-and-reported darwin/arm64 reference move together. One bound, one
+reading, both planes.
+
+The re-measure runs LIVE on the pre-PR tree (`origin/main`, `9dda379`), with
+the recipe build (`go build -trimpath -ldflags "-s -w"`, `CGO_ENABLED=0`) and
+the host toolchain go1.27.2:
+
+| target | build | size |
+|---|---|---|
+| linux/amd64 | release flags | 7,643,296 B (7.64 MB) |
+| darwin/arm64 | release flags | 7,220,402 B (7.22 MB) |
+
+Both rows measure byte-identical to the rc3 release-prep rows above: the tree
+carries zero engine growth since the rc3 cut (the merged lanes changed
+documents, strings and CI, and the build recipe stays fixed). The measured
+rows above stay as live-derived truth; nothing here restates a measured cell.
+
+Headroom at the amended bound:
+
+| target | headroom | share |
+|---|---|---|
+| linux/amd64 | 2,356,704 B | 23.6% of the bound |
+| darwin/arm64 | 2,779,598 B | 27.8% of the bound |
+
+Why the amendment lands now:
+
+- The QUIC census lane (PQ-69) adds the quic-go http3 exchange surface to the
+  binary. The 8 MB gate left 356,704 bytes (~4.5%) of headroom on the measured
+  tree. The http3 surface exceeds that margin.
+- The darwin/arm64 reference (7,000,000) was already exceeded on the same
+  tree (the 220,402-byte reading the PQ-63 evaluation recorded). The reviewed
+  amendment is the honest close for that lane (the PQ-63 verdict's option
+  (b)); option (a), the `-tags lite` lever, stays planned in the levers list
+  above.
+- The bound stays a reviewed contract item: the gate keeps one binding
+  constant, the CI job keeps its matching assert, and the amendment rides
+  this ledger with its measured rows.
+
+The verdict's decision record: issue [#167](https://github.com/shsingh/pqscan/issues/167)
+named the paths; issue [#183](https://github.com/shsingh/pqscan/issues/183)
+carries the review and the operator's approval.

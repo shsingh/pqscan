@@ -62,7 +62,7 @@ jobs:
         run: |
           b=$(stat -c %s pqscan)
           echo "linux/amd64 release build: ${b} bytes"
-          awk -v b="$b" 'BEGIN { if (b < 8000000) { print "size OK: " b " < 8000000"; } else { print "::error::linux/amd64 release build " b " bytes >= 8000000 SLO"; exit 1 } }'
+          awk -v b="$b" 'BEGIN { if (b < 10000000) { print "size OK: " b " < 10000000"; } else { print "::error::linux/amd64 release build " b " bytes >= 10000000 SLO"; exit 1 } }'
 
   docs-drift:
     name: usage-drift gate
