@@ -20,7 +20,7 @@ status = "informational"
 [[author]]
 initials = "S."
 surname = "Singh"
-fullname = "Shain Singh"
+fullname = "Shaineel Singh"
 organization = "pqscan project"
   [author.address]
   email = "shain.singh@owasp.org"
