@@ -2,7 +2,7 @@
 
 <div class="titleblock">
 
-<p class="authorline"><strong>Shain Singh</strong> (shain.singh@owasp.org)</p>
+<p class="authorline"><strong>Shaineel Singh</strong> (shain.singh@owasp.org)</p>
 <p class="affilline">pqscan project · Melbourne, Australia</p>
 <p class="revsline">Revision 1.0 — 5 November 2026 · Work in progress. Full product specification companion: "pqscan — Product Requirements Document" (v0.3, 2026-10-15).</p>
 
@@ -427,7 +427,7 @@ The v2 lanes follow directly from the boundary: DTLS, SSH, SMB, and IKEv2 cipher
 
 This is a tool for reading configuration, and it is built for use against systems the operator is entitled to read. The specification carries the boundary statements, and this paper mirrors their sense: scanning targets are engagements with written authorisation, academic research, and defender validation of one's own estate; the rate defaults, the deadline ladder, the breakers, and the documented multi-box sharding recipe are the tool's own ethics-of-construction (Section 7.5), and the operator owns the rest — including the law of their jurisdiction and the opt-out contact carried in the README.
 
-*Authorship —* Shain Singh is the sole author and maintainer (shain.singh@owasp.org).
+*Authorship —* Shaineel Singh is the sole author and maintainer (shain.singh@owasp.org).
 
 *Authorised use —* the tool serves authorised security work only: engagements with written authorisation, academic research, and defender validation.
 

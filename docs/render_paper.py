@@ -22,7 +22,7 @@ WEASYPRINT = "/opt/homebrew/bin/weasyprint"
 PDF_TITLE = "pqscan: A Fast, Chainable Cipher-Configuration Scanner for TLS, QUIC, and Post-Quantum Readiness"
 METADATA = {
     "title": PDF_TITLE,
-    "author": "Shain Singh",
+    "author": "Shaineel Singh",
     "subject": "TLS, QUIC, and post-quantum cipher-configuration scanning: design, architecture, and verification",
     "creator": "pqscan Project",
     "producer": "WeasyPrint",
