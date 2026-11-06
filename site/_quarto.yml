@@ -33,7 +33,7 @@ website:
         text: Record schema
       - href: recipes.qmd
         text: Recipes
-      - href: paper.pdf
+      - href: pqscan-paper.pdf
         text: Paper
     right:
       - href: contributing.qmd
