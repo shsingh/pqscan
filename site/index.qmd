@@ -14,7 +14,7 @@ rating. The tool composes with the import toolset: target lines in, streaming
 JSONL out. The `2026.01` release is live and attested. The
 written specification is in force.
 
-**Read the research paper (PDF):** [paper.pdf](paper.pdf). The paper is
+**Read the research paper (PDF):** [paper.pdf](pqscan-paper.pdf). The paper is
 the research companion to the written specification.
 
 ## What the record shows
