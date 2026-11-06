@@ -1,10 +1,32 @@
----
-title: "pqscan — PRD"
-subtitle: "A fast, chainable TLS / QUIC / PQC cipher scanner"
-type: Product Requirements Document
-status: DRAFT v0.3
-date: 2026-10-15
----
+%%%
+title = "pqscan — A Fast, Chainable Cipher-Configuration Scanner for TLS, QUIC, and Post-Quantum Readiness"
+abbrev = "pqscan"
+ipr = "none"
+docName = "pqscan-spec-00"
+category = "info"
+area = "Security"
+workgroup = "Independent Submission"
+keyword = ["TLS", "QUIC", "post-quantum", "cipher classification", "network scanning"]
+date = 2026-11-05
+submissionType = "independent"
+language = "en"
+
+[seriesInfo]
+name = "Internet-Draft"
+value = "pqscan-spec-00"
+stream = "independent"
+status = "informational"
+
+[[author]]
+initials = "S."
+surname = "Singh"
+fullname = "Shaineel Singh"
+organization = "pqscan project"
+  [author.address]
+  email = "shain.singh@owasp.org"
+%%%
+
+{mainmatter}
 
 # pqscan — Product Requirements Document
 
@@ -228,7 +250,7 @@ today means the recorded traffic stays decryptable by a future CRQC
 - Grammar in: hostname, `host:port`, `ip`, `ip:port`, `scheme://host[:port]`, CIDR notation, and the explicit parsers `-from-httpx` (httpx text mode lines), `-from-naabu` (`host:port`), `-from-nuclei` (the pinned nuclei `-j` findings), and masscan stdin auto-parse. Raw pipes "just work" without a flag (first recipe below is two plain pipes).
 - JSONL record (versioned `schema: 1`), full example (captured live on
   google.com; the machine-readable published schema lives at
-  [`docs/schema-v1.json`](docs/schema-v1.json), generated from the goldens
+  `docs/schema-v1.json`, generated from the goldens
   and drift-checked in CI):
 
 ```json
@@ -246,7 +268,7 @@ in the JSONL matches):
 | `cert` | `sig_alg`, `sig_pq`, `key_alg`, `key_pq`, `dual` |
 | `pq` | `score` (0–100), `label` (bands: `pq-ready` ≥ 80, `pq-ready-hybrid` ≥ 60, `pq-partial` ≥ 40, `pq-missing` ≥ 1; a scan-error surfaces as 0 with `error`), `hndl` (the harvest-now-decrypt-later flag on an obsolete-draft acceptance), `summary` (the rule trail) |
 | `deep` | deep mode and the pq offer set: `mode` (standard · full · pq), `attempted`, `ok`, `rejected`, `findings[]{probe, result (accepted · rejected · refused · error), detail} — on `mode: "pq"` the findings are the forced PQ offer set's per-probe observations |
-| `error` | per-target error string (an unreachable endpoint is a record, not a process failure; the `quic`/`cert`/`pq` blocks above ride zero-populated on error records — every record class validates against [`docs/schema-v1.json`](docs/schema-v1.json) as-is) |
+| `error` | per-target error string (an unreachable endpoint is a record, not a process failure; the `quic`/`cert`/`pq` blocks above ride zero-populated on error records — every record class validates against `docs/schema-v1.json` as-is) |
 
 The CSV form is the flat 25-column projection of the same record (the header
 order is the contract, also pinned by the goldens): `target, host, port,
@@ -505,7 +527,7 @@ Comparative baselines, recorded: zgrab2, sslyze, cryptonice, gnutls-cli-debug (p
 ## 8. CLI surface
 
 The standing parity census lives in
-[`docs/surface-census.md`](surface-census.md): every §8 flag ↔ its USAGE
+`docs/surface-census.md`: every §8 flag ↔ its USAGE
 row ↔ its implemented state, with the pinned reference-tool captures.
 `scripts/check_spec_usage_parity.sh` guards it.
 
