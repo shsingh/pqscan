@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """pqscan paper: markdown -> arXiv-style PDF (Sys body, PragmataPro Mono code).
 
-Run: /opt/homebrew/opt/python@3.13/bin/python3.13 render_paper.py paper.md paper.pdf
+Run: /opt/homebrew/opt/python@3.13/bin/python3.13 render_paper.py pqscan-paper.md pqscan-paper.pdf
 
 Adapted from the chaos-ai render_paper.py (kailash lineage). pqscan specifics:
 - TOC tokens: skips the doc-title token (starts "pqscan") and the injected
