@@ -37,6 +37,8 @@
       "automerge": false
     }
   ],
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "Renovate Dependency Dashboard"
+  "dependencyDashboard": {
+    "enabled": true,
+    "title": "Renovate Dependency Dashboard"
+  }
 }
